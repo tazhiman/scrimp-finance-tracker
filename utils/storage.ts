@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Transaction, SavingsGoal, UserProgress, RecurringExpense, Category } from '@/types';
+import { Transaction, SavingsGoal, UserProgress, RecurringExpense, Category, UserCard } from '@/types';
 
 const STORAGE_KEYS = {
   TRANSACTIONS: '@finance_tracker:transactions',
@@ -8,6 +8,8 @@ const STORAGE_KEYS = {
   USER_PROGRESS: '@finance_tracker:user_progress',
   NOTIFICATION_SETTINGS: '@finance_tracker:notification_settings',
   CUSTOM_CATEGORIES: '@finance_tracker:custom_categories',
+  USER_CARDS: '@finance_tracker:user_cards',
+  CARD_PREFERENCE: '@finance_tracker:card_preference',
 };
 
 // Transactions
@@ -148,6 +150,50 @@ export const loadCustomCategories = async (): Promise<Category[]> => {
   } catch (error) {
     console.error('Error loading custom categories:', error);
     return [];
+  }
+};
+
+// User Cards
+export const saveUserCards = async (cards: UserCard[]): Promise<void> => {
+  try {
+    await AsyncStorage.setItem(STORAGE_KEYS.USER_CARDS, JSON.stringify(cards));
+  } catch (error) {
+    console.error('Error saving user cards:', error);
+    throw error;
+  }
+};
+
+export const loadUserCards = async (): Promise<UserCard[]> => {
+  try {
+    const data = await AsyncStorage.getItem(STORAGE_KEYS.USER_CARDS);
+    return data ? JSON.parse(data) : [];
+  } catch (error) {
+    console.error('Error loading user cards:', error);
+    return [];
+  }
+};
+
+// Card Preference (miles vs cashback)
+export const saveCardPreference = async (preferMiles: boolean): Promise<void> => {
+  try {
+    await AsyncStorage.setItem(STORAGE_KEYS.CARD_PREFERENCE, JSON.stringify({ preferMiles }));
+  } catch (error) {
+    console.error('Error saving card preference:', error);
+    throw error;
+  }
+};
+
+export const loadCardPreference = async (): Promise<boolean> => {
+  try {
+    const data = await AsyncStorage.getItem(STORAGE_KEYS.CARD_PREFERENCE);
+    if (data) {
+      const pref = JSON.parse(data);
+      return pref.preferMiles ?? false;
+    }
+    return false; // Default to cashback
+  } catch (error) {
+    console.error('Error loading card preference:', error);
+    return false;
   }
 };
 

@@ -10,8 +10,12 @@ import {
   loadNotificationSettings,
   loadCustomCategories,
   saveCustomCategories,
+  loadUserCards,
+  saveUserCards,
 } from '@/utils/storage';
+import { UserCard } from '@/types';
 import { scheduleGoalNotifications } from '@/utils/notifications';
+import { updateWidgetData, reloadWidgets } from '@/utils/widgetData';
 
 interface FinanceContextType {
   transactions: Transaction[];
@@ -114,13 +118,85 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
     }
   }, [goals, loading]);
 
-  const addTransaction = (transaction: Omit<Transaction, 'id' | 'createdAt'>) => {
+  // Update widget whenever transactions change
+  useEffect(() => {
+    if (!loading) {
+      updateWidget();
+    }
+  }, [transactions, loading]);
+
+  const updateWidget = async () => {
+    try {
+      const now = new Date();
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      
+      // Calculate today's spending
+      const todaySpending = transactions
+        .filter(t => {
+          const transactionDate = new Date(t.date);
+          return t.type === 'expense' && transactionDate >= todayStart;
+        })
+        .reduce((sum, t) => sum + t.amount, 0);
+
+      // Calculate monthly spending
+      const monthlySpending = transactions
+        .filter(t => {
+          const transactionDate = new Date(t.date);
+          return t.type === 'expense' && transactionDate >= monthStart;
+        })
+        .reduce((sum, t) => sum + t.amount, 0);
+
+      // Get monthly budget (using 3000 as default, you can make this dynamic)
+      const monthlyBudget = 3000;
+
+      // Update widget data
+      await updateWidgetData(todaySpending, monthlySpending, monthlyBudget);
+      await reloadWidgets();
+    } catch (error) {
+      // Silently fail - widget updates are optional
+      console.debug('Widget update skipped:', error);
+    }
+  };
+
+  const addTransaction = async (transaction: Omit<Transaction, 'id' | 'createdAt'>) => {
     const newTransaction: Transaction = {
       ...transaction,
       id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
       createdAt: new Date().toISOString(),
     };
     setTransactions(prev => [...prev, newTransaction]);
+    
+    // Update card spending if transaction is linked to a card
+    if (newTransaction.cardId && newTransaction.type === 'expense') {
+      try {
+        const userCards = await loadUserCards();
+        const updatedCards = userCards.map(card => {
+          if (card.id === newTransaction.cardId) {
+            // Get current month transactions for this card
+            const currentMonth = new Date().toISOString().substring(0, 7); // YYYY-MM
+            const currentTransactions = [...transactions, newTransaction].filter(t =>
+              t.cardId === card.id &&
+              t.type === 'expense' &&
+              t.date.startsWith(currentMonth)
+            );
+            
+            const monthlySpend = currentTransactions.reduce((sum, t) => sum + t.amount, 0);
+            
+            return {
+              ...card,
+              currentSpend: monthlySpend,
+              lastUpdated: new Date().toISOString(),
+            };
+          }
+          return card;
+        });
+        
+        await saveUserCards(updatedCards);
+      } catch (error) {
+        console.error('Error updating card spending:', error);
+      }
+    }
   };
 
   const updateTransaction = (id: string, updates: Partial<Transaction>) => {

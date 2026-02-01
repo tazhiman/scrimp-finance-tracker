@@ -9,7 +9,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
+import { useCallback } from 'react';
 import { useFinance } from '@/context/FinanceContext';
 import { useTheme } from '@/context/ThemeContext';
 import { TransactionForm } from '@/components/TransactionForm';
@@ -43,6 +44,7 @@ export default function TransactionsScreen() {
   const [referenceDate, setReferenceDate] = useState<Date>(new Date());
   const [dayModalVisible, setDayModalVisible] = useState(false);
   const [dayModalDate, setDayModalDate] = useState<Date>(new Date());
+  const [savedDayModalState, setSavedDayModalState] = useState<{ date: Date; shouldReopen: boolean } | null>(null);
   const [formVisible, setFormVisible] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -55,6 +57,22 @@ export default function TransactionsScreen() {
       router.setParams({ openForm: undefined });
     }
   }, [params.openForm]);
+
+  // Reopen day modal when screen comes back into focus
+  useFocusEffect(
+    useCallback(() => {
+      // When screen regains focus, check if we should reopen the modal
+      if (savedDayModalState?.shouldReopen) {
+        // Small delay to ensure smooth transition
+        const timer = setTimeout(() => {
+          setDayModalDate(savedDayModalState.date);
+          setDayModalVisible(true);
+          setSavedDayModalState(null);
+        }, 100);
+        return () => clearTimeout(timer);
+      }
+    }, [savedDayModalState])
+  );
 
   const periodTransactions = getCombinedTransactionsByPeriod(
     transactions,
@@ -298,7 +316,10 @@ export default function TransactionsScreen() {
         date={dayModalDate}
         transactions={dayModalTransactions}
         modalHeight={(Dimensions.get('window').height - tabBarHeight) * 0.8}
-        onClose={() => setDayModalVisible(false)}
+        onClose={() => {
+          setDayModalVisible(false);
+          setSavedDayModalState(null); // Clear saved state if manually closed
+        }}
         onPrevDay={() => {
           const d = new Date(dayModalDate);
           d.setDate(d.getDate() - 1);
@@ -312,8 +333,17 @@ export default function TransactionsScreen() {
           setReferenceDate(d);
         }}
         onPressTransaction={(tx) => {
+          // Save the current modal state and close it
+          setSavedDayModalState({
+            date: dayModalDate,
+            shouldReopen: true,
+          });
           setDayModalVisible(false);
-          router.push(`/transaction/${tx.id}`);
+          
+          // Navigate after a brief delay to ensure modal closes first
+          setTimeout(() => {
+            router.push(`/transaction/${tx.id}`);
+          }, 50);
         }}
       />
 

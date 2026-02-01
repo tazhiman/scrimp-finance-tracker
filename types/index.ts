@@ -18,6 +18,7 @@ export interface Transaction {
   date: string; // ISO date string
   createdAt: string; // ISO date-time string - when added to this app
   description?: string;
+  cardId?: string; // Optional credit card used for this transaction
 }
 
 export interface GoalContribution {
@@ -76,5 +77,14 @@ export interface Category {
   name: string;
   icon: string;
   color: string;
+}
+
+export interface UserCard {
+  id: string;
+  name: string;
+  currentSpend: number; // Current month spend on this card
+  lastUpdated?: string; // ISO date string
+  isCustom?: boolean; // Flag for custom user-added cards
+  minSpend?: number; // Custom minimum spend for custom cards
 }
 

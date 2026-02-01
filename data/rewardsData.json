@@ -1,0 +1,482 @@
+
+{
+  "version": "1.0.0",
+  "lastUpdated": "2026-01-31",
+  "cards": [
+    {
+      "id": "dbs-live-fresh",
+      "name": "DBS Live Fresh",
+      "issuer": "DBS",
+      "rewardType": "cashback",
+      "minSpend": 600,
+      "imageUrl": "images/dbs-live-fresh.png",
+      "brandColor": "#D41F3D",
+      "rewards": [
+        {
+          "category": "online",
+          "rate": 5,
+          "unit": "%",
+          "conditions": "Min spend $600/month"
+        },
+        {
+          "category": "contactless",
+          "rate": 5,
+          "unit": "%",
+          "conditions": "Visa contactless, Min spend $600/month"
+        }
+      ],
+      "mccCodes": ["5411", "5812", "5814", "5999", "7832", "7994", "7996"]
+    },
+    {
+      "id": "uob-evol",
+      "name": "UOB EVOL",
+      "issuer": "UOB",
+      "rewardType": "cashback",
+      "minSpend": 600,
+      "imageUrl": "images/uob-evol.png",
+      "brandColor": "#0B3B8C",
+      "rewards": [
+        {
+          "category": "online",
+          "rate": 8,
+          "unit": "%",
+          "conditions": "Min spend $600/month"
+        },
+        {
+          "category": "mobile_contactless",
+          "rate": 8,
+          "unit": "%",
+          "conditions": "Min spend $600/month"
+        }
+      ],
+      "mccCodes": ["5411", "5812", "5814", "5999", "7832", "7994", "7996"]
+    },
+    {
+      "id": "hsbc-revolution",
+      "name": "HSBC Revolution",
+      "issuer": "HSBC",
+      "rewardType": "miles",
+      "minSpend": 0,
+      "imageUrl": null,
+      "brandColor": "#DB0011",
+      "rewards": [
+        {
+          "category": "online",
+          "rate": 4,
+          "unit": "mpd",
+          "conditions": "10X Points, No min spend"
+        },
+        {
+          "category": "contactless",
+          "rate": 4,
+          "unit": "mpd",
+          "conditions": "10X Points, No min spend"
+        }
+      ],
+      "mccCodes": ["5411", "5812", "5814", "5999", "7832", "7994", "7996"]
+    },
+    {
+      "id": "dbs-altitude",
+      "name": "DBS Altitude",
+      "issuer": "DBS",
+      "rewardType": "miles",
+      "minSpend": 0,
+      "imageUrl": null,
+      "brandColor": "#D41F3D",
+      "rewards": [
+        {
+          "category": "general",
+          "rate": 1.2,
+          "unit": "mpd",
+          "conditions": "General spending"
+        },
+        {
+          "category": "foreign",
+          "rate": 3,
+          "unit": "mpd",
+          "conditions": "Foreign currency transactions"
+        }
+      ],
+      "mccCodes": []
+    },
+    {
+      "id": "citi-rewards",
+      "name": "Citi Rewards",
+      "issuer": "Citi",
+      "rewardType": "cashback",
+      "minSpend": 0,
+      "imageUrl": null,
+      "brandColor": "#0073CF",
+      "rewards": [
+        {
+          "category": "dining",
+          "rate": 10,
+          "unit": "%",
+          "conditions": "10X Points on dining"
+        },
+        {
+          "category": "groceries",
+          "rate": 6,
+          "unit": "%",
+          "conditions": "6X Points on groceries"
+        }
+      ],
+      "mccCodes": ["5411", "5812"]
+    },
+    {
+      "id": "uob-one",
+      "name": "UOB One Card",
+      "issuer": "UOB",
+      "rewardType": "cashback",
+      "minSpend": 500,
+      "imageUrl": null,
+      "brandColor": "#0B3B8C",
+      "rewards": [
+        {
+          "category": "general",
+          "rate": 3.33,
+          "unit": "%",
+          "conditions": "With salary credit + 3 transactions"
+        }
+      ],
+      "mccCodes": []
+    },
+    {
+      "id": "ocbc-365",
+      "name": "OCBC 365",
+      "issuer": "OCBC",
+      "rewardType": "cashback",
+      "minSpend": 600,
+      "imageUrl": null,
+      "brandColor": "#D71920",
+      "rewards": [
+        {
+          "category": "dining",
+          "rate": 6,
+          "unit": "%",
+          "conditions": "Min spend $600/month"
+        },
+        {
+          "category": "groceries",
+          "rate": 3,
+          "unit": "%",
+          "conditions": "Min spend $600/month"
+        },
+        {
+          "category": "transport",
+          "rate": 3,
+          "unit": "%",
+          "conditions": "Min spend $600/month"
+        }
+      ],
+      "mccCodes": ["5411", "5812", "4121", "4131"]
+    },
+    {
+      "id": "sc-unlimited-cashback",
+      "name": "Standard Chartered Unlimited Cashback",
+      "issuer": "Standard Chartered",
+      "rewardType": "cashback",
+      "minSpend": 0,
+      "imageUrl": null,
+      "brandColor": "#0A6E3F",
+      "rewards": [
+        {
+          "category": "general",
+          "rate": 1.5,
+          "unit": "%",
+          "conditions": "No min spend, unlimited cashback"
+        }
+      ],
+      "mccCodes": []
+    },
+    {
+      "id": "maybank-family-friends",
+      "name": "Maybank Family & Friends",
+      "issuer": "Maybank",
+      "rewardType": "cashback",
+      "minSpend": 0,
+      "imageUrl": null,
+      "brandColor": "#FFCC00",
+      "rewards": [
+        {
+          "category": "weekend_dining",
+          "rate": 8,
+          "unit": "%",
+          "conditions": "Weekends at selected merchants"
+        },
+        {
+          "category": "online",
+          "rate": 8,
+          "unit": "%",
+          "conditions": "Online shopping"
+        }
+      ],
+      "mccCodes": ["5812", "5999"]
+    },
+    {
+      "id": "citi-cashback",
+      "name": "Citi Cash Back Card",
+      "issuer": "Citi",
+      "rewardType": "cashback",
+      "minSpend": 888,
+      "imageUrl": null,
+      "brandColor": "#0073CF",
+      "rewards": [
+        {
+          "category": "general",
+          "rate": 8,
+          "unit": "%",
+          "conditions": "Min spend $888/month on eligible categories"
+        }
+      ],
+      "mccCodes": []
+    },
+    {
+      "id": "hsbc-visa-platinum",
+      "name": "HSBC Visa Platinum",
+      "issuer": "HSBC",
+      "rewardType": "cashback",
+      "minSpend": 0,
+      "imageUrl": null,
+      "brandColor": "#DB0011",
+      "rewards": [
+        {
+          "category": "dining",
+          "rate": 5,
+          "unit": "%",
+          "conditions": "Dining & entertainment"
+        },
+        {
+          "category": "online",
+          "rate": 2.5,
+          "unit": "%",
+          "conditions": "Online spending"
+        }
+      ],
+      "mccCodes": ["5812", "5999", "7832", "7994"]
+    },
+    {
+      "id": "uob-preferred-platinum",
+      "name": "UOB Preferred Platinum Visa",
+      "issuer": "UOB",
+      "rewardType": "miles",
+      "minSpend": 0,
+      "imageUrl": null,
+      "brandColor": "#0B3B8C",
+      "rewards": [
+        {
+          "category": "general",
+          "rate": 1.4,
+          "unit": "mpd",
+          "conditions": "General spending"
+        },
+        {
+          "category": "foreign",
+          "rate": 2.4,
+          "unit": "mpd",
+          "conditions": "Foreign currency transactions"
+        }
+      ],
+      "mccCodes": []
+    },
+    {
+      "id": "dbs-womans-world",
+      "name": "DBS Woman's World Card",
+      "issuer": "DBS",
+      "rewardType": "cashback",
+      "minSpend": 0,
+      "imageUrl": null,
+      "brandColor": "#D41F3D",
+      "rewards": [
+        {
+          "category": "fashion",
+          "rate": 4,
+          "unit": "%",
+          "conditions": "Fashion & beauty"
+        },
+        {
+          "category": "online",
+          "rate": 4,
+          "unit": "%",
+          "conditions": "Online shopping"
+        }
+      ],
+      "mccCodes": ["5651", "5999", "5977"]
+    },
+    {
+      "id": "ocbc-titanium-rewards",
+      "name": "OCBC Titanium Rewards",
+      "issuer": "OCBC",
+      "rewardType": "miles",
+      "minSpend": 0,
+      "imageUrl": null,
+      "brandColor": "#D71920",
+      "rewards": [
+        {
+          "category": "general",
+          "rate": 1.2,
+          "unit": "mpd",
+          "conditions": "General spending"
+        },
+        {
+          "category": "travel",
+          "rate": 2,
+          "unit": "mpd",
+          "conditions": "Travel bookings"
+        }
+      ],
+      "mccCodes": []
+    },
+    {
+      "id": "sc-smart-credit",
+      "name": "Standard Chartered Smart Credit Card",
+      "issuer": "Standard Chartered",
+      "rewardType": "cashback",
+      "minSpend": 500,
+      "imageUrl": null,
+      "brandColor": "#0A6E3F",
+      "rewards": [
+        {
+          "category": "transport",
+          "rate": 5,
+          "unit": "%",
+          "conditions": "Transport & petrol, Min $500/month"
+        },
+        {
+          "category": "groceries",
+          "rate": 5,
+          "unit": "%",
+          "conditions": "Groceries, Min $500/month"
+        }
+      ],
+      "mccCodes": ["5411", "5541", "5542"]
+    }
+  ],
+  "merchantMccMapping": [
+    {
+      "merchantName": "NTUC FairPrice",
+      "aliases": ["NTUC", "FairPrice", "NTUC Finest"],
+      "mcc": "5411",
+      "category": "groceries"
+    },
+    {
+      "merchantName": "Cold Storage",
+      "aliases": ["Cold Storage", "CS Fresh"],
+      "mcc": "5411",
+      "category": "groceries"
+    },
+    {
+      "merchantName": "Sheng Siong",
+      "aliases": ["Sheng Siong", "ShengSiong"],
+      "mcc": "5411",
+      "category": "groceries"
+    },
+    {
+      "merchantName": "Giant",
+      "aliases": ["Giant Supermarket", "Giant Express"],
+      "mcc": "5411",
+      "category": "groceries"
+    },
+    {
+      "merchantName": "Grab",
+      "aliases": ["Grab", "GrabFood", "GrabMart"],
+      "mcc": "5814",
+      "category": "food_delivery"
+    },
+    {
+      "merchantName": "Foodpanda",
+      "aliases": ["Foodpanda", "Panda Mart"],
+      "mcc": "5814",
+      "category": "food_delivery"
+    },
+    {
+      "merchantName": "Deliveroo",
+      "aliases": ["Deliveroo"],
+      "mcc": "5814",
+      "category": "food_delivery"
+    },
+    {
+      "merchantName": "Uniqlo",
+      "aliases": ["Uniqlo", "UNIQLO"],
+      "mcc": "5651",
+      "category": "retail"
+    },
+    {
+      "merchantName": "H&M",
+      "aliases": ["H&M", "HM"],
+      "mcc": "5651",
+      "category": "retail"
+    },
+    {
+      "merchantName": "Zara",
+      "aliases": ["Zara"],
+      "mcc": "5651",
+      "category": "retail"
+    },
+    {
+      "merchantName": "Toast Box",
+      "aliases": ["Toast Box", "ToastBox"],
+      "mcc": "5812",
+      "category": "dining"
+    },
+    {
+      "merchantName": "Ya Kun Kaya Toast",
+      "aliases": ["Ya Kun", "YaKun"],
+      "mcc": "5812",
+      "category": "dining"
+    },
+    {
+      "merchantName": "Starbucks",
+      "aliases": ["Starbucks", "Starbucks Coffee"],
+      "mcc": "5814",
+      "category": "cafe"
+    },
+    {
+      "merchantName": "McDonald's",
+      "aliases": ["McDonald's", "McDonalds", "Macs"],
+      "mcc": "5814",
+      "category": "fast_food"
+    },
+    {
+      "merchantName": "KFC",
+      "aliases": ["KFC", "Kentucky Fried Chicken"],
+      "mcc": "5814",
+      "category": "fast_food"
+    },
+    {
+      "merchantName": "Changi Airport",
+      "aliases": ["Changi Airport", "Singapore Changi"],
+      "mcc": "4511",
+      "category": "travel"
+    },
+    {
+      "merchantName": "Shopee",
+      "aliases": ["Shopee", "Shopee Singapore"],
+      "mcc": "5999",
+      "category": "online"
+    },
+    {
+      "merchantName": "Lazada",
+      "aliases": ["Lazada", "Lazada Singapore"],
+      "mcc": "5999",
+      "category": "online"
+    },
+    {
+      "merchantName": "Amazon",
+      "aliases": ["Amazon", "Amazon.sg"],
+      "mcc": "5999",
+      "category": "online"
+    }
+  ],
+  "mccCategories": {
+    "5411": "Grocery Stores, Supermarkets",
+    "5812": "Eating Places, Restaurants",
+    "5814": "Fast Food Restaurants",
+    "5999": "Miscellaneous and Specialty Retail Stores",
+    "5651": "Family Clothing Stores",
+    "4511": "Airlines, Air Carriers",
+    "7832": "Motion Picture Theaters",
+    "7994": "Video Game Arcades/Establishments",
+    "7996": "Amusement Parks, Carnivals, Circuses"
+  }
+}

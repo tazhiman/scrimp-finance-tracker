@@ -35,7 +35,7 @@ const FAQ_ITEMS: FAQItem[] = [
     id: 'goal_status',
     question: 'What do the goal status indicators mean?',
     answer:
-      'On goal cards and the Dashboard:\n\n- Paid this week/month: you made your contribution in the current period.\n- Due this week/month: you have not contributed yet for the current period.\n- Overdue: the period ended and you still did not contribute.\n- Goal Reached: you reached the goal target amount.',
+      'On goal cards and the Dashboard:\n\n• Paid this week/month: You made your contribution in the current period.\n\n• Due this week/month: You have not contributed yet for the current period.\n\n• Overdue: The period ended and you still did not contribute.\n\n• Goal Reached: You reached the goal target amount.',
   },
   {
     id: 'notifications',
@@ -92,7 +92,28 @@ export default function FAQScreen() {
                 />
               </TouchableOpacity>
               {isOpen && (
-                <Text style={[styles.answer, { color: theme.textSecondary }]}>{item.answer}</Text>
+                <View style={styles.answerContainer}>
+                  {item.answer.split('\n\n').map((paragraph, idx) => {
+                    if (paragraph.startsWith('•')) {
+                      // Bullet point item
+                      const [bullet, ...rest] = paragraph.split(': ');
+                      return (
+                        <View key={idx} style={styles.bulletRow}>
+                          <Text style={[styles.bullet, { color: theme.textSecondary }]}>• </Text>
+                          <Text style={[styles.bulletText, { color: theme.textSecondary }]}>
+                            {bullet.substring(2)}: {rest.join(': ')}
+                          </Text>
+                        </View>
+                      );
+                    }
+                    // Regular paragraph
+                    return (
+                      <Text key={idx} style={[styles.answer, { color: theme.textSecondary }]}>
+                        {paragraph}
+                      </Text>
+                    );
+                  })}
+                </View>
               )}
             </View>
           );
@@ -150,8 +171,25 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  answer: {
+  answerContainer: {
     marginTop: 10,
+    gap: 12,
+  },
+  answer: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  bulletRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  bullet: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginRight: 4,
+  },
+  bulletText: {
+    flex: 1,
     fontSize: 14,
     lineHeight: 20,
   },

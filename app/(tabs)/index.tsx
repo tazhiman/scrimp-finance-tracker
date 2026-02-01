@@ -15,6 +15,7 @@ import { useGamification } from '@/context/GamificationContext';
 import { useTheme } from '@/context/ThemeContext';
 import { ProgressRing } from '@/components/ProgressRing';
 import { PieChart, PieSlice } from '@/components/PieChart';
+import { CreditCardStats } from '@/components/CreditCardStats';
 import {
   getCombinedTransactionsByPeriod,
   calculateTotalIncome,
@@ -142,6 +143,9 @@ export default function DashboardScreen() {
             <Ionicons name="settings-outline" size={28} color={theme.text} />
           </TouchableOpacity>
         </View>
+
+        {/* Credit Card Stats */}
+        <CreditCardStats onManagePress={() => router.push('/(tabs)/settings')} />
 
         {/* Progress Rings */}
         {hasGoals ? (

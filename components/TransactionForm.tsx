@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,15 +10,20 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { Transaction, TransactionType, Category, RecurringExpense, RecurrenceFrequency } from '@/types';
+import { Transaction, TransactionType, Category, RecurringExpense, RecurrenceFrequency, UserCard } from '@/types';
 import { CategorySelector } from './CategorySelector';
 import { useTheme } from '@/context/ThemeContext';
 import { useFinance } from '@/context/FinanceContext';
 import { formatCurrency } from '@/utils/dateHelpers';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '@/constants/categories';
 import { Ionicons } from '@expo/vector-icons';
+import { loadUserCards } from '@/utils/storage';
+import { getAllCards } from '@/utils/cardEngine';
+import { getCachedCardImage } from '@/utils/remoteRewardsData';
+import { CardManagementModal } from './CardManagementModal';
 
 interface TransactionFormProps {
   visible: boolean;
@@ -60,6 +65,12 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
   const [date, setDate] = useState<Date>(
     initialTransaction?.date ? new Date(initialTransaction.date) : new Date()
   );
+  
+  // Credit card state
+  const [selectedCard, setSelectedCard] = useState<string | undefined>(initialTransaction?.cardId);
+  const [userCards, setUserCards] = useState<UserCard[]>([]);
+  const [showCardModal, setShowCardModal] = useState(false);
+  const [cardImages, setCardImages] = useState<Record<string, string | null>>({});
   const [scheduleMode, setScheduleMode] = useState<ScheduleMode>('one_time');
   const [recurrenceFrequency, setRecurrenceFrequency] = useState<RecurrenceFrequency>('monthly');
   const [planTitle, setPlanTitle] = useState('');
@@ -83,6 +94,32 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
     }
   };
 
+  // Load user cards on mount
+  useEffect(() => {
+    loadCards();
+  }, []);
+
+  const loadCards = async () => {
+    const cards = await loadUserCards();
+    setUserCards(cards);
+    
+    // Load card images
+    const allCards = getAllCards();
+    const images: Record<string, string | null> = {};
+    
+    await Promise.all(
+      cards.map(async (userCard) => {
+        const cardData = allCards.find(c => c.id === userCard.id);
+        if (cardData && (cardData as any).imageUrl) {
+          const cachedImage = await getCachedCardImage(userCard.id);
+          images[userCard.id] = cachedImage;
+        }
+      })
+    );
+    
+    setCardImages(images);
+  };
+
   const resetForm = () => {
     setAmount('');
     setCategory('');
@@ -96,6 +133,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
     setPlanTitle('');
     setInstallments('');
     setEndDateEnabled(false);
+    setSelectedCard(undefined);
     const d = new Date();
     d.setMonth(d.getMonth() + 6);
     setEndDate(d);
@@ -212,10 +250,31 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
       category,
       description,
       date: date.toISOString().split('T')[0],
+      cardId: selectedCard,
     });
 
     resetForm();
     onClose();
+  };
+
+  const handleCardModalClose = async () => {
+    setShowCardModal(false);
+    await loadCards();
+  };
+
+  const getSelectedCardInfo = () => {
+    if (!selectedCard) return null;
+    const card = userCards.find(c => c.id === selectedCard);
+    if (!card) return null;
+    
+    const allCards = getAllCards();
+    const cardData = allCards.find(c => c.id === selectedCard);
+    
+    return {
+      ...card,
+      brandColor: (cardData as any)?.brandColor || '#666',
+      imageUrl: cardImages[selectedCard],
+    };
   };
 
   const handleCategorySelect = (selectedCategory: Category) => {
@@ -514,6 +573,110 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
             />
           </View>
 
+          {/* Credit Card Selector (Expenses only) */}
+          {type === 'expense' && (
+            <View style={styles.section}>
+              <Text style={[styles.label, { color: theme.text }]}>Credit Card (Optional)</Text>
+              
+              {userCards.length === 0 ? (
+                <TouchableOpacity
+                  style={[styles.addCardButton, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}
+                  onPress={() => setShowCardModal(true)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="add-circle" size={20} color={theme.primary} />
+                  <Text style={[styles.addCardText, { color: theme.primary }]}>Add a Card</Text>
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.cardSelectionContainer}>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.cardScrollContent}
+                  >
+                    {/* None option */}
+                    <TouchableOpacity
+                      style={[
+                        styles.cardOption,
+                        { 
+                          backgroundColor: theme.cardBackground, 
+                          borderColor: selectedCard === undefined ? theme.primary : theme.cardBorder,
+                          borderWidth: selectedCard === undefined ? 2 : 1,
+                        }
+                      ]}
+                      onPress={() => setSelectedCard(undefined)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={[styles.cardVisualPlaceholder, { backgroundColor: theme.backgroundSecondary }]}>
+                        <Ionicons name="close" size={16} color={theme.textSecondary} />
+                      </View>
+                      <Text style={[styles.cardOptionText, { color: theme.textSecondary }]}>None</Text>
+                    </TouchableOpacity>
+
+                    {/* User's cards */}
+                    {userCards.map((card: any) => {
+                      const cardInfo = getSelectedCardInfo();
+                      const isSelected = selectedCard === card.id;
+                      const allCards = getAllCards();
+                      const cardData = allCards.find(c => c.id === card.id);
+                      const brandColor = card.isCustom ? theme.accent : ((cardData as any)?.brandColor || '#666');
+                      const imageUrl = card.isCustom ? null : cardImages[card.id];
+
+                      return (
+                        <TouchableOpacity
+                          key={card.id}
+                          style={[
+                            styles.cardOption,
+                            { 
+                              backgroundColor: theme.cardBackground, 
+                              borderColor: isSelected ? theme.primary : theme.cardBorder,
+                              borderWidth: isSelected ? 2 : 1,
+                            }
+                          ]}
+                          onPress={() => setSelectedCard(card.id)}
+                          activeOpacity={0.7}
+                        >
+                          {imageUrl ? (
+                            <Image 
+                              source={{ uri: imageUrl }} 
+                              style={styles.cardVisual}
+                              resizeMode="cover"
+                            />
+                          ) : (
+                            <View style={[styles.cardVisualPlaceholder, { backgroundColor: brandColor }]}>
+                              <Ionicons name="card" size={12} color="#FFF" />
+                            </View>
+                          )}
+                          <Text 
+                            style={[styles.cardOptionText, { color: theme.text }]} 
+                            numberOfLines={1}
+                          >
+                            {card.name.split(' ')[0]}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+
+                    {/* Add card button */}
+                    <TouchableOpacity
+                      style={[
+                        styles.cardOption,
+                        { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder, borderStyle: 'dashed' }
+                      ]}
+                      onPress={() => setShowCardModal(true)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={[styles.cardVisualPlaceholder, { backgroundColor: theme.backgroundSecondary }]}>
+                        <Ionicons name="add" size={16} color={theme.primary} />
+                      </View>
+                      <Text style={[styles.cardOptionText, { color: theme.primary }]}>Add</Text>
+                    </TouchableOpacity>
+                  </ScrollView>
+                </View>
+              )}
+            </View>
+          )}
+
           {/* Description Input */}
           <View style={styles.section}>
             <Text style={[styles.label, { color: theme.text }]}>Description (Optional)</Text>
@@ -565,6 +728,12 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Card Management Modal */}
+      <CardManagementModal
+        visible={showCardModal}
+        onClose={handleCardModalClose}
+      />
     </Modal>
   );
 };
@@ -697,6 +866,54 @@ const styles = StyleSheet.create({
     padding: 12,
     minHeight: 52,
     justifyContent: 'center',
+  },
+  addCardButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+  },
+  addCardText: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  cardSelectionContainer: {
+    marginTop: 4,
+  },
+  cardScrollContent: {
+    gap: 12,
+    paddingHorizontal: 2,
+    paddingVertical: 2,
+  },
+  cardOption: {
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    minWidth: 80,
+  },
+  cardVisual: {
+    width: 44,
+    height: 28,
+    borderRadius: 6,
+    marginBottom: 6,
+  },
+  cardVisualPlaceholder: {
+    width: 44,
+    height: 28,
+    borderRadius: 6,
+    marginBottom: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardOptionText: {
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });
 

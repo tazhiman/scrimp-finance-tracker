@@ -8,34 +8,58 @@ import {
   Alert,
   ActivityIndicator,
   Switch,
+  Platform,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useTheme } from '@/context/ThemeContext';
 import { useFinance } from '@/context/FinanceContext';
 import { generateTestData } from '@/utils/generateTestData';
-import { seedTestData, loadNotificationSettings, saveNotificationSettings } from '@/utils/storage';
+import { seedTestData, loadNotificationSettings, saveNotificationSettings, loadUserCards, loadCardPreference, saveCardPreference } from '@/utils/storage';
 import {
   scheduleGoalNotifications,
   cancelAllNotifications,
   sendTestNotification,
 } from '@/utils/notifications';
+import { CardManagementModal } from '@/components/CardManagementModal';
+import { UserCard } from '@/types';
+import { loadRewardsData } from '@/utils/cardEngine';
+import { forceRefresh } from '@/utils/remoteRewardsData';
+import { ENV } from '@/config/env';
+import { exportTransactionsToExcel } from '@/utils/excelExport';
 
 export default function SettingsScreen() {
   const router = useRouter();
   const { theme, themeMode, setThemeMode } = useTheme();
-  const { goals } = useFinance();
+  const { goals, transactions } = useFinance();
   const tabBarHeight = useBottomTabBarHeight();
   const [loading, setLoading] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [userCards, setUserCards] = useState<UserCard[]>([]);
+  const [preferMiles, setPreferMiles] = useState(false);
+  const [showCardModal, setShowCardModal] = useState(false);
+  
+  // Export state
+  const [exportStartDate, setExportStartDate] = useState<Date>(new Date());
+  const [exportEndDate, setExportEndDate] = useState<Date>(new Date());
+  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
+  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
-  // Load notification settings on mount
+  // Load settings on mount
   useEffect(() => {
     const loadSettings = async () => {
       const enabled = await loadNotificationSettings();
+      const cards = await loadUserCards();
+      const pref = await loadCardPreference();
+      
       setNotificationsEnabled(enabled);
+      setUserCards(cards);
+      setPreferMiles(pref);
     };
     loadSettings();
   }, []);
@@ -59,6 +83,59 @@ export default function SettingsScreen() {
       console.error('Error toggling notifications:', error);
       Alert.alert('Error', 'Failed to update notification settings');
       setNotificationsEnabled(!value); // Revert on error
+    }
+  };
+
+  const handleTogglePreference = async (value: boolean) => {
+    try {
+      setPreferMiles(value);
+      await saveCardPreference(value);
+    } catch (error) {
+      console.error('Error toggling preference:', error);
+      Alert.alert('Error', 'Failed to update preference');
+      setPreferMiles(!value);
+    }
+  };
+
+  const handleManageCards = () => {
+    setShowCardModal(true);
+  };
+
+  const handleCloseCardModal = async () => {
+    setShowCardModal(false);
+    // Reload cards after modal closes
+    const cards = await loadUserCards();
+    setUserCards(cards);
+  };
+
+  const handleSyncRewards = async () => {
+    setLoading(true);
+    try {
+      console.log('🔄 Manually triggering rewards sync...');
+      const result = await forceRefresh();
+      
+      if (result.success) {
+        // Reload the card engine with fresh data
+        await loadRewardsData();
+        
+        Alert.alert(
+          'Sync Complete',
+          'Successfully fetched latest rewards data from GitHub!'
+        );
+      } else {
+        Alert.alert(
+          'Sync Failed',
+          result.message || 'Could not fetch from GitHub. Check your connection and config.'
+        );
+      }
+    } catch (error) {
+      Alert.alert(
+        'Error',
+        'An unexpected error occurred while syncing.'
+      );
+      console.error('Sync error:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -107,6 +184,43 @@ export default function SettingsScreen() {
         },
       ]
     );
+  };
+
+  const handleExportToExcel = async () => {
+    if (exportStartDate > exportEndDate) {
+      Alert.alert('Invalid Date Range', 'Start date must be before end date');
+      return;
+    }
+
+    setExporting(true);
+    try {
+      await exportTransactionsToExcel({
+        startDate: exportStartDate,
+        endDate: exportEndDate,
+        transactions,
+      });
+      
+      Alert.alert(
+        'Export Successful',
+        'Your transactions have been exported to Excel!'
+      );
+    } catch (error) {
+      console.error('Export error:', error);
+      Alert.alert(
+        'Export Failed',
+        error instanceof Error ? error.message : 'Failed to export transactions'
+      );
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const formatDateDisplay = (date: Date) => {
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
   };
 
   return (
@@ -166,6 +280,58 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>CREDIT CARDS</Text>
+          
+          <View style={[styles.card, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
+            <TouchableOpacity
+              style={styles.option}
+              onPress={handleManageCards}
+              activeOpacity={0.7}
+            >
+              <View style={styles.optionLeft}>
+                <Ionicons name="card" size={24} color={theme.primary} />
+                <View>
+                  <Text style={[styles.optionText, { color: theme.text }]}>My Cards</Text>
+                  <Text style={[styles.optionSubtext, { color: theme.textSecondary }]}>
+                    {userCards.length === 0 ? 'Tap to add cards' : `${userCards.length} card${userCards.length === 1 ? '' : 's'} added`}
+                  </Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
+            </TouchableOpacity>
+
+            <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />
+
+            <View style={styles.optionRow}>
+              <View style={styles.optionLeftGrow}>
+                <Ionicons 
+                  name={preferMiles ? "airplane" : "cash"} 
+                  size={24} 
+                  color={theme.primary} 
+                />
+                <View style={styles.optionTextBlock}>
+                  <Text style={[styles.optionText, { color: theme.text }]}>
+                    {preferMiles ? 'Prefer Miles' : 'Prefer Cashback'}
+                  </Text>
+                  <Text style={[styles.optionSubtext, { color: theme.textSecondary }]}>
+                    Recommendation preference
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.switchWrapper}>
+                <Switch
+                  value={preferMiles}
+                  onValueChange={handleTogglePreference}
+                  trackColor={{ false: theme.textTertiary, true: theme.primary }}
+                  thumbColor={preferMiles ? '#FFFFFF' : '#f4f3f4'}
+                  ios_backgroundColor={theme.textTertiary}
+                />
+              </View>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>NOTIFICATIONS</Text>
           
           <View style={[styles.card, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
@@ -197,6 +363,70 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>DATA EXPORT</Text>
+          
+          <View style={[styles.card, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
+            <View style={styles.exportContainer}>
+              <View style={styles.exportHeader}>
+                <Ionicons name="document-text" size={24} color={theme.primary} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.optionText, { color: theme.text }]}>Export to Excel</Text>
+                  <Text style={[styles.optionSubtext, { color: theme.textSecondary }]}>
+                    Download transactions as spreadsheet
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.datePickerContainer}>
+                <View style={styles.datePickerRow}>
+                  <Text style={[styles.dateLabel, { color: theme.text }]}>Start Date</Text>
+                  <TouchableOpacity
+                    style={[styles.dateButton, { backgroundColor: theme.backgroundSecondary, borderColor: theme.cardBorder }]}
+                    onPress={() => setShowStartDatePicker(true)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.dateButtonText, { color: theme.text }]}>
+                      {formatDateDisplay(exportStartDate)}
+                    </Text>
+                    <Ionicons name="calendar-outline" size={18} color={theme.textSecondary} />
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.datePickerRow}>
+                  <Text style={[styles.dateLabel, { color: theme.text }]}>End Date</Text>
+                  <TouchableOpacity
+                    style={[styles.dateButton, { backgroundColor: theme.backgroundSecondary, borderColor: theme.cardBorder }]}
+                    onPress={() => setShowEndDatePicker(true)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.dateButtonText, { color: theme.text }]}>
+                      {formatDateDisplay(exportEndDate)}
+                    </Text>
+                    <Ionicons name="calendar-outline" size={18} color={theme.textSecondary} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                style={[styles.exportButton, { backgroundColor: theme.primary }]}
+                onPress={handleExportToExcel}
+                disabled={exporting}
+                activeOpacity={0.8}
+              >
+                {exporting ? (
+                  <ActivityIndicator size="small" color="#000" />
+                ) : (
+                  <>
+                    <Ionicons name="download" size={20} color="#000" />
+                    <Text style={styles.exportButtonText}>Export to Excel</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>ABOUT</Text>
           
           <View style={[styles.card, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
@@ -204,6 +434,18 @@ export default function SettingsScreen() {
               <Text style={[styles.optionText, { color: theme.text }]}>Version</Text>
               <Text style={[styles.versionText, { color: theme.textSecondary }]}>1.0.0</Text>
             </View>
+            
+            {ENV.showDebugFeatures && (
+              <>
+                <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />
+                <View style={styles.option}>
+                  <Text style={[styles.optionText, { color: theme.text }]}>Environment</Text>
+                  <Text style={[styles.versionText, { color: theme.primary }]}>
+                    {ENV.config.name}
+                  </Text>
+                </View>
+              </>
+            )}
           </View>
         </View>
 
@@ -230,8 +472,8 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* Developer Section - Only visible in development mode */}
-        {__DEV__ && (
+        {/* Developer Section - Visible in dev and UAT, hidden in production */}
+        {ENV.showDebugFeatures && (
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>DEVELOPER</Text>
             
@@ -260,10 +502,141 @@ export default function SettingsScreen() {
                 </View>
                 <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
               </TouchableOpacity>
+
+              <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />
+
+              <TouchableOpacity
+                style={styles.option}
+                onPress={handleSyncRewards}
+                disabled={loading}
+              >
+                <View style={styles.optionLeft}>
+                  {loading ? (
+                    <ActivityIndicator size="small" color={theme.primary} />
+                  ) : (
+                    <Ionicons 
+                      name="refresh" 
+                      size={24} 
+                      color={theme.primary} 
+                    />
+                  )}
+                  <View>
+                    <Text style={[styles.optionText, { color: theme.text }]}>Sync Rewards Data</Text>
+                    <Text style={[styles.optionSubtext, { color: theme.textSecondary }]}>
+                      Force fetch from GitHub
+                    </Text>
+                  </View>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
+              </TouchableOpacity>
             </View>
           </View>
         )}
       </ScrollView>
+
+      {/* Card Management Modal */}
+      <CardManagementModal
+        visible={showCardModal}
+        onClose={handleCloseCardModal}
+      />
+
+      {/* Start Date Picker Modal */}
+      {Platform.OS === 'ios' && showStartDatePicker && (
+        <Modal
+          transparent
+          animationType="slide"
+          visible={showStartDatePicker}
+          onRequestClose={() => setShowStartDatePicker(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.datePickerModal, { backgroundColor: theme.cardBackground }]}>
+              <View style={[styles.datePickerHeader, { borderBottomColor: theme.cardBorder }]}>
+                <TouchableOpacity onPress={() => setShowStartDatePicker(false)}>
+                  <Text style={[styles.datePickerButton, { color: theme.textSecondary }]}>Cancel</Text>
+                </TouchableOpacity>
+                <Text style={[styles.datePickerTitle, { color: theme.text }]}>Select Start Date</Text>
+                <TouchableOpacity onPress={() => setShowStartDatePicker(false)}>
+                  <Text style={[styles.datePickerButton, { color: theme.primary }]}>Done</Text>
+                </TouchableOpacity>
+              </View>
+              <DateTimePicker
+                value={exportStartDate}
+                mode="date"
+                display="spinner"
+                onChange={(event, selectedDate) => {
+                  if (selectedDate) {
+                    setExportStartDate(selectedDate);
+                  }
+                }}
+                textColor={theme.text}
+              />
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {Platform.OS === 'android' && showStartDatePicker && (
+        <DateTimePicker
+          value={exportStartDate}
+          mode="date"
+          display="default"
+          onChange={(event, selectedDate) => {
+            setShowStartDatePicker(false);
+            if (selectedDate && event.type === 'set') {
+              setExportStartDate(selectedDate);
+            }
+          }}
+        />
+      )}
+
+      {/* End Date Picker Modal */}
+      {Platform.OS === 'ios' && showEndDatePicker && (
+        <Modal
+          transparent
+          animationType="slide"
+          visible={showEndDatePicker}
+          onRequestClose={() => setShowEndDatePicker(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.datePickerModal, { backgroundColor: theme.cardBackground }]}>
+              <View style={[styles.datePickerHeader, { borderBottomColor: theme.cardBorder }]}>
+                <TouchableOpacity onPress={() => setShowEndDatePicker(false)}>
+                  <Text style={[styles.datePickerButton, { color: theme.textSecondary }]}>Cancel</Text>
+                </TouchableOpacity>
+                <Text style={[styles.datePickerTitle, { color: theme.text }]}>Select End Date</Text>
+                <TouchableOpacity onPress={() => setShowEndDatePicker(false)}>
+                  <Text style={[styles.datePickerButton, { color: theme.primary }]}>Done</Text>
+                </TouchableOpacity>
+              </View>
+              <DateTimePicker
+                value={exportEndDate}
+                mode="date"
+                display="spinner"
+                onChange={(event, selectedDate) => {
+                  if (selectedDate) {
+                    setExportEndDate(selectedDate);
+                  }
+                }}
+                textColor={theme.text}
+              />
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {Platform.OS === 'android' && showEndDatePicker && (
+        <DateTimePicker
+          value={exportEndDate}
+          mode="date"
+          display="default"
+          onChange={(event, selectedDate) => {
+            setShowEndDatePicker(false);
+            if (selectedDate && event.type === 'set') {
+              setExportEndDate(selectedDate);
+            }
+          }}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -356,5 +729,81 @@ const styles = StyleSheet.create({
   },
   versionText: {
     fontSize: 16,
+  },
+  exportContainer: {
+    padding: 16,
+  },
+  exportHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 16,
+  },
+  datePickerContainer: {
+    gap: 12,
+    marginBottom: 16,
+  },
+  datePickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  dateLabel: {
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  dateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    minWidth: 160,
+    justifyContent: 'space-between',
+  },
+  dateButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  exportButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 10,
+    marginTop: 4,
+  },
+  exportButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#000',
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  datePickerModal: {
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    overflow: 'hidden',
+  },
+  datePickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+  },
+  datePickerTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  datePickerButton: {
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

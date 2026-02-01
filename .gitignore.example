@@ -1,0 +1,4 @@
+# Add this to your .gitignore file to keep credentials private:
+
+# Remote config with credentials (if you add real tokens)
+config/remoteConfig.ts
