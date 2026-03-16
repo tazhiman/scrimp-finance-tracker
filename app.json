@@ -2,8 +2,8 @@
   "expo": {
     "name": "Scrimp App",
     "slug": "scrimp-app",
-    "version": "1.0.0",
-    "sdkVersion": "54.0.0",
+    "version": "1.0.1",
+    "sdkVersion": "55.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -20,15 +20,15 @@
       "bundleIdentifier": "com.scrimp.app",
       "infoPlist": {
         "UIBackgroundModes": [
-          "remote-notification",
-          "remote-notification",
-          "remote-notification",
           "remote-notification"
         ],
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSLocationWhenInUseUsageDescription": "Scrimp App does not use your location. This permission is required by a third-party library but is never accessed.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Scrimp App does not use your location. This permission is required by a third-party library but is never accessed."
       }
     },
     "android": {
+      "softwareKeyboardLayoutMode": "pan",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#000000"
@@ -54,7 +54,10 @@
           "color": "#D0EFB1",
           "sounds": []
         }
-      ]
+      ],
+      "./plugins/withAppIntents",
+      "@react-native-community/datetimepicker",
+      "expo-sharing"
     ],
     "extra": {
       "router": {},

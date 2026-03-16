@@ -19,6 +19,7 @@ interface Theme {
   secondary: string;
   accent: string;
   warning: string;
+  warningOrange: string;
   
   // Progress ring colors
   ringGreen: string;
@@ -61,10 +62,11 @@ export const darkTheme: Theme = {
   textTertiary: '#7A7778',
   
   // Accent colors (light colors need dark text on them)
-  primary: '#D0EFB1', // Light green for positive/income
-  secondary: '#E58C8A', // Light coral for negative/expense
-  accent: '#BFCDE0', // Light blue
+  primary: '#D0EFB1',
+  secondary: '#E58C8A',
+  accent: '#BFCDE0',
   warning: '#E58C8A',
+  warningOrange: '#FF9F0A',
   
   // Progress ring colors
   ringGreen: '#D0EFB1',
@@ -107,10 +109,11 @@ export const lightTheme: Theme = {
   textTertiary: '#7A7778',
   
   // Accent colors
-  primary: '#9BC57D', // Darker green for better contrast on light background (income/positive)
-  secondary: '#D06563', // Darker coral for better contrast (expense/negative)
-  accent: '#8FA6C3', // Darker blue for better contrast
+  primary: '#9BC57D',
+  secondary: '#D06563',
+  accent: '#8FA6C3',
   warning: '#D06563',
+  warningOrange: '#E08600',
   
   // Progress ring colors
   ringGreen: '#9BC57D',

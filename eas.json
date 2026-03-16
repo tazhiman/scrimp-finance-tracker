@@ -22,5 +22,11 @@
         "EXPO_PUBLIC_ENV": "production"
       }
     }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+      }
+    }
   }
 }

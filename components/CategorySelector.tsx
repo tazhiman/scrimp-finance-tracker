@@ -5,6 +5,7 @@ import { Category, TransactionType } from '@/types';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '@/constants/categories';
 import { useTheme } from '@/context/ThemeContext';
 import { useFinance } from '@/context/FinanceContext';
+import { Spacing, Radius } from '@/constants/design';
 
 interface CategorySelectorProps {
   type: TransactionType;
@@ -34,34 +35,19 @@ export const CategorySelector: React.FC<CategorySelectorProps> = ({
   const defaultCategories = type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
   const emojiInputRef = useRef<TextInput>(null);
   
-  // Combine default and custom categories - insert custom categories before "Other"
   const otherIndex = defaultCategories.findIndex(c => c.id === 'other');
   const allCategories = otherIndex >= 0
-    ? [
-        ...defaultCategories.slice(0, otherIndex),
-        ...customCategories,
-        ...defaultCategories.slice(otherIndex)
-      ]
+    ? [...defaultCategories.slice(0, otherIndex), ...customCategories, ...defaultCategories.slice(otherIndex)]
     : [...defaultCategories, ...customCategories];
   
-  // In dark mode, use black text on the light colored button for better contrast
   const activeTextColor = themeMode === 'dark' ? '#000505' : theme.text;
 
   const handleAddCustom = () => {
-    if (onShowCustomInputChange) {
-      onShowCustomInputChange(true);
-    }
-    if (onCustomCategoryNameChange) {
-      onCustomCategoryNameChange('');
-    }
-    if (onCustomCategoryEmojiChange) {
-      onCustomCategoryEmojiChange(''); // Start empty - user must enter emoji
-    }
-    // Auto-select "other" category when clicking Add
+    if (onShowCustomInputChange) onShowCustomInputChange(true);
+    if (onCustomCategoryNameChange) onCustomCategoryNameChange('');
+    if (onCustomCategoryEmojiChange) onCustomCategoryEmojiChange('');
     const otherCategory = defaultCategories.find(c => c.id === 'other');
-    if (otherCategory) {
-      onSelect(otherCategory);
-    }
+    if (otherCategory) onSelect(otherCategory);
   };
 
   return (
@@ -73,7 +59,6 @@ export const CategorySelector: React.FC<CategorySelectorProps> = ({
       >
         {allCategories.map((category) => {
           const isSelected = selectedCategory === category.id;
-
           return (
             <TouchableOpacity
               key={category.id}
@@ -82,12 +67,10 @@ export const CategorySelector: React.FC<CategorySelectorProps> = ({
                 { backgroundColor: theme.backgroundSecondary },
                 isSelected && { backgroundColor: theme.primary },
               ]}
-               onPress={() => {
-                 onSelect(category);
-                 if (onShowCustomInputChange) {
-                   onShowCustomInputChange(false);
-                 }
-               }}
+              onPress={() => {
+                onSelect(category);
+                if (onShowCustomInputChange) onShowCustomInputChange(false);
+              }}
               activeOpacity={0.7}
             >
               <Text style={styles.icon}>{category.icon}</Text>
@@ -105,74 +88,46 @@ export const CategorySelector: React.FC<CategorySelectorProps> = ({
           );
         })}
         
-        {/* Add Custom Category Button */}
         <TouchableOpacity
-          style={[
-            styles.addButton,
-            { backgroundColor: theme.backgroundSecondary, borderColor: theme.cardBorder },
-          ]}
+          style={[styles.addButton, { backgroundColor: theme.backgroundSecondary, borderColor: theme.cardBorder }]}
           onPress={handleAddCustom}
           activeOpacity={0.7}
         >
-          <Ionicons name="add-circle-outline" size={24} color={theme.primary} />
+          <Ionicons name="add-circle-outline" size={22} color={theme.primary} />
           <Text style={[styles.addLabel, { color: theme.textSecondary }]}>Add</Text>
         </TouchableOpacity>
       </ScrollView>
 
-      {/* Custom Category Input */}
       {showCustomInput && (
         <View style={styles.customInputWrapper}>
           <View style={styles.customInputContainer}>
             <View style={styles.inputWithLabel}>
               <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>Name</Text>
               <TextInput
-                style={[
-                  styles.customInput,
-                  { 
-                    backgroundColor: theme.inputBackground, 
-                    borderColor: theme.cardBorder, 
-                    color: theme.text 
-                  },
-                ]}
+                style={[styles.customInput, { backgroundColor: theme.inputBackground, borderColor: theme.cardBorder, color: theme.text }]}
                 value={customCategoryName}
-                onChangeText={(text) => {
-                  if (onCustomCategoryNameChange) {
-                    onCustomCategoryNameChange(text);
-                  }
-                }}
+                onChangeText={(text) => { if (onCustomCategoryNameChange) onCustomCategoryNameChange(text); }}
                 placeholder="e.g. Groceries"
                 placeholderTextColor={theme.textTertiary}
                 returnKeyType="next"
               />
             </View>
-             <View style={styles.emojiInputWithLabel}>
-               <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>Emoji</Text>
-               <TextInput
-                 ref={emojiInputRef}
-                 style={[
-                   styles.emojiInput,
-                   { 
-                     backgroundColor: theme.inputBackground, 
-                     borderColor: theme.cardBorder, 
-                     color: theme.text 
-                   },
-                 ]}
-                 value={customCategoryEmoji}
-                 onChangeText={(text) => {
-                   console.log('Emoji changed:', text, 'length:', text.length);
-                   if (onCustomCategoryEmojiChange) {
-                     onCustomCategoryEmojiChange(text);
-                   }
-                 }}
-                 placeholder="e.g. 🛒"
-                 placeholderTextColor={theme.textTertiary}
-                 maxLength={4}
-                 returnKeyType="done"
-                 selectTextOnFocus={true}
-                 autoCorrect={false}
-                 autoCapitalize="none"
-               />
-             </View>
+            <View style={styles.emojiInputWithLabel}>
+              <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>Emoji</Text>
+              <TextInput
+                ref={emojiInputRef}
+                style={[styles.emojiInput, { backgroundColor: theme.inputBackground, borderColor: theme.cardBorder, color: theme.text }]}
+                value={customCategoryEmoji}
+                onChangeText={(text) => { if (onCustomCategoryEmojiChange) onCustomCategoryEmojiChange(text); }}
+                placeholder="e.g. 🛒"
+                placeholderTextColor={theme.textTertiary}
+                maxLength={4}
+                returnKeyType="done"
+                selectTextOnFocus={true}
+                autoCorrect={false}
+                autoCapitalize="none"
+              />
+            </View>
           </View>
         </View>
       )}
@@ -182,23 +137,22 @@ export const CategorySelector: React.FC<CategorySelectorProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    // Keep this tight so the form spacing stays uniform between fields
-    paddingTop: 4,
+    paddingTop: Spacing.xs,
     paddingBottom: 0,
-    paddingHorizontal: 4,
+    paddingHorizontal: Spacing.xs,
   },
   categoryButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginHorizontal: 4,
-    borderRadius: 12,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.lg,
+    marginHorizontal: Spacing.xs,
+    borderRadius: Radius.md,
     minWidth: 80,
   },
   icon: {
-    fontSize: 24,
-    marginBottom: 4,
+    fontSize: 22,
+    marginBottom: Spacing.xs,
   },
   label: {
     fontSize: 12,
@@ -208,10 +162,10 @@ const styles = StyleSheet.create({
   addButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginHorizontal: 4,
-    borderRadius: 12,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.lg,
+    marginHorizontal: Spacing.xs,
+    borderRadius: Radius.md,
     minWidth: 80,
     borderWidth: 1,
     borderStyle: 'dashed',
@@ -219,14 +173,14 @@ const styles = StyleSheet.create({
   addLabel: {
     fontSize: 12,
     fontWeight: '500',
-    marginTop: 4,
+    marginTop: Spacing.xs,
   },
   customInputWrapper: {
-    marginTop: 12,
+    marginTop: Spacing.lg,
   },
   customInputContainer: {
     flexDirection: 'row',
-    gap: 8,
+    gap: Spacing.md,
     alignItems: 'flex-end',
   },
   inputWithLabel: {
@@ -237,26 +191,27 @@ const styles = StyleSheet.create({
   },
   inputLabel: {
     fontSize: 12,
-    fontWeight: '500',
-    marginBottom: 6,
-    marginLeft: 4,
+    fontWeight: '600',
+    marginBottom: Spacing.sm,
+    marginLeft: Spacing.xs,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
   customInput: {
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.xl,
     fontSize: 16,
     borderWidth: 1,
-    height: 56,
+    height: 52,
   },
   emojiInput: {
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 16,
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xl,
     fontSize: 16,
     borderWidth: 1,
     textAlign: 'center',
-    height: 56,
+    height: 52,
   },
 });
-

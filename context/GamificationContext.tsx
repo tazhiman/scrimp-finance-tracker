@@ -6,10 +6,10 @@ import {
 } from '@/utils/storage';
 import {
   calculateLevel,
-  calculateXPProgress,
   calculateXPFromSavings,
   calculateXPFromGoal,
   calculateXPFromTransaction,
+  calculateXPFromStreak,
   updateStreak,
   checkBadgeUnlocks,
   initializeBadges,
@@ -74,55 +74,30 @@ export const GamificationProvider: React.FC<{ children: ReactNode }> = ({ childr
 
   const refreshProgress = () => {
     setProgress(prev => {
-      // Calculate totals
       const netSavings = calculateNetSavings(transactions);
-      const totalIncome = transactions
-        .filter(t => t.type === 'income')
-        .reduce((sum, t) => sum + t.amount, 0);
       const totalExpenses = transactions
         .filter(t => t.type === 'expense')
         .reduce((sum, t) => sum + t.amount, 0);
 
-      // Update streak
       const newStreak = updateStreak(prev, transactions);
       const longestStreak = Math.max(prev.longestStreak, newStreak);
 
-      // Check for completed goals (newly completed)
       const completedGoals = goals.filter(g => g.currentAmount >= g.targetAmount);
-      const previouslyCompleted = prev.badges.find(b => b.id === 'goal_completed')?.unlocked || false;
-      const newlyCompleted = completedGoals.length > 0 && !previouslyCompleted;
 
-      // Calculate XP
-      let newXP = prev.xp;
-      
-      // Add XP for new savings (if net savings increased)
-      if (netSavings > prev.totalSaved) {
-        const savingsIncrease = netSavings - prev.totalSaved;
-        newXP += calculateXPFromSavings(savingsIncrease);
-      }
+      const savingsXP = calculateXPFromSavings(Math.max(0, netSavings));
+      const goalXP = completedGoals.length * calculateXPFromGoal();
+      const streakXP = calculateXPFromStreak(newStreak);
+      const transactionXP = transactions.length * calculateXPFromTransaction();
+      const newXP = savingsXP + goalXP + streakXP + transactionXP;
 
-      // Add XP for newly completed goal
-      if (newlyCompleted) {
-        newXP += calculateXPFromGoal();
-      }
-
-      // Add XP for streak (50 XP per month instead of 10 per day)
-      if (newStreak > prev.currentStreak) {
-        newXP += (newStreak - prev.currentStreak) * 50;
-      }
-
-      // Calculate level
       const newLevel = calculateLevel(newXP);
-      const xpProgress = calculateXPProgress(newXP, newLevel);
 
-      // Check badge unlocks
       const updatedBadges = checkBadgeUnlocks(
         { ...prev, level: newLevel, xp: newXP, currentStreak: newStreak },
         transactions,
         goals
       );
 
-      // Update last activity date if there are transactions today
       const today = new Date().toISOString().split('T')[0];
       const hasActivityToday = transactions.some(t => t.date.startsWith(today));
       const lastActivityDate = hasActivityToday ? new Date().toISOString() : prev.lastActivityDate;

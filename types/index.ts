@@ -88,3 +88,8 @@ export interface UserCard {
   minSpend?: number; // Custom minimum spend for custom cards
 }
 
+export interface BankAccount {
+  id: string;
+  name: string;
+  balance: number;
+}

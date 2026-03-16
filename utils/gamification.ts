@@ -12,7 +12,7 @@ const XP_PER_TRANSACTION = 2;
 const XP_PER_LEVEL = 1000; // Base XP needed per level (increases with level)
 
 export const calculateLevel = (totalXP: number): number => {
-  // Level formula: level = floor(sqrt(totalXP / XP_PER_LEVEL)) + 1
+  if (!Number.isFinite(totalXP) || totalXP < 0) return 1;
   return Math.floor(Math.sqrt(totalXP / XP_PER_LEVEL)) + 1;
 };
 
@@ -27,7 +27,9 @@ export const calculateXPProgress = (totalXP: number, level: number): number => {
   const xpInCurrentLevel = totalXP - xpForCurrentLevel;
   const xpNeededForNextLevel = xpForNextLevel - xpForCurrentLevel;
   
-  return xpNeededForNextLevel > 0 ? (xpInCurrentLevel / xpNeededForNextLevel) * 100 : 0;
+  if (xpNeededForNextLevel <= 0) return 0;
+  const pct = (xpInCurrentLevel / xpNeededForNextLevel) * 100;
+  return Number.isFinite(pct) ? Math.min(Math.max(pct, 0), 100) : 0;
 };
 
 export const calculateXPFromSavings = (amount: number): number => {

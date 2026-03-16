@@ -18,14 +18,16 @@ import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useTheme } from '@/context/ThemeContext';
 import { useFinance } from '@/context/FinanceContext';
+import { GlassHeader } from '@/components/ui/GlassHeader';
+import { Spacing, Radius } from '@/constants/design';
 import { generateTestData } from '@/utils/generateTestData';
 import { seedTestData, loadNotificationSettings, saveNotificationSettings, loadUserCards, loadCardPreference, saveCardPreference } from '@/utils/storage';
+import { ShortcutsGuideStep } from '@/components/onboarding/ShortcutsGuideStep';
 import {
   scheduleGoalNotifications,
   cancelAllNotifications,
   sendTestNotification,
 } from '@/utils/notifications';
-import { CardManagementModal } from '@/components/CardManagementModal';
 import { UserCard } from '@/types';
 import { loadRewardsData } from '@/utils/cardEngine';
 import { forceRefresh } from '@/utils/remoteRewardsData';
@@ -35,14 +37,16 @@ import { exportTransactionsToExcel } from '@/utils/excelExport';
 export default function SettingsScreen() {
   const router = useRouter();
   const { theme, themeMode, setThemeMode } = useTheme();
-  const { goals, transactions } = useFinance();
+  const buttonTextColor = themeMode === 'dark' ? '#000505' : theme.text;
+  const { goals, transactions, customCategories } = useFinance();
   const tabBarHeight = useBottomTabBarHeight();
   const [loading, setLoading] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [userCards, setUserCards] = useState<UserCard[]>([]);
   const [preferMiles, setPreferMiles] = useState(false);
-  const [showCardModal, setShowCardModal] = useState(false);
-  
+
+  const [showSetupGuide, setShowSetupGuide] = useState(false);
+
   // Export state
   const [exportStartDate, setExportStartDate] = useState<Date>(new Date());
   const [exportEndDate, setExportEndDate] = useState<Date>(new Date());
@@ -98,14 +102,7 @@ export default function SettingsScreen() {
   };
 
   const handleManageCards = () => {
-    setShowCardModal(true);
-  };
-
-  const handleCloseCardModal = async () => {
-    setShowCardModal(false);
-    // Reload cards after modal closes
-    const cards = await loadUserCards();
-    setUserCards(cards);
+    router.push('/(tabs)/manage-cards');
   };
 
   const handleSyncRewards = async () => {
@@ -198,6 +195,7 @@ export default function SettingsScreen() {
         startDate: exportStartDate,
         endDate: exportEndDate,
         transactions,
+        customCategories,
       });
       
       Alert.alert(
@@ -225,16 +223,18 @@ export default function SettingsScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
-      <View style={[styles.header, { backgroundColor: theme.background }]}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <Ionicons name="arrow-back" size={24} color={theme.text} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: theme.text }]}>Settings</Text>
-        <View style={styles.placeholder} />
-      </View>
+      <GlassHeader style={styles.header}>
+        <View style={styles.headerInner}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <Ionicons name="arrow-back" size={24} color={theme.text} />
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, { color: theme.text }]}>Settings</Text>
+          <View style={styles.placeholder} />
+        </View>
+      </GlassHeader>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingBottom: tabBarHeight + 24 }}>
         <View style={styles.section}>
@@ -414,11 +414,11 @@ export default function SettingsScreen() {
                 activeOpacity={0.8}
               >
                 {exporting ? (
-                  <ActivityIndicator size="small" color="#000" />
+                  <ActivityIndicator size="small" color={buttonTextColor} />
                 ) : (
                   <>
-                    <Ionicons name="download" size={20} color="#000" />
-                    <Text style={styles.exportButtonText}>Export to Excel</Text>
+                    <Ionicons name="download" size={20} color={buttonTextColor} />
+                    <Text style={[styles.exportButtonText, { color: buttonTextColor }]}>Export to Excel</Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -453,6 +453,25 @@ export default function SettingsScreen() {
           <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>HELP</Text>
           
           <View style={[styles.card, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
+            <TouchableOpacity
+              style={styles.option}
+              onPress={() => setShowSetupGuide(true)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.optionLeft}>
+                <Ionicons name="rocket" size={24} color={theme.primary} />
+                <View>
+                  <Text style={[styles.optionText, { color: theme.text }]}>Tap-to-Pay Setup</Text>
+                  <Text style={[styles.optionSubtext, { color: theme.textSecondary }]}>
+                    Set up Apple Shortcuts automation
+                  </Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
+            </TouchableOpacity>
+
+            <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />
+
             <TouchableOpacity
               style={styles.option}
               onPress={() => router.push('/(tabs)/faq')}
@@ -533,12 +552,6 @@ export default function SettingsScreen() {
           </View>
         )}
       </ScrollView>
-
-      {/* Card Management Modal */}
-      <CardManagementModal
-        visible={showCardModal}
-        onClose={handleCloseCardModal}
-      />
 
       {/* Start Date Picker Modal */}
       {Platform.OS === 'ios' && showStartDatePicker && (
@@ -637,6 +650,20 @@ export default function SettingsScreen() {
           }}
         />
       )}
+
+      <Modal
+        visible={showSetupGuide}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowSetupGuide(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: theme.background }}>
+          <ShortcutsGuideStep
+            onDone={() => setShowSetupGuide(false)}
+            standalone
+          />
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -646,20 +673,20 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.lg,
+  },
+  headerInner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 0.5,
-    borderBottomColor: 'rgba(0,0,0,0.1)',
   },
   backButton: {
-    padding: 8,
-    marginLeft: -8,
+    padding: Spacing.md,
+    marginLeft: -Spacing.md,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 17,
     fontWeight: '600',
   },
   placeholder: {
@@ -669,17 +696,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   section: {
-    paddingHorizontal: 16,
-    paddingTop: 24,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing['3xl'],
   },
   sectionTitle: {
     fontSize: 13,
     fontWeight: '600',
-    marginBottom: 8,
-    paddingHorizontal: 4,
+    marginBottom: Spacing.md,
+    paddingHorizontal: Spacing.xs,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
   card: {
-    borderRadius: 12,
+    borderRadius: Radius.md,
     borderWidth: 1,
     overflow: 'hidden',
   },
@@ -687,25 +716,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
+    padding: Spacing.xl,
   },
   optionLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: Spacing.lg,
   },
   optionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    padding: Spacing.xl,
   },
   optionLeftGrow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: Spacing.lg,
     flex: 1,
     minWidth: 0,
-    paddingRight: 12,
+    paddingRight: Spacing.lg,
   },
   optionTextBlock: {
     flex: 1,
@@ -724,24 +753,24 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   divider: {
-    height: 0.5,
+    height: StyleSheet.hairlineWidth,
     marginLeft: 52,
   },
   versionText: {
     fontSize: 16,
   },
   exportContainer: {
-    padding: 16,
+    padding: Spacing.xl,
   },
   exportHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginBottom: 16,
+    gap: Spacing.lg,
+    marginBottom: Spacing.xl,
   },
   datePickerContainer: {
-    gap: 12,
-    marginBottom: 16,
+    gap: Spacing.lg,
+    marginBottom: Spacing.xl,
   },
   datePickerRow: {
     flexDirection: 'row',
@@ -755,10 +784,10 @@ const styles = StyleSheet.create({
   dateButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 8,
+    gap: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.lg,
+    borderRadius: Radius.sm,
     borderWidth: 1,
     minWidth: 160,
     justifyContent: 'space-between',
@@ -771,15 +800,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: Spacing.md,
     paddingVertical: 14,
-    borderRadius: 10,
-    marginTop: 4,
+    borderRadius: Radius.md,
+    marginTop: Spacing.xs,
   },
   exportButtonText: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#000',
   },
   modalOverlay: {
     flex: 1,
@@ -787,16 +815,16 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   datePickerModal: {
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    borderTopLeftRadius: Radius.xl,
+    borderTopRightRadius: Radius.xl,
     overflow: 'hidden',
   },
   datePickerHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
+    padding: Spacing.xl,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   datePickerTitle: {
     fontSize: 16,

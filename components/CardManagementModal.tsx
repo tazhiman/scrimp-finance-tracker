@@ -5,14 +5,17 @@ import {
   StyleSheet,
   Modal,
   TouchableOpacity,
-  ScrollView,
   Pressable,
   Image,
   TextInput,
   Alert,
+  Platform,
+  ScrollView,
 } from 'react-native';
+
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/context/ThemeContext';
+import { Spacing, Radius } from '@/constants/design';
 import { getAllCards } from '@/utils/cardEngine';
 import { loadUserCards, saveUserCards } from '@/utils/storage';
 import { getCachedCardImage } from '@/utils/remoteRewardsData';
@@ -128,8 +131,9 @@ export function CardManagementModal({ visible, onClose }: CardManagementModalPro
       animationType="fade"
       onRequestClose={onClose}
     >
-      <Pressable style={styles.overlay} onPress={onClose}>
-        <Pressable style={[styles.modalContainer, { backgroundColor: theme.background }]} onPress={(e) => e.stopPropagation()}>
+      <View style={styles.overlay}>
+        <Pressable style={styles.overlayPressable} onPress={onClose} />
+        <View style={[styles.modalContainer, { backgroundColor: theme.background }]}>
           {/* Header */}
           <View style={[styles.header, { borderBottomColor: theme.cardBorder }]}>
             <Text style={[styles.title, { color: theme.text }]}>Manage Credit Cards</Text>
@@ -147,10 +151,13 @@ export function CardManagementModal({ visible, onClose }: CardManagementModalPro
           </View>
 
           {/* Cards List */}
-          <ScrollView 
+          <ScrollView
             style={styles.scrollView} 
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={true}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
+            automaticallyAdjustKeyboardInsets={true}
           >
             {/* Display custom cards first */}
             {userCards
@@ -410,8 +417,8 @@ export function CardManagementModal({ visible, onClose }: CardManagementModalPro
               <Text style={styles.doneButtonText}>Done</Text>
             </TouchableOpacity>
           </View>
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
     </Modal>
   );
 }
@@ -423,6 +430,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 16,
+  },
+  overlayPressable: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   modalContainer: {
     width: '100%',

@@ -27,7 +27,7 @@ export const ProgressRing: React.FC<ProgressRingProps> = ({
   const { theme } = useTheme();
   const ringColor = color || theme.ringGreen;
   const bgColor = backgroundColor || theme.backgroundTertiary;
-  const clampedProgress = Math.min(Math.max(progress, 0), 100);
+  const clampedProgress = Number.isFinite(progress) ? Math.min(Math.max(progress, 0), 100) : 0;
 
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;

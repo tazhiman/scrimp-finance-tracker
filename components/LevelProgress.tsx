@@ -4,6 +4,7 @@ import { UserProgress } from '@/types';
 import { calculateXPForLevel, calculateXPProgress } from '@/utils/gamification';
 import { useTheme } from '@/context/ThemeContext';
 import { ProgressRing } from './ProgressRing';
+import { Spacing } from '@/constants/design';
 
 interface LevelProgressProps {
   progress: UserProgress;
@@ -47,32 +48,35 @@ export const LevelProgress: React.FC<LevelProgressProps> = ({ progress }) => {
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
-    padding: 20,
+    padding: Spacing['2xl'],
   },
   levelContainer: {
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: Spacing.xl,
   },
   levelLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 4,
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: Spacing.xs,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
   levelNumber: {
     fontSize: 36,
     fontWeight: '700',
+    letterSpacing: -0.5,
   },
   xpInfo: {
     alignItems: 'center',
-    marginTop: 16,
+    marginTop: Spacing.xl,
   },
   xpText: {
     fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
+    fontWeight: '700',
+    marginBottom: Spacing.xs,
   },
   totalXP: {
     fontSize: 14,
+    fontWeight: '500',
   },
 });
-

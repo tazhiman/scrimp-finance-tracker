@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
@@ -14,6 +13,9 @@ import { useFinance } from '@/context/FinanceContext';
 import { useTheme } from '@/context/ThemeContext';
 import { LevelProgress } from '@/components/LevelProgress';
 import { BadgeDisplay } from '@/components/BadgeDisplay';
+import { GlassCard } from '@/components/ui/GlassCard';
+import { GlassModal } from '@/components/ui/GlassModal';
+import { Spacing, Radius } from '@/constants/design';
 import { formatCurrency, formatDate } from '@/utils/dateHelpers';
 import { Ionicons } from '@expo/vector-icons';
 import { calculateTotalIncome, calculateTotalExpenses, calculateNetSavings } from '@/utils/calculations';
@@ -34,76 +36,61 @@ export default function ProfileScreen() {
   const unlockedBadges = progress.badges.filter(b => b.unlocked);
   const lockedBadges = progress.badges.filter(b => !b.unlocked);
 
+  const stats = [
+    { icon: 'trending-up' as const, value: formatCurrency(totalSaved), label: 'Total Saved', color: theme.primary },
+    { icon: 'arrow-down-circle' as const, value: formatCurrency(totalIncome), label: 'Total Income', color: theme.primary },
+    { icon: 'arrow-up-circle' as const, value: formatCurrency(totalExpenses), label: 'Total Spent', color: theme.secondary },
+    { icon: 'flag' as const, value: String(completedGoals), label: 'Goals Completed', color: theme.accent },
+    { icon: 'flame' as const, value: String(progress.currentStreak), label: 'Day Streak', color: theme.secondary },
+    { icon: 'trophy' as const, value: String(unlockedBadges.length), label: 'Badges', color: theme.badgeGold },
+  ];
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={[styles.content, { paddingBottom: tabBarHeight + 24 }]}
+        contentContainerStyle={[styles.content, { paddingBottom: tabBarHeight + Spacing['3xl'] }]}
       >
-        {/* Header */}
         <View style={styles.header}>
           <Text style={[styles.title, { color: theme.text }]}>Profile</Text>
         </View>
 
-        {/* Level Progress */}
-        <View style={styles.section}>
+        <GlassCard style={styles.levelCard} intensity="subtle" borderRadius={Radius.lg}>
           <LevelProgress progress={progress} />
-        </View>
+        </GlassCard>
 
-        {/* Stats */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: theme.text }]}>Statistics</Text>
           <View style={styles.statsGrid}>
-            <View style={[styles.statCard, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
-              <Ionicons name="trending-up" size={24} color={theme.primary} />
-              <Text style={[styles.statValue, { color: theme.text }]}>{formatCurrency(totalSaved)}</Text>
-              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Total Saved</Text>
-            </View>
-            <View style={[styles.statCard, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
-              <Ionicons name="arrow-down-circle" size={24} color={theme.primary} />
-              <Text style={[styles.statValue, { color: theme.text }]}>{formatCurrency(totalIncome)}</Text>
-              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Total Income</Text>
-            </View>
-            <View style={[styles.statCard, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
-              <Ionicons name="arrow-up-circle" size={24} color={theme.secondary} />
-              <Text style={[styles.statValue, { color: theme.text }]}>{formatCurrency(totalExpenses)}</Text>
-              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Total Spent</Text>
-            </View>
-            <View style={[styles.statCard, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
-              <Ionicons name="flag" size={24} color={theme.accent} />
-              <Text style={[styles.statValue, { color: theme.text }]}>{completedGoals}</Text>
-              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Goals Completed</Text>
-            </View>
-            <View style={[styles.statCard, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
-              <Ionicons name="flame" size={24} color={theme.secondary} />
-              <Text style={[styles.statValue, { color: theme.text }]}>{progress.currentStreak}</Text>
-              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Day Streak</Text>
-            </View>
-            <View style={[styles.statCard, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
-              <Ionicons name="trophy" size={24} color={theme.badgeGold} />
-              <Text style={[styles.statValue, { color: theme.text }]}>{unlockedBadges.length}</Text>
-              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Badges</Text>
-            </View>
+            {stats.map((stat, idx) => (
+              <GlassCard key={idx} style={styles.statCard} intensity="subtle">
+                <View style={styles.statInner}>
+                  <View style={[styles.statIconCircle, { backgroundColor: stat.color + '18' }]}>
+                    <Ionicons name={stat.icon} size={20} color={stat.color} />
+                  </View>
+                  <Text style={[styles.statValue, { color: theme.text }]}>{stat.value}</Text>
+                  <Text style={[styles.statLabel, { color: theme.textSecondary }]}>{stat.label}</Text>
+                </View>
+              </GlassCard>
+            ))}
           </View>
         </View>
 
-        {/* Badges */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: theme.text }]}>Achievements</Text>
           <Text style={[styles.sectionSubtitle, { color: theme.textSecondary }]}>
             {unlockedBadges.length} of {progress.badges.length} unlocked
           </Text>
 
-          {/* Unlocked Badges */}
           {unlockedBadges.length > 0 && (
             <View style={styles.badgeSection}>
               <Text style={[styles.badgeSectionTitle, { color: theme.textSecondary }]}>Unlocked</Text>
               <View style={styles.badgeGrid}>
                 {unlockedBadges.map((badge) => (
-                  <BadgeDisplay 
-                    key={badge.id} 
-                    badge={badge} 
-                    size="medium" 
+                  <BadgeDisplay
+                    key={badge.id}
+                    badge={badge}
+                    size="medium"
                     onPress={() => setSelectedBadge(badge)}
                   />
                 ))}
@@ -111,16 +98,15 @@ export default function ProfileScreen() {
             </View>
           )}
 
-          {/* Locked Badges */}
           {lockedBadges.length > 0 && (
             <View style={styles.badgeSection}>
               <Text style={[styles.badgeSectionTitle, { color: theme.textSecondary }]}>Locked</Text>
               <View style={styles.badgeGrid}>
                 {lockedBadges.map((badge) => (
-                  <BadgeDisplay 
-                    key={badge.id} 
-                    badge={badge} 
-                    size="medium" 
+                  <BadgeDisplay
+                    key={badge.id}
+                    badge={badge}
+                    size="medium"
                     onPress={() => setSelectedBadge(badge)}
                   />
                 ))}
@@ -130,62 +116,53 @@ export default function ProfileScreen() {
         </View>
       </ScrollView>
 
-      {/* Badge Detail Modal */}
-      <Modal
+      <GlassModal
         visible={selectedBadge !== null}
-        animationType="fade"
-        transparent={true}
-        onRequestClose={() => setSelectedBadge(null)}
+        onClose={() => setSelectedBadge(null)}
       >
-        <TouchableOpacity 
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setSelectedBadge(null)}
-        >
-          <View style={[styles.modalContent, { backgroundColor: theme.cardBackground }]}>
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={() => setSelectedBadge(null)}
-            >
-              <Ionicons name="close" size={24} color={theme.textSecondary} />
-            </TouchableOpacity>
+        <View style={styles.badgeModalContent}>
+          <TouchableOpacity
+            style={styles.closeButton}
+            onPress={() => setSelectedBadge(null)}
+          >
+            <Ionicons name="close" size={22} color={theme.textSecondary} />
+          </TouchableOpacity>
 
-            {selectedBadge && (
-              <>
-                <View style={[styles.modalBadgeContainer, { backgroundColor: theme.backgroundSecondary, borderColor: theme.cardBorder }]}>
-                  <Text style={styles.modalBadgeIcon}>{selectedBadge.icon}</Text>
+          {selectedBadge && (
+            <>
+              <View style={[styles.modalBadgeContainer, { backgroundColor: theme.backgroundSecondary, borderColor: theme.cardBorder }]}>
+                <Text style={styles.modalBadgeIcon}>{selectedBadge.icon}</Text>
+              </View>
+
+              <Text style={[styles.modalBadgeTitle, { color: theme.text }]}>
+                {selectedBadge.name}
+              </Text>
+
+              <Text style={[styles.modalBadgeDescription, { color: theme.textSecondary }]}>
+                {selectedBadge.description}
+              </Text>
+
+              {selectedBadge.unlocked && selectedBadge.unlockedAt && (
+                <View style={[styles.modalStatusBadge, { backgroundColor: theme.primary + '18' }]}>
+                  <Ionicons name="checkmark-circle" size={18} color={theme.primary} />
+                  <Text style={[styles.modalStatusText, { color: theme.primary }]}>
+                    Unlocked on {formatDate(selectedBadge.unlockedAt)}
+                  </Text>
                 </View>
+              )}
 
-                <Text style={[styles.modalBadgeTitle, { color: theme.text }]}>
-                  {selectedBadge.name}
-                </Text>
-
-                <Text style={[styles.modalBadgeDescription, { color: theme.textSecondary }]}>
-                  {selectedBadge.description}
-                </Text>
-
-                {selectedBadge.unlocked && selectedBadge.unlockedAt && (
-                  <View style={[styles.modalUnlockedBadge, { backgroundColor: theme.primary + '20', borderColor: theme.primary }]}>
-                    <Ionicons name="checkmark-circle" size={20} color={theme.primary} />
-                    <Text style={[styles.modalUnlockedText, { color: theme.primary }]}>
-                      Unlocked on {formatDate(selectedBadge.unlockedAt)}
-                    </Text>
-                  </View>
-                )}
-
-                {!selectedBadge.unlocked && (
-                  <View style={[styles.modalLockedBadge, { backgroundColor: theme.backgroundTertiary, borderColor: theme.cardBorder }]}>
-                    <Ionicons name="lock-closed" size={20} color={theme.textTertiary} />
-                    <Text style={[styles.modalLockedText, { color: theme.textSecondary }]}>
-                      Keep going to unlock this achievement!
-                    </Text>
-                  </View>
-                )}
-              </>
-            )}
-          </View>
-        </TouchableOpacity>
-      </Modal>
+              {!selectedBadge.unlocked && (
+                <View style={[styles.modalStatusBadge, { backgroundColor: theme.backgroundTertiary }]}>
+                  <Ionicons name="lock-closed" size={18} color={theme.textTertiary} />
+                  <Text style={[styles.modalStatusText, { color: theme.textSecondary }]}>
+                    Keep going to unlock this achievement!
+                  </Text>
+                </View>
+              )}
+            </>
+          )}
+        </View>
+      </GlassModal>
     </SafeAreaView>
   );
 }
@@ -198,140 +175,125 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: 16,
+    padding: Spacing.xl,
   },
   header: {
-    marginBottom: 24,
+    marginBottom: Spacing['3xl'],
   },
   title: {
-    fontSize: 32,
+    fontSize: 34,
     fontWeight: '700',
+    letterSpacing: -0.5,
+  },
+  levelCard: {
+    marginBottom: Spacing['4xl'],
   },
   section: {
-    marginBottom: 32,
+    marginBottom: Spacing['4xl'],
   },
   sectionTitle: {
     fontSize: 20,
-    fontWeight: '600',
-    marginBottom: 8,
+    fontWeight: '700',
+    marginBottom: Spacing.md,
   },
   sectionSubtitle: {
     fontSize: 14,
-    marginBottom: 16,
+    marginBottom: Spacing.xl,
   },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    gap: Spacing.lg,
   },
   statCard: {
-    width: '48%',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
+    width: '47%',
+    flexGrow: 1,
+  },
+  statInner: {
+    padding: Spacing.xl,
     alignItems: 'center',
+  },
+  statIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: Radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.lg,
   },
   statValue: {
     fontSize: 20,
     fontWeight: '700',
-    marginTop: 8,
-    marginBottom: 4,
+    marginBottom: Spacing.xs,
+    letterSpacing: -0.3,
   },
   statLabel: {
     fontSize: 12,
+    fontWeight: '500',
     textAlign: 'center',
   },
   badgeSection: {
-    marginBottom: 24,
+    marginBottom: Spacing['3xl'],
   },
   badgeSectionTitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
-    marginBottom: 12,
+    marginBottom: Spacing.lg,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
   badgeGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-evenly',
-    gap: 8,
+    justifyContent: 'flex-start',
+    gap: Spacing.lg,
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
+  badgeModalContent: {
+    padding: Spacing['3xl'],
     alignItems: 'center',
-    padding: 20,
-  },
-  modalContent: {
-    borderRadius: 20,
-    padding: 24,
-    width: '100%',
-    maxWidth: 400,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
   },
   closeButton: {
     position: 'absolute',
-    top: 12,
-    right: 12,
-    padding: 8,
+    top: Spacing.lg,
+    right: Spacing.lg,
+    padding: Spacing.md,
     zIndex: 1,
   },
   modalBadgeContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+    width: 112,
+    height: 112,
+    borderRadius: 56,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 3,
-    marginTop: 20,
-    marginBottom: 20,
+    marginTop: Spacing['2xl'],
+    marginBottom: Spacing['2xl'],
   },
   modalBadgeIcon: {
-    fontSize: 64,
+    fontSize: 56,
   },
   modalBadgeTitle: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '700',
-    marginBottom: 12,
+    marginBottom: Spacing.lg,
     textAlign: 'center',
   },
   modalBadgeDescription: {
-    fontSize: 16,
+    fontSize: 15,
     textAlign: 'center',
     lineHeight: 22,
-    marginBottom: 20,
+    marginBottom: Spacing['2xl'],
   },
-  modalUnlockedBadge: {
+  modalStatusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    gap: 8,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.lg,
+    borderRadius: Radius.md,
+    gap: Spacing.md,
   },
-  modalUnlockedText: {
+  modalStatusText: {
     fontSize: 14,
     fontWeight: '600',
   },
-  modalLockedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    gap: 8,
-  },
-  modalLockedText: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
 });
-

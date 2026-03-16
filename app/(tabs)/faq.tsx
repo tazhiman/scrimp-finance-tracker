@@ -5,6 +5,8 @@ import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/context/ThemeContext';
+import { GlassHeader } from '@/components/ui/GlassHeader';
+import { Spacing, Radius } from '@/constants/design';
 
 type FAQItem = {
   id: string;
@@ -59,13 +61,15 @@ export default function FAQScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
-      <View style={[styles.header, { backgroundColor: theme.background, borderBottomColor: theme.cardBorder }]}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()} activeOpacity={0.7}>
-          <Ionicons name="arrow-back" size={24} color={theme.text} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: theme.text }]}>FAQ</Text>
-        <View style={styles.placeholder} />
-      </View>
+      <GlassHeader style={styles.header}>
+        <View style={styles.headerInner}>
+          <TouchableOpacity style={styles.backButton} onPress={() => router.back()} activeOpacity={0.7}>
+            <Ionicons name="arrow-back" size={24} color={theme.text} />
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, { color: theme.text }]}>FAQ</Text>
+          <View style={styles.placeholder} />
+        </View>
+      </GlassHeader>
 
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: tabBarHeight + 24 }]}>
         <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
@@ -128,43 +132,44 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.lg,
+  },
+  headerInner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
   },
   backButton: {
-    padding: 8,
-    marginLeft: -8,
+    padding: Spacing.md,
+    marginLeft: -Spacing.md,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 17,
     fontWeight: '600',
   },
   placeholder: {
     width: 40,
   },
   content: {
-    padding: 16,
+    padding: Spacing.xl,
   },
   subtitle: {
     fontSize: 14,
-    marginBottom: 12,
+    marginBottom: Spacing.lg,
   },
   card: {
-    borderRadius: 12,
+    borderRadius: Radius.md,
     borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    marginBottom: 12,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.lg,
+    marginBottom: Spacing.lg,
   },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 12,
+    gap: Spacing.lg,
   },
   question: {
     flex: 1,
@@ -172,8 +177,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   answerContainer: {
-    marginTop: 10,
-    gap: 12,
+    marginTop: Spacing.lg,
+    gap: Spacing.lg,
   },
   answer: {
     fontSize: 14,

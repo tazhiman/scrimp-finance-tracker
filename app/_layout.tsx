@@ -6,6 +6,8 @@ import { FinanceProvider } from '@/context/FinanceContext';
 import { GamificationProvider } from '@/context/GamificationContext';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { loadRewardsData } from '@/utils/cardEngine';
+import { isOnboardingCompleted } from '@/utils/onboarding';
+import { OnboardingFlow } from '@/components/onboarding/OnboardingFlow';
 
 // Configure how notifications are handled when app is in foreground
 Notifications.setNotificationHandler({
@@ -22,16 +24,17 @@ export default function RootLayout() {
   const notificationListener = useRef<Notifications.Subscription>();
   const responseListener = useRef<Notifications.Subscription>();
   const [isLoadingData, setIsLoadingData] = useState(true);
+  const [showOnboarding, setShowOnboarding] = useState<boolean | null>(null);
 
   useEffect(() => {
-    // Initialize rewards data on app start
     const initializeData = async () => {
       try {
-        console.log('Initializing rewards data...');
         await loadRewardsData();
-        console.log('Rewards data initialized');
+        const completed = await isOnboardingCompleted();
+        setShowOnboarding(!completed);
       } catch (error) {
-        console.error('Error initializing rewards data:', error);
+        console.error('Error initializing app:', error);
+        setShowOnboarding(false);
       } finally {
         setIsLoadingData(false);
       }
@@ -64,25 +67,27 @@ export default function RootLayout() {
     };
   }, []);
 
-  // Show loading screen while initializing data
   if (isLoadingData) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#121212', alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ flex: 1, backgroundColor: '#000505', alignItems: 'center', justifyContent: 'center' }}>
         <ActivityIndicator size="large" color="#D0EFB1" />
-        <Text style={{ color: '#888', marginTop: 16, fontSize: 14 }}>Loading rewards data...</Text>
+        <Text style={{ color: '#7A7778', marginTop: 16, fontSize: 14 }}>Loading rewards data...</Text>
       </View>
     );
   }
 
   return (
     <ThemeProvider>
-    <FinanceProvider>
-      <GamificationProvider>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(tabs)" />
-        </Stack>
-      </GamificationProvider>
-    </FinanceProvider>
+      <FinanceProvider>
+        <GamificationProvider>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="(tabs)" />
+          </Stack>
+          {showOnboarding && (
+            <OnboardingFlow onComplete={() => setShowOnboarding(false)} />
+          )}
+        </GamificationProvider>
+      </FinanceProvider>
     </ThemeProvider>
   );
 }

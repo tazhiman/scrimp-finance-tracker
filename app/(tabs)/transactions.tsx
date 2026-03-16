@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,23 +6,25 @@ import {
   FlatList,
   TouchableOpacity,
   RefreshControl,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
-import { useCallback } from 'react';
 import { useFinance } from '@/context/FinanceContext';
 import { useTheme } from '@/context/ThemeContext';
 import { TransactionForm } from '@/components/TransactionForm';
 import { TimePeriodSelector } from '@/components/TimePeriodSelector';
 import { TransactionCalendarMonth } from '@/components/TransactionCalendarMonth';
 import { TransactionDayModal } from '@/components/TransactionDayModal';
+import { GlassHeader } from '@/components/ui/GlassHeader';
+import { GlassCard } from '@/components/ui/GlassCard';
+import { Spacing, Radius, Shadow } from '@/constants/design';
 import { Transaction, TimePeriod } from '@/types';
-import { getCombinedTransactionsByPeriod, getExpensesByCategory } from '@/utils/calculations';
+import { getCombinedTransactionsByPeriod } from '@/utils/calculations';
 import { formatCurrency, formatDateShort } from '@/utils/dateHelpers';
 import { getCategoryById } from '@/constants/categories';
 import { Ionicons } from '@expo/vector-icons';
-import { Dimensions } from 'react-native';
 
 export default function TransactionsScreen() {
   const router = useRouter();
@@ -34,10 +36,10 @@ export default function TransactionsScreen() {
     addTransaction,
     addRecurringExpense,
     updateTransaction,
+    customCategories,
   } = useFinance();
   const { theme, themeMode } = useTheme();
   
-  // In dark mode, use black text on the light colored buttons for better contrast
   const buttonTextColor = themeMode === 'dark' ? '#000505' : theme.text;
   const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>('month');
   const [showCalendar, setShowCalendar] = useState(false);
@@ -49,21 +51,16 @@ export default function TransactionsScreen() {
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Open form automatically if openForm parameter is present
   useEffect(() => {
     if (params.openForm === 'true') {
       setFormVisible(true);
-      // Clear the parameter after opening
       router.setParams({ openForm: undefined });
     }
   }, [params.openForm]);
 
-  // Reopen day modal when screen comes back into focus
   useFocusEffect(
     useCallback(() => {
-      // When screen regains focus, check if we should reopen the modal
       if (savedDayModalState?.shouldReopen) {
-        // Small delay to ensure smooth transition
         const timer = setTimeout(() => {
           setDayModalDate(savedDayModalState.date);
           setDayModalVisible(true);
@@ -75,16 +72,12 @@ export default function TransactionsScreen() {
   );
 
   const periodTransactions = getCombinedTransactionsByPeriod(
-    transactions,
-    recurringExpenses,
-    selectedPeriod,
-    referenceDate
+    transactions, recurringExpenses, selectedPeriod, referenceDate
   );
   const monthTransactions = useMemo(
     () => getCombinedTransactionsByPeriod(transactions, recurringExpenses, 'month', referenceDate),
     [transactions, recurringExpenses, referenceDate]
   );
-  // Preload current, prev, and next day transactions for seamless swiping
   const dayModalTransactions = useMemo(() => {
     const dayTx = getCombinedTransactionsByPeriod(transactions, recurringExpenses, 'day', dayModalDate);
     return [...dayTx].sort((a, b) => {
@@ -94,37 +87,6 @@ export default function TransactionsScreen() {
     });
   }, [transactions, recurringExpenses, dayModalDate]);
 
-  // Preload previous day
-  const prevDayDate = useMemo(() => {
-    const d = new Date(dayModalDate);
-    d.setDate(d.getDate() - 1);
-    return d;
-  }, [dayModalDate]);
-
-  const prevDayTransactions = useMemo(() => {
-    const dayTx = getCombinedTransactionsByPeriod(transactions, recurringExpenses, 'day', prevDayDate);
-    return [...dayTx].sort((a, b) => {
-      const at = new Date(a.createdAt ?? a.date).getTime();
-      const bt = new Date(b.createdAt ?? b.date).getTime();
-      return bt - at;
-    });
-  }, [transactions, recurringExpenses, prevDayDate]);
-
-  // Preload next day
-  const nextDayDate = useMemo(() => {
-    const d = new Date(dayModalDate);
-    d.setDate(d.getDate() + 1);
-    return d;
-  }, [dayModalDate]);
-
-  const nextDayTransactions = useMemo(() => {
-    const dayTx = getCombinedTransactionsByPeriod(transactions, recurringExpenses, 'day', nextDayDate);
-    return [...dayTx].sort((a, b) => {
-      const at = new Date(a.createdAt ?? a.date).getTime();
-      const bt = new Date(b.createdAt ?? b.date).getTime();
-      return bt - at;
-    });
-  }, [transactions, recurringExpenses, nextDayDate]);
   const sortedTransactions = [...periodTransactions].sort(
     (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
   );
@@ -150,7 +112,7 @@ export default function TransactionsScreen() {
   };
 
   const renderTransaction = ({ item }: { item: Transaction }) => {
-    const category = getCategoryById(item.category);
+    const category = getCategoryById(item.category, customCategories);
     const isIncome = item.type === 'income';
 
     return (
@@ -163,7 +125,7 @@ export default function TransactionsScreen() {
           <View
             style={[
               styles.categoryIcon,
-              { backgroundColor: category?.color + '20' || theme.backgroundTertiary },
+              { backgroundColor: (category?.color || theme.backgroundTertiary) + '20' },
             ]}
           >
             <Text style={styles.categoryEmoji}>{category?.icon || '💰'}</Text>
@@ -172,37 +134,40 @@ export default function TransactionsScreen() {
             <Text style={[styles.transactionCategory, { color: theme.text }]}>
               {category?.name || item.category}
             </Text>
-            {item.description && (
+            {item.description ? (
               <Text style={[styles.transactionDescription, { color: theme.textSecondary }]} numberOfLines={1}>
                 {item.description}
               </Text>
-            )}
+            ) : null}
             <Text style={[styles.transactionDate, { color: theme.textTertiary }]}>{formatDateShort(item.date)}</Text>
           </View>
         </View>
-        <View style={styles.transactionRight}>
-          <Text
-            style={[
-              styles.transactionAmount,
-              { color: isIncome ? theme.primary : theme.secondary },
-            ]}
-          >
-            {isIncome ? '+' : '-'}
-            {formatCurrency(item.amount)}
-          </Text>
-        </View>
+        <Text
+          style={[
+            styles.transactionAmount,
+            { color: isIncome ? theme.primary : theme.secondary },
+          ]}
+        >
+          {isIncome ? '+' : '-'}{formatCurrency(item.amount)}
+        </Text>
       </TouchableOpacity>
     );
   };
 
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
-      <Ionicons name="receipt-outline" size={64} color={theme.textTertiary} />
+      <View style={[styles.emptyIconCircle, { backgroundColor: theme.backgroundSecondary }]}>
+        <Ionicons name="receipt-outline" size={48} color={theme.textTertiary} />
+      </View>
       <Text style={[styles.emptyText, { color: theme.text }]}>No transactions yet</Text>
       <Text style={[styles.emptySubtext, { color: theme.textSecondary }]}>
         Add your first transaction to start tracking
       </Text>
-      <TouchableOpacity style={[styles.emptyButton, { backgroundColor: theme.primary }]} onPress={handleAdd}>
+      <TouchableOpacity
+        style={[styles.emptyButton, { backgroundColor: theme.primary }, Shadow.small]}
+        onPress={handleAdd}
+        activeOpacity={0.8}
+      >
         <Text style={[styles.emptyButtonText, { color: buttonTextColor }]}>Add Transaction</Text>
       </TouchableOpacity>
     </View>
@@ -217,16 +182,11 @@ export default function TransactionsScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
-      <View style={[styles.header, { backgroundColor: theme.background, borderBottomColor: theme.cardBorder }]}>
-        <Text style={[styles.title, { color: theme.text }]}>Transactions</Text>
-        <TouchableOpacity
-          style={[styles.addButton, { backgroundColor: theme.primary }]}
-          onPress={handleAdd}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="add" size={24} color={buttonTextColor} />
-        </TouchableOpacity>
-      </View>
+      <GlassHeader style={styles.headerContainer}>
+        <View style={styles.header}>
+          <Text style={[styles.title, { color: theme.text }]}>Transactions</Text>
+        </View>
+      </GlassHeader>
 
       <View style={styles.periodSelector}>
         <TimePeriodSelector
@@ -234,7 +194,6 @@ export default function TransactionsScreen() {
           onPeriodChange={(p) => {
             setSelectedPeriod(p);
             if (p === 'month' && showCalendar) {
-              // If already in calendar view, turn it off
               setShowCalendar(false);
             } else if (p !== 'month') {
               setShowCalendar(false);
@@ -266,32 +225,37 @@ export default function TransactionsScreen() {
         />
       )}
 
-      {/* Summary */}
       {periodTransactions.length > 0 && (
-        <View style={[styles.summary, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
-          <View style={styles.summaryItem}>
-            <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>Income</Text>
-            <Text style={[styles.summaryValue, { color: theme.primary }]}>
-              {formatCurrency(totalIncome)}
-            </Text>
-          </View>
-          <View style={styles.summaryItem}>
-            <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>Expenses</Text>
-            <Text style={[styles.summaryValue, { color: theme.secondary }]}>
-              {formatCurrency(totalExpenses)}
-            </Text>
-          </View>
-          <View style={styles.summaryItem}>
-            <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>Net</Text>
-            <Text
-              style={[
-                styles.summaryValue,
-                { color: totalIncome - totalExpenses >= 0 ? theme.primary : theme.error },
-              ]}
-            >
-              {formatCurrency(totalIncome - totalExpenses)}
-            </Text>
-          </View>
+        <View style={styles.summaryWrapper}>
+          <GlassCard style={styles.summary} intensity="subtle" borderRadius={Radius.md}>
+            <View style={styles.summaryInner}>
+              <View style={styles.summaryItem}>
+                <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>Income</Text>
+                <Text style={[styles.summaryValue, { color: theme.primary }]}>
+                  {formatCurrency(totalIncome)}
+                </Text>
+              </View>
+              <View style={[styles.summaryDivider, { backgroundColor: theme.cardBorder }]} />
+              <View style={styles.summaryItem}>
+                <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>Expenses</Text>
+                <Text style={[styles.summaryValue, { color: theme.secondary }]}>
+                  {formatCurrency(totalExpenses)}
+                </Text>
+              </View>
+              <View style={[styles.summaryDivider, { backgroundColor: theme.cardBorder }]} />
+              <View style={styles.summaryItem}>
+                <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>Net</Text>
+                <Text
+                  style={[
+                    styles.summaryValue,
+                    { color: totalIncome - totalExpenses >= 0 ? theme.primary : theme.error },
+                  ]}
+                >
+                  {formatCurrency(totalIncome - totalExpenses)}
+                </Text>
+              </View>
+            </View>
+          </GlassCard>
         </View>
       )}
 
@@ -302,7 +266,7 @@ export default function TransactionsScreen() {
           keyExtractor={(item) => item.id}
           contentContainerStyle={[
             sortedTransactions.length === 0 ? styles.emptyContainer : styles.listContent,
-            { paddingBottom: tabBarHeight + 24 },
+            { paddingBottom: tabBarHeight + Spacing['3xl'] },
           ]}
           ListEmptyComponent={renderEmptyState}
           refreshControl={
@@ -318,7 +282,7 @@ export default function TransactionsScreen() {
         modalHeight={(Dimensions.get('window').height - tabBarHeight) * 0.8}
         onClose={() => {
           setDayModalVisible(false);
-          setSavedDayModalState(null); // Clear saved state if manually closed
+          setSavedDayModalState(null);
         }}
         onPrevDay={() => {
           const d = new Date(dayModalDate);
@@ -333,17 +297,9 @@ export default function TransactionsScreen() {
           setReferenceDate(d);
         }}
         onPressTransaction={(tx) => {
-          // Save the current modal state and close it
-          setSavedDayModalState({
-            date: dayModalDate,
-            shouldReopen: true,
-          });
+          setSavedDayModalState({ date: dayModalDate, shouldReopen: true });
           setDayModalVisible(false);
-          
-          // Navigate after a brief delay to ensure modal closes first
-          setTimeout(() => {
-            router.push(`/transaction/${tx.id}`);
-          }, 50);
+          setTimeout(() => { router.push(`/transaction/${tx.id}`); }, 50);
         }}
       />
 
@@ -365,52 +321,59 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  headerContainer: {
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.xl,
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
   },
   title: {
     fontSize: 28,
     fontWeight: '700',
-  },
-  addButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
+    letterSpacing: -0.3,
   },
   periodSelector: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.lg,
+  },
+  summaryWrapper: {
+    paddingHorizontal: Spacing.xl,
+    marginBottom: Spacing.md,
   },
   summary: {
+    padding: 0,
+  },
+  summaryInner: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    marginHorizontal: 16,
-    marginBottom: 8,
-    borderRadius: 12,
-    borderWidth: 1,
+    alignItems: 'center',
+    paddingVertical: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
   },
   summaryItem: {
     alignItems: 'center',
+    flex: 1,
+  },
+  summaryDivider: {
+    width: StyleSheet.hairlineWidth,
+    height: 32,
   },
   summaryLabel: {
     fontSize: 12,
-    marginBottom: 4,
+    fontWeight: '500',
+    marginBottom: Spacing.xs,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
   summaryValue: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '700',
   },
   listContent: {
-    padding: 16,
+    padding: Spacing.xl,
   },
   emptyContainer: {
     flex: 1,
@@ -419,9 +382,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
+    borderRadius: Radius.md,
+    padding: Spacing.xl,
+    marginBottom: Spacing.md,
     borderWidth: 1,
   },
   transactionLeft: {
@@ -430,15 +393,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   categoryIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: Spacing.lg,
   },
   categoryEmoji: {
-    fontSize: 24,
+    fontSize: 22,
   },
   transactionInfo: {
     flex: 1,
@@ -449,19 +412,16 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   transactionDescription: {
-    fontSize: 12,
+    fontSize: 13,
     marginBottom: 2,
   },
   transactionDate: {
     fontSize: 11,
-  },
-  transactionRight: {
-    alignItems: 'flex-end',
+    fontWeight: '500',
   },
   transactionAmount: {
     fontSize: 16,
     fontWeight: '700',
-    marginBottom: 4,
   },
   emptyState: {
     flex: 1,
@@ -469,25 +429,32 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 80,
   },
+  emptyIconCircle: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing['2xl'],
+  },
   emptyText: {
     fontSize: 20,
-    fontWeight: '600',
-    marginTop: 16,
-    marginBottom: 8,
+    fontWeight: '700',
+    marginBottom: Spacing.md,
   },
   emptySubtext: {
-    fontSize: 14,
+    fontSize: 15,
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: Spacing['3xl'],
+    lineHeight: 22,
   },
   emptyButton: {
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
+    paddingHorizontal: Spacing['3xl'],
+    paddingVertical: Spacing.lg,
+    borderRadius: Radius.md,
   },
   emptyButtonText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
   },
 });
-

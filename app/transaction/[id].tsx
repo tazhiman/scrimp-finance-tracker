@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+
 import { SafeAreaView } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -22,6 +23,7 @@ import {
   isGeneratedRecurringTransactionId,
 } from '@/utils/recurring';
 import { formatCurrency } from '@/utils/dateHelpers';
+import { getCategoryById } from '@/constants/categories';
 
 const formatDateTime = (iso: string) => {
   const d = new Date(iso);
@@ -48,6 +50,7 @@ export default function TransactionDetailScreen() {
     updateTransaction,
     deleteTransaction,
     deleteRecurringExpense,
+    customCategories,
   } = useFinance();
 
   const buttonTextColor = themeMode === 'dark' ? '#000505' : theme.text;
@@ -206,8 +209,14 @@ export default function TransactionDetailScreen() {
         <View style={styles.placeholder} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={[styles.card, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
+      <ScrollView
+        contentContainerStyle={styles.content} 
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
+        automaticallyAdjustKeyboardInsets={true}
+      >
+          <View style={[styles.card, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
           <View style={styles.row}>
             <Text style={[styles.label, { color: theme.textSecondary }]}>Added to app</Text>
             <Text style={[styles.value, { color: theme.text }]}>{formatDateTime(transaction.createdAt)}</Text>
@@ -216,9 +225,9 @@ export default function TransactionDetailScreen() {
             <Text style={[styles.label, { color: theme.textSecondary }]}>Transaction date</Text>
             <Text style={[styles.value, { color: theme.text }]}>{transaction.date}</Text>
           </View>
-        </View>
+          </View>
 
-        <View style={[styles.card, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
+          <View style={[styles.card, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
           <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>DETAILS</Text>
 
           {/* Type */}
@@ -281,7 +290,7 @@ export default function TransactionDetailScreen() {
                 onSelect={(c) => setCategory(c.id)}
               />
             ) : (
-              <Text style={[styles.value, { color: theme.text }]}>{transaction.category}</Text>
+              <Text style={[styles.value, { color: theme.text }]}>{getCategoryById(transaction.category, customCategories)?.name || transaction.category}</Text>
             )}
           </View>
 
@@ -347,9 +356,9 @@ export default function TransactionDetailScreen() {
               <Text style={[styles.value, { color: theme.text }]}>{transaction.date}</Text>
             )}
           </View>
-        </View>
+          </View>
 
-        <View style={styles.actions}>
+          <View style={styles.actions}>
           {!isGenerated && (
             <TouchableOpacity
               style={[
@@ -382,7 +391,7 @@ export default function TransactionDetailScreen() {
           >
             <Text style={[styles.deleteText, { color: theme.error }]}>Delete</Text>
           </TouchableOpacity>
-        </View>
+          </View>
       </ScrollView>
     </SafeAreaView>
   );

@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Badge } from '@/types';
 import { useTheme } from '@/context/ThemeContext';
+import { Spacing, Radius } from '@/constants/design';
 
 interface BadgeDisplayProps {
   badge: Badge;
@@ -9,41 +10,31 @@ interface BadgeDisplayProps {
   onPress?: () => void;
 }
 
+const sizeMap = {
+  small: { icon: 28, container: 56 },
+  medium: { icon: 36, container: 72 },
+  large: { icon: 56, container: 112 },
+};
+
 export const BadgeDisplay: React.FC<BadgeDisplayProps> = ({
   badge,
   size = 'medium',
   onPress,
 }) => {
   const { theme } = useTheme();
-  
-  const sizeMap = {
-    small: { icon: 32, container: 64 },
-    medium: { icon: 40, container: 80 },
-    large: { icon: 64, container: 128 },
-  };
-
   const dimensions = sizeMap[size];
 
   const content = (
-    <View
-      style={[
-        styles.container,
-        {
-          width: dimensions.container,
-          opacity: badge.unlocked ? 1 : 0.3,
-        },
-      ]}
-    >
+    <View style={[styles.container, { width: dimensions.container }]}>
       <View
         style={[
           styles.badgeCircle,
           {
             width: dimensions.container,
             height: dimensions.container,
-            backgroundColor: badge.unlocked
-              ? theme.backgroundSecondary
-              : theme.backgroundTertiary,
-            borderColor: theme.cardBorder,
+            backgroundColor: badge.unlocked ? theme.backgroundSecondary : theme.backgroundTertiary,
+            borderColor: badge.unlocked ? theme.cardBorder : theme.backgroundTertiary,
+            opacity: badge.unlocked ? 1 : 0.35,
           },
         ]}
       >
@@ -74,11 +65,11 @@ export const BadgeDisplay: React.FC<BadgeDisplayProps> = ({
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
-    marginHorizontal: 4,
-    marginVertical: 8,
+    marginHorizontal: Spacing.xs,
+    marginVertical: Spacing.md,
   },
   badgeCircle: {
-    borderRadius: 999,
+    borderRadius: Radius.full,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
@@ -88,10 +79,9 @@ const styles = StyleSheet.create({
   },
   name: {
     fontWeight: '600',
-    marginTop: 6,
+    marginTop: Spacing.sm,
     textAlign: 'center',
     width: '100%',
     paddingHorizontal: 2,
   },
 });
-

@@ -32,7 +32,7 @@ interface FinanceContextType {
   updateGoal: (id: string, goal: Partial<SavingsGoal>) => void;
   deleteGoal: (id: string) => void;
   contributeToGoal: (goalId: string, amount: number) => void;
-  addCustomCategory: (category: Omit<Category, 'id'>) => void;
+  addCustomCategory: (category: Omit<Category, 'id'>) => string;
   loading: boolean;
 }
 
@@ -55,14 +55,16 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
           loadRecurringExpenses(),
           loadCustomCategories(),
         ]);
-        // Migration: ensure createdAt exists for older stored transactions
+        const MAX_SANE_AMOUNT = 10_000_000;
         const migratedTransactions: Transaction[] = loadedTransactions.map((t: any) => {
-          if (t?.createdAt) return t as Transaction;
-          const fallback =
-            typeof t?.date === 'string'
+          const raw = Number(t?.amount);
+          const amount = (Number.isFinite(raw) && raw >= 0 && raw <= MAX_SANE_AMOUNT) ? raw : 0;
+          const createdAt = t?.createdAt
+            ? t.createdAt
+            : typeof t?.date === 'string'
               ? new Date(`${t.date}T12:00:00.000Z`).toISOString()
               : new Date().toISOString();
-          return { ...t, createdAt: fallback } as Transaction;
+          return { ...t, amount, createdAt } as Transaction;
         });
         setTransactions(migratedTransactions);
         setGoals(loadedGoals);
@@ -265,12 +267,13 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
     );
   };
 
-  const addCustomCategory = (category: Omit<Category, 'id'>) => {
+  const addCustomCategory = (category: Omit<Category, 'id'>): string => {
     const newCategory: Category = {
       ...category,
       id: Date.now().toString(),
     };
     setCustomCategories((prev) => [...prev, newCategory]);
+    return newCategory.id;
   };
 
   return (

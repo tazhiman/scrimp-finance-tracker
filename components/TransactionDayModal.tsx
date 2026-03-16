@@ -1,7 +1,6 @@
 import React, { useMemo } from 'react';
 import {
   FlatList,
-  Modal,
   Pressable,
   StyleSheet,
   Text,
@@ -11,6 +10,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 import { useTheme } from '@/context/ThemeContext';
+import { useFinance } from '@/context/FinanceContext';
+import { GlassModal } from '@/components/ui/GlassModal';
+import { Spacing, Radius } from '@/constants/design';
 import { Transaction } from '@/types';
 import { formatCurrency, formatDateShort } from '@/utils/dateHelpers';
 import { getCategoryById } from '@/constants/categories';
@@ -37,10 +39,11 @@ export function TransactionDayModal({
   onPressTransaction,
 }: Props) {
   const { theme } = useTheme();
+  const { customCategories } = useFinance();
   const title = useMemo(() => format(date, 'EEEE, MMM d, yyyy'), [date]);
 
   const renderItem = ({ item }: { item: Transaction }) => {
-    const category = getCategoryById(item.category);
+    const category = getCategoryById(item.category, customCategories);
     const isIncome = item.type === 'income';
 
     return (
@@ -56,7 +59,7 @@ export function TransactionDayModal({
           <View
             style={[
               styles.categoryIcon,
-              { backgroundColor: category?.color + '20' || theme.backgroundTertiary },
+              { backgroundColor: (category?.color || theme.backgroundTertiary) + '20' },
             ]}
           >
             <Text style={styles.categoryEmoji}>{category?.icon || '💰'}</Text>
@@ -75,139 +78,125 @@ export function TransactionDayModal({
             </Text>
           </View>
         </View>
-        <Text style={[styles.transactionAmount, { color: isIncome ? theme.primary : theme.error }]}>
-          {isIncome ? '+' : '-'}
-          {formatCurrency(item.amount)}
+        <Text style={[styles.transactionAmount, { color: isIncome ? theme.primary : theme.secondary }]}>
+          {isIncome ? '+' : '-'}{formatCurrency(item.amount)}
         </Text>
       </TouchableOpacity>
     );
   };
 
   return (
-    <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
-      <View style={styles.modalOverlay}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-        <View
-          style={[
-            styles.modalContent,
-            {
-              backgroundColor: theme.cardBackground,
-              borderColor: theme.cardBorder,
-              height: modalHeight,
-            },
-          ]}
-        >
-          <View style={styles.modalHeader}>
-            <View style={styles.headerCenter}>
-              <Text style={[styles.modalTitle, { color: theme.text }]} numberOfLines={1}>
-                {title}
-              </Text>
-              <Text style={[styles.modalSubtitle, { color: theme.textSecondary }]}>
-                {transactions.length} {transactions.length === 1 ? 'transaction' : 'transactions'}
-              </Text>
-            </View>
-          </View>
-
-          <TouchableOpacity
-            style={[styles.closeButton, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}
-            onPress={onClose}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="close" size={22} color={theme.textSecondary} />
-          </TouchableOpacity>
-
-          <View style={styles.contentArea}>
-            {transactions.length === 0 ? (
-              <View style={styles.emptyState}>
-                <Ionicons name="calendar-outline" size={40} color={theme.textTertiary} />
-                <Text style={[styles.emptyText, { color: theme.text }]}>No transactions</Text>
-                <Text style={[styles.emptySubtext, { color: theme.textSecondary }]}>
-                  Nothing recorded for this date.
-                </Text>
-              </View>
-            ) : (
-              <FlatList
-                data={transactions}
-                keyExtractor={(t) => t.id}
-                renderItem={renderItem}
-                contentContainerStyle={styles.listContent}
-                style={styles.list}
-                showsVerticalScrollIndicator={false}
-              />
-            )}
-          </View>
-
-          <View style={[styles.footerNav, { borderTopColor: theme.cardBorder }]}>
-            <TouchableOpacity
-              onPress={onPrevDay}
-              style={[styles.footerButton, { backgroundColor: theme.backgroundSecondary, borderColor: theme.cardBorder }]}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="chevron-back" size={22} color={theme.textSecondary} />
-              <Text style={[styles.footerButtonText, { color: theme.textSecondary }]}>Prev</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={onNextDay}
-              style={[styles.footerButton, { backgroundColor: theme.backgroundSecondary, borderColor: theme.cardBorder }]}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.footerButtonText, { color: theme.textSecondary }]}>Next</Text>
-              <Ionicons name="chevron-forward" size={22} color={theme.textSecondary} />
-            </TouchableOpacity>
+    <GlassModal
+      visible={visible}
+      onClose={onClose}
+      cardStyle={{ height: modalHeight }}
+    >
+      <View style={styles.modalContent}>
+        <View style={styles.modalHeader}>
+          <View style={styles.headerCenter}>
+            <Text style={[styles.modalTitle, { color: theme.text }]} numberOfLines={1}>
+              {title}
+            </Text>
+            <Text style={[styles.modalSubtitle, { color: theme.textSecondary }]}>
+              {transactions.length} {transactions.length === 1 ? 'transaction' : 'transactions'}
+            </Text>
           </View>
         </View>
+
+        <TouchableOpacity
+          style={[styles.closeButton, { backgroundColor: theme.backgroundSecondary }]}
+          onPress={onClose}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="close" size={18} color={theme.textSecondary} />
+        </TouchableOpacity>
+
+        <View style={styles.contentArea}>
+          {transactions.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="calendar-outline" size={40} color={theme.textTertiary} />
+              <Text style={[styles.emptyText, { color: theme.text }]}>No transactions</Text>
+              <Text style={[styles.emptySubtext, { color: theme.textSecondary }]}>
+                Nothing recorded for this date.
+              </Text>
+            </View>
+          ) : (
+            <FlatList
+              data={transactions}
+              keyExtractor={(t) => t.id}
+              renderItem={renderItem}
+              contentContainerStyle={styles.listContent}
+              style={styles.list}
+              showsVerticalScrollIndicator={false}
+            />
+          )}
+        </View>
+
+        <View style={[styles.footerNav, { borderTopColor: theme.cardBorder }]}>
+          <TouchableOpacity
+            onPress={onPrevDay}
+            style={[styles.footerButton, { backgroundColor: theme.backgroundSecondary }]}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="chevron-back" size={20} color={theme.textSecondary} />
+            <Text style={[styles.footerButtonText, { color: theme.textSecondary }]}>Prev</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={onNextDay}
+            style={[styles.footerButton, { backgroundColor: theme.backgroundSecondary }]}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.footerButtonText, { color: theme.textSecondary }]}>Next</Text>
+            <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
+          </TouchableOpacity>
+        </View>
       </View>
-    </Modal>
+    </GlassModal>
   );
 }
 
 const styles = StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    justifyContent: 'center',
-    padding: 16,
-  },
   modalContent: {
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 12,
+    flex: 1,
+    padding: Spacing.xl,
   },
   contentArea: {
     flex: 1,
-    marginBottom: 60,
+    marginBottom: 56,
   },
   modalHeader: {
     alignItems: 'center',
-    paddingHorizontal: 4,
-    paddingTop: 2,
-    paddingBottom: 10,
+    paddingTop: Spacing.xs,
+    paddingBottom: Spacing.lg,
   },
   headerCenter: {
     alignItems: 'center',
-    paddingHorizontal: 8,
+    paddingHorizontal: Spacing.md,
   },
   modalTitle: {
-    fontSize: 16,
-    fontWeight: '800',
+    fontSize: 17,
+    fontWeight: '700',
   },
   modalSubtitle: {
     fontSize: 12,
-    marginTop: 2,
+    fontWeight: '500',
+    marginTop: Spacing.xs,
   },
   closeButton: {
     position: 'absolute',
-    top: 10,
-    right: 10,
-    padding: 6,
-    borderRadius: 12,
-    borderWidth: 1,
+    top: Spacing.lg,
+    right: Spacing.lg,
+    width: 30,
+    height: 30,
+    borderRadius: Radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
     zIndex: 10,
   },
   listContent: {
-    paddingTop: 6,
-    paddingBottom: 8,
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.md,
     flexGrow: 1,
   },
   list: {
@@ -220,55 +209,54 @@ const styles = StyleSheet.create({
     bottom: 0,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    padding: 12,
-    borderTopWidth: 1,
+    padding: Spacing.lg,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    gap: Spacing.lg,
   },
   footerButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    width: '48%',
+    gap: Spacing.sm,
+    paddingVertical: Spacing.lg,
+    borderRadius: Radius.md,
+    flex: 1,
   },
   footerButtonText: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   emptyState: {
     flex: 1,
     width: '100%',
-    paddingVertical: 28,
+    paddingVertical: Spacing['4xl'],
     alignItems: 'center',
     justifyContent: 'center',
   },
   emptyText: {
     fontSize: 16,
     fontWeight: '700',
-    marginTop: 10,
+    marginTop: Spacing.lg,
   },
   emptySubtext: {
     fontSize: 13,
-    marginTop: 6,
+    marginTop: Spacing.sm,
     textAlign: 'center',
   },
   transactionCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 12,
-    borderRadius: 12,
+    padding: Spacing.lg,
+    borderRadius: Radius.md,
     borderWidth: 1,
-    marginBottom: 10,
+    marginBottom: Spacing.md,
   },
   transactionLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
-    marginRight: 10,
+    marginRight: Spacing.lg,
   },
   categoryIcon: {
     width: 40,
@@ -276,7 +264,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: Spacing.lg,
   },
   categoryEmoji: {
     fontSize: 18,
@@ -285,20 +273,20 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   transactionCategory: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
   },
   transactionDescription: {
-    fontSize: 14,
+    fontSize: 13,
     marginTop: 2,
   },
   transactionDate: {
     fontSize: 12,
-    marginTop: 4,
+    marginTop: Spacing.xs,
+    fontWeight: '500',
   },
   transactionAmount: {
     fontSize: 16,
     fontWeight: '700',
   },
 });
-

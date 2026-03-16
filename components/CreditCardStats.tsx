@@ -1,38 +1,31 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from 'expo-router';
 import { getMinSpendProgress, getAllCards } from '@/utils/cardEngine';
 import { loadUserCards, loadCardPreference } from '@/utils/storage';
 import { getCachedCardImage } from '@/utils/remoteRewardsData';
 import { useTheme } from '@/context/ThemeContext';
+import { GlassCard } from '@/components/ui/GlassCard';
+import { Spacing, Radius } from '@/constants/design';
 import { UserCard } from '@/types';
+import { abbreviateNumber } from '@/utils/dateHelpers';
 
 interface CreditCardStatsProps {
   onManagePress?: () => void;
 }
 
-/**
- * CreditCardStats - Shows credit card spending progress and stats
- */
 export function CreditCardStats({ onManagePress }: CreditCardStatsProps) {
   const { theme } = useTheme();
   const [userCards, setUserCards] = useState<UserCard[]>([]);
   const [preferMiles, setPreferMiles] = useState(false);
   const [cardImages, setCardImages] = useState<Record<string, string | null>>({});
 
-  // Load user cards and preferences
-  useEffect(() => {
-    loadUserData();
-  }, []);
-
-  // Add focus listener to reload data when returning to dashboard
-  useEffect(() => {
-    const interval = setInterval(() => {
+  useFocusEffect(
+    useCallback(() => {
       loadUserData();
-    }, 2000); // Refresh every 2 seconds when on dashboard
-
-    return () => clearInterval(interval);
-  }, []);
+    }, [])
+  );
 
   const loadUserData = async () => {
     const cards = await loadUserCards();
@@ -40,7 +33,6 @@ export function CreditCardStats({ onManagePress }: CreditCardStatsProps) {
     setUserCards(cards);
     setPreferMiles(pref);
     
-    // Only load images if we don't have them yet or cards changed
     if (Object.keys(cardImages).length === 0 || cards.length !== userCards.length) {
       const allCards = getAllCards();
       const images: Record<string, string | null> = {};
@@ -59,29 +51,32 @@ export function CreditCardStats({ onManagePress }: CreditCardStatsProps) {
     }
   };
 
-  // Get min spend progress for user's cards
   const minSpendProgress = getMinSpendProgress(userCards);
 
-  // Don't show if no cards configured
   if (userCards.length === 0) {
     return (
       <View>
         <Text style={[styles.sectionTitle, { color: theme.text }]}>Credit Cards</Text>
         <TouchableOpacity
-          style={[styles.setupCard, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}
           onPress={onManagePress}
           activeOpacity={0.7}
         >
-          <View style={styles.setupContent}>
-            <Ionicons name="card-outline" size={32} color={theme.primary} />
-            <View style={styles.setupText}>
-              <Text style={[styles.setupTitle, { color: theme.text }]}>Setup Credit Cards</Text>
-              <Text style={[styles.setupSubtitle, { color: theme.textSecondary }]}>
-                Track your card spending and rewards
-              </Text>
+          <GlassCard style={styles.setupCard} intensity="subtle">
+            <View style={styles.setupInner}>
+              <View style={styles.setupContent}>
+                <View style={[styles.setupIconCircle, { backgroundColor: theme.primary + '18' }]}>
+                  <Ionicons name="card-outline" size={24} color={theme.primary} />
+                </View>
+                <View style={styles.setupText}>
+                  <Text style={[styles.setupTitle, { color: theme.text }]}>Setup Credit Cards</Text>
+                  <Text style={[styles.setupSubtitle, { color: theme.textSecondary }]}>
+                    Track your card spending and rewards
+                  </Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
             </View>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
+          </GlassCard>
         </TouchableOpacity>
       </View>
     );
@@ -96,109 +91,104 @@ export function CreditCardStats({ onManagePress }: CreditCardStatsProps) {
         </TouchableOpacity>
       </View>
 
-      {/* Min Spend Progress Cards */}
       {minSpendProgress.length > 0 && (
-        <View style={[styles.progressContainer, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
-          {minSpendProgress.map((progress, index) => {
-            if (!progress) return null;
-            
-            return (
-              <View key={progress.cardId}>
-                {index > 0 && <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />}
-                <View style={styles.progressItem}>
-                  <View style={styles.progressHeader}>
-                    <View style={styles.cardNameRow}>
-                      {(() => {
-                        const userCard = userCards.find(c => c.id === progress.cardId) as any;
-                        const isCustom = userCard?.isCustom;
-                        
-                        if (!isCustom && cardImages[progress.cardId]) {
-                          return (
-                            <Image 
-                              source={{ uri: cardImages[progress.cardId]! }} 
-                              style={styles.cardImageSmall}
-                              resizeMode="cover"
-                            />
-                          );
-                        } else {
+        <GlassCard style={styles.progressContainer} intensity="subtle">
+          <View style={styles.progressInner}>
+            {minSpendProgress.map((progress, index) => {
+              if (!progress) return null;
+              
+              return (
+                <View key={progress.cardId}>
+                  {index > 0 && <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />}
+                  <View style={styles.progressItem}>
+                    <View style={styles.progressHeader}>
+                      <View style={styles.cardNameRow}>
+                        {(() => {
+                          const userCard = userCards.find(c => c.id === progress.cardId) as any;
+                          const isCustom = userCard?.isCustom;
+                          
+                          if (!isCustom && cardImages[progress.cardId]) {
+                            return (
+                              <Image 
+                                source={{ uri: cardImages[progress.cardId]! }} 
+                                style={styles.cardImageSmall}
+                                resizeMode="cover"
+                              />
+                            );
+                          }
                           const brandColor = isCustom 
                             ? theme.accent 
                             : (getAllCards().find(c => c.id === progress.cardId)?.brandColor || '#666');
-                          
                           return (
                             <View style={[styles.cardVisualSmall, { backgroundColor: brandColor }]}>
                               <Ionicons name="card" size={10} color="#FFF" />
                             </View>
                           );
-                        }
-                      })()}
-                      <Text style={[styles.progressCardName, { color: theme.text }]} numberOfLines={1}>
-                        {progress.cardName}
-                      </Text>
+                        })()}
+                        <Text style={[styles.progressCardName, { color: theme.text }]} numberOfLines={1}>
+                          {progress.cardName}
+                        </Text>
+                        {(() => {
+                          const userCard = userCards.find(c => c.id === progress.cardId) as any;
+                          if (userCard?.isCustom) {
+                            return (
+                              <View style={[styles.customTag, { backgroundColor: theme.accent }]}>
+                                <Text style={styles.customTagText}>Custom</Text>
+                              </View>
+                            );
+                          }
+                          return null;
+                        })()}
+                      </View>
                       {(() => {
                         const userCard = userCards.find(c => c.id === progress.cardId) as any;
-                        if (userCard?.isCustom) {
+                        const isCustomWithNoMinSpend = userCard?.isCustom && (userCard?.minSpend || 0) === 0;
+                        if (progress.metMinSpend && !isCustomWithNoMinSpend) {
                           return (
-                            <View style={[styles.customTag, { backgroundColor: theme.accent }]}>
-                              <Text style={styles.customTagText}>Custom</Text>
+                            <View style={[styles.metBadge, { backgroundColor: theme.primary }]}>
+                              <Ionicons name="checkmark" size={10} color="#000" />
                             </View>
                           );
                         }
                         return null;
                       })()}
                     </View>
-                    {(() => {
-                      const userCard = userCards.find(c => c.id === progress.cardId) as any;
-                      const isCustomWithNoMinSpend = userCard?.isCustom && (userCard?.minSpend || 0) === 0;
-                      
-                      // Only show checkmark if:
-                      // 1. Min spend is met, AND
-                      // 2. It's not a custom card with no minimum spend
-                      if (progress.metMinSpend && !isCustomWithNoMinSpend) {
-                        return (
-                          <View style={[styles.metBadge, { backgroundColor: theme.primary }]}>
-                            <Ionicons name="checkmark" size={10} color="#000" />
-                          </View>
-                        );
-                      }
-                      return null;
-                    })()}
-                  </View>
-                  
-                  <View style={styles.progressAmounts}>
-                    <Text style={[styles.progressAmount, { color: theme.text }]}>
-                      ${progress.currentSpend.toFixed(0)}
-                    </Text>
-                    <Text style={[styles.progressTarget, { color: theme.textSecondary }]}>
-                      {progress.minSpend > 0 ? ` / $${progress.minSpend}` : ''}
-                    </Text>
-                  </View>
+                    
+                    <View style={styles.progressAmounts}>
+                      <Text style={[styles.progressAmount, { color: theme.text }]}>
+                        ${Number.isFinite(progress.currentSpend) ? (progress.currentSpend >= 10000 ? abbreviateNumber(progress.currentSpend, 1) : progress.currentSpend.toFixed(0)) : '0'}
+                      </Text>
+                      <Text style={[styles.progressTarget, { color: theme.textSecondary }]}>
+                        {progress.minSpend > 0 ? ` / $${progress.minSpend >= 10000 ? abbreviateNumber(progress.minSpend, 1) : progress.minSpend}` : ''}
+                      </Text>
+                    </View>
 
-                  {progress.minSpend > 0 && (
-                    <>
-                      <View style={[styles.progressBarBg, { backgroundColor: theme.cardBorder }]}>
-                        <View
-                          style={[
-                            styles.progressBarFill,
-                            {
-                              width: `${progress.progress}%`,
-                              backgroundColor: progress.metMinSpend ? theme.primary : theme.accent,
-                            },
-                          ]}
-                        />
-                      </View>
-                      {progress.remaining > 0 && (
-                        <Text style={[styles.progressRemaining, { color: theme.textSecondary }]}>
-                          ${progress.remaining.toFixed(0)} remaining
-                        </Text>
-                      )}
-                    </>
-                  )}
+                    {progress.minSpend > 0 && (
+                      <>
+                        <View style={[styles.progressBarBg, { backgroundColor: theme.cardBorder }]}>
+                          <View
+                            style={[
+                              styles.progressBarFill,
+                              {
+                                width: `${progress.progress}%`,
+                                backgroundColor: progress.metMinSpend ? theme.primary : theme.accent,
+                              },
+                            ]}
+                          />
+                        </View>
+                        {progress.remaining > 0 && (
+                          <Text style={[styles.progressRemaining, { color: theme.textSecondary }]}>
+                            ${Number.isFinite(progress.remaining) ? (progress.remaining >= 10000 ? abbreviateNumber(progress.remaining, 1) : progress.remaining.toFixed(0)) : '0'} remaining
+                          </Text>
+                        )}
+                      </>
+                    )}
+                  </View>
                 </View>
-              </View>
-            );
-          })}
-        </View>
+              );
+            })}
+          </View>
+        </GlassCard>
       )}
     </View>
   );
@@ -206,36 +196,43 @@ export function CreditCardStats({ onManagePress }: CreditCardStatsProps) {
 
 const styles = StyleSheet.create({
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 8,
-    marginTop: 8,
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: Spacing.md,
+    marginTop: Spacing.md,
   },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
-    marginTop: 8,
+    marginBottom: Spacing.md,
+    marginTop: Spacing.md,
   },
   manageButton: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
   },
   setupCard: {
+    marginBottom: Spacing.lg,
+  },
+  setupInner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    marginBottom: 12,
+    padding: Spacing.xl,
   },
   setupContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: Spacing.lg,
     flex: 1,
+  },
+  setupIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: Radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   setupText: {
     flex: 1,
@@ -247,12 +244,13 @@ const styles = StyleSheet.create({
   },
   setupSubtitle: {
     fontSize: 12,
+    fontWeight: '500',
   },
   progressContainer: {
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 12,
-    borderWidth: 1,
+    marginBottom: Spacing.lg,
+  },
+  progressInner: {
+    padding: Spacing.xl,
   },
   progressItem: {
     paddingVertical: 2,
@@ -261,25 +259,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: Spacing.sm,
   },
   cardNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: Spacing.md,
     flex: 1,
   },
   cardVisualSmall: {
     width: 36,
     height: 22,
-    borderRadius: 4,
+    borderRadius: Radius.xs,
     alignItems: 'center',
     justifyContent: 'center',
   },
   cardImageSmall: {
     width: 36,
     height: 22,
-    borderRadius: 4,
+    borderRadius: Radius.xs,
   },
   progressCardName: {
     fontSize: 14,
@@ -288,15 +286,15 @@ const styles = StyleSheet.create({
   metBadge: {
     width: 18,
     height: 18,
-    borderRadius: 9,
+    borderRadius: Radius.full,
     alignItems: 'center',
     justifyContent: 'center',
   },
   customTag: {
-    paddingHorizontal: 4,
+    paddingHorizontal: Spacing.xs,
     paddingVertical: 1,
     borderRadius: 3,
-    marginLeft: 4,
+    marginLeft: Spacing.xs,
   },
   customTagText: {
     fontSize: 8,
@@ -308,10 +306,10 @@ const styles = StyleSheet.create({
   progressAmounts: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    marginBottom: 6,
+    marginBottom: Spacing.sm,
   },
   progressAmount: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '700',
   },
   progressTarget: {
@@ -322,7 +320,7 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
     overflow: 'hidden',
-    marginBottom: 4,
+    marginBottom: Spacing.xs,
   },
   progressBarFill: {
     height: '100%',
@@ -330,9 +328,10 @@ const styles = StyleSheet.create({
   },
   progressRemaining: {
     fontSize: 11,
+    fontWeight: '500',
   },
   divider: {
-    height: 1,
-    marginVertical: 10,
+    height: StyleSheet.hairlineWidth,
+    marginVertical: Spacing.lg,
   },
 });

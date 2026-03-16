@@ -16,6 +16,8 @@ import { useTheme } from '@/context/ThemeContext';
 import { ProgressRing } from '@/components/ProgressRing';
 import { PieChart, PieSlice } from '@/components/PieChart';
 import { CreditCardStats } from '@/components/CreditCardStats';
+import { GlassCard } from '@/components/ui/GlassCard';
+import { Spacing, Radius, Shadow } from '@/constants/design';
 import {
   getCombinedTransactionsByPeriod,
   calculateTotalIncome,
@@ -31,38 +33,28 @@ import { Ionicons } from '@expo/vector-icons';
 export default function DashboardScreen() {
   const router = useRouter();
   const tabBarHeight = useBottomTabBarHeight();
-  const { transactions, goals, recurringExpenses } = useFinance();
+  const { transactions, goals, recurringExpenses, customCategories } = useFinance();
   const { progress } = useGamification();
   const { theme, themeMode } = useTheme();
   const [refreshing, setRefreshing] = useState(false);
   const [selectedSliceId, setSelectedSliceId] = useState<string | null>(null);
   
-  // In dark mode, use black text on the light colored button for better contrast
   const buttonTextColor = themeMode === 'dark' ? '#000505' : theme.text;
 
-  // Always use monthly data for progress rings
   const monthlyTransactions = getCombinedTransactionsByPeriod(transactions, recurringExpenses, 'month');
   const income = calculateTotalIncome(monthlyTransactions);
   const expenses = calculateTotalExpenses(monthlyTransactions);
   const savings = calculateNetSavings(monthlyTransactions);
 
-  // Calculate goal progress (total progress across all goals)
   const hasGoals = goals.length > 0;
-  const totalGoalTarget = goals.reduce((sum, g) => sum + g.targetAmount, 0);
-  const totalGoalCurrent = goals.reduce((sum, g) => sum + g.currentAmount, 0);
-  const goalProgress = totalGoalTarget > 0 ? Math.min((totalGoalCurrent / totalGoalTarget) * 100, 100) : 0;
-
-  // Calculate monthly goal contributions from this month's transactions
   const monthlyGoalContributions = goals.reduce((sum, goal) => sum + goal.contributionAmount, 0);
 
-  // Calculate progress percentages
-  const savingsTarget = income * 0.2; // 20% savings target
+  const savingsTarget = income * 0.2;
   const savingsProgress = savingsTarget > 0 ? Math.min((savings / savingsTarget) * 100, 100) : 0;
   
-  // Budget calculation: 80% of income - monthly goal contributions - expenses
-  const baseExpenseLimit = income * 0.8; // 80% expense limit
+  const baseExpenseLimit = income * 0.8;
   const availableBudget = baseExpenseLimit - monthlyGoalContributions - expenses;
-  const totalCommitted = monthlyGoalContributions + expenses; // Total money committed (goals + spending)
+  const totalCommitted = monthlyGoalContributions + expenses;
   const expenseProgress = baseExpenseLimit > 0 ? Math.min((totalCommitted / baseExpenseLimit) * 100, 100) : 0;
 
   const statsSlices: PieSlice[] = useMemo(() => {
@@ -70,7 +62,7 @@ export default function DashboardScreen() {
     const slices: PieSlice[] = Object.entries(byCategory)
       .filter(([, amount]) => amount > 0)
       .map(([categoryId, amount]) => {
-        const category = getCategoryById(categoryId);
+        const category = getCategoryById(categoryId, customCategories);
         return {
           id: categoryId,
           label: category?.name ?? 'Other',
@@ -82,7 +74,6 @@ export default function DashboardScreen() {
     const goalColors = [theme.primary, theme.accent, theme.secondary, theme.ringOrange];
     goals.forEach((goal, idx) => {
       if (goal.contributionAmount <= 0) return;
-      // Only show goal slices for goals that have actually been contributed to this month
       if (!goal.lastContributionDate || !isDateInPeriod(goal.lastContributionDate, 'month')) return;
       slices.push({
         id: `goal_contrib_${goal.id}`,
@@ -117,273 +108,227 @@ export default function DashboardScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    // Simulate refresh
     setTimeout(() => setRefreshing(false), 1000);
   };
+
+  const renderGoalCard = (goal: typeof goals[0]) => {
+    const goalProgressPercent = goal.targetAmount > 0 ? (goal.currentAmount / goal.targetAmount) * 100 : 0;
+    const contributionStatus = getContributionStatus(goal);
+    const remaining = goal.targetAmount - goal.currentAmount;
+    
+    const getStatusConfig = () => {
+      if (remaining <= 0) {
+        return { text: 'Goal Reached', color: theme.primary };
+      }
+      switch (contributionStatus) {
+        case 'completed':
+          return { text: 'Paid this ' + (goal.frequency === 'weekly' ? 'week' : 'month'), color: theme.primary };
+        case 'overdue':
+          return { text: 'Overdue', color: theme.error };
+        case 'due':
+          return { text: 'Due this ' + (goal.frequency === 'weekly' ? 'week' : 'month'), color: theme.warningOrange };
+      }
+    };
+    
+    const statusConfig = getStatusConfig();
+    
+    return (
+      <TouchableOpacity
+        key={goal.id}
+        onPress={() => router.push('/(tabs)/goals')}
+        activeOpacity={0.7}
+      >
+        <GlassCard style={styles.ringCard} intensity="subtle">
+          <View style={styles.ringCardInner}>
+            <ProgressRing
+              progress={goalProgressPercent}
+              size={96}
+              strokeWidth={10}
+              color={theme.ringGreen}
+              label={goal.name}
+              value={`${Math.round(goalProgressPercent)}%`}
+            />
+            <View style={styles.ringDetails}>
+              <Text style={[styles.ringDetailLabel, { color: theme.textSecondary }]}>Progress</Text>
+              <Text style={[styles.ringDetailValue, { color: theme.text }]}>{formatCurrency(goal.currentAmount)}</Text>
+              <Text style={[styles.ringDetailLabel, { color: theme.textSecondary }]}>of {formatCurrency(goal.targetAmount)}</Text>
+              <View style={[styles.statusPill, { backgroundColor: statusConfig.color + '18' }]}>
+                <Text style={[styles.statusPillText, { color: statusConfig.color }]}>{statusConfig.text}</Text>
+              </View>
+            </View>
+          </View>
+        </GlassCard>
+      </TouchableOpacity>
+    );
+  };
+
+  const renderBudgetCard = (subtitle: string) => (
+    <GlassCard style={styles.ringCard} intensity="subtle">
+      <View style={styles.ringCardInner}>
+        <ProgressRing
+          progress={expenseProgress}
+          size={96}
+          strokeWidth={10}
+          color={availableBudget < 0 ? theme.error : theme.ringOrange}
+          label="Budget"
+          value={`${Math.round(expenseProgress)}%`}
+        />
+        <View style={styles.ringDetails}>
+          <Text style={[styles.ringDetailLabel, { color: theme.textSecondary }]}>
+            {availableBudget >= 0 ? 'Available' : 'Over Budget'}
+          </Text>
+          <Text style={[
+            styles.ringDetailValue,
+            { color: availableBudget < 0 ? theme.error : theme.text },
+          ]}>
+            {formatCurrency(Math.abs(availableBudget))}
+          </Text>
+          <Text style={[styles.ringDetailLabel, { color: theme.textSecondary }]}>
+            {subtitle}
+          </Text>
+        </View>
+      </View>
+    </GlassCard>
+  );
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={[styles.content, { paddingBottom: tabBarHeight + 24 }]}
+        contentContainerStyle={[styles.content, { paddingBottom: tabBarHeight + Spacing['3xl'] }]}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <Text style={[styles.greeting, { color: theme.text }]}>Welcome back!</Text>
-            <Text style={[styles.subtitle, { color: theme.textSecondary }]}>Level {progress.level} • {progress.xp.toLocaleString()} XP</Text>
-        </View>
+            <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
+              Level {progress.level} • {progress.xp.toLocaleString()} XP
+            </Text>
+          </View>
           <TouchableOpacity
-            style={styles.settingsButton}
+            style={[styles.settingsButton, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}
             onPress={() => router.push('/(tabs)/settings')}
+            activeOpacity={0.7}
           >
-            <Ionicons name="settings-outline" size={28} color={theme.text} />
+            <Ionicons name="settings-outline" size={22} color={theme.textSecondary} />
           </TouchableOpacity>
         </View>
 
-        {/* Credit Card Stats */}
-        <CreditCardStats onManagePress={() => router.push('/(tabs)/settings')} />
+        <CreditCardStats onManagePress={() => router.push('/(tabs)/manage-cards')} />
 
-        {/* Progress Rings */}
         {hasGoals ? (
           <>
-            {/* Active Goals Section */}
             <Text style={[styles.sectionTitle, { color: theme.text }]}>Active Goals</Text>
-            {goals.slice(0, 2).map((goal) => {
-              const goalProgressPercent = (goal.currentAmount / goal.targetAmount) * 100;
-              const contributionStatus = getContributionStatus(goal);
-              const remaining = goal.targetAmount - goal.currentAmount;
-              
-              // Determine status styling
-              const getStatusConfig = () => {
-                if (remaining <= 0) {
-                  return {
-                    icon: 'checkmark-circle' as const,
-                    text: 'Goal Reached',
-                    color: theme.primary,
-                  };
-                }
-                
-                switch (contributionStatus) {
-                  case 'completed':
-                    return {
-                      icon: 'checkmark-circle' as const,
-                      text: '✓ Paid this ' + (goal.frequency === 'weekly' ? 'week' : 'month'),
-                      color: theme.primary,
-                    };
-                  case 'overdue':
-                    return {
-                      icon: 'alert-circle' as const,
-                      text: '⚠️ Overdue',
-                      color: theme.error,
-                    };
-                  case 'due':
-                    return {
-                      icon: 'time' as const,
-                      text: '⏰ Due this ' + (goal.frequency === 'weekly' ? 'week' : 'month'),
-                      color: '#FF9500',
-                    };
-                }
-              };
-              
-              const statusConfig = getStatusConfig();
-              
-              return (
-                <TouchableOpacity 
-                  key={goal.id} 
-                  style={[styles.ringCard, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}
-                  onPress={() => router.push('/(tabs)/goals')}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.ringCardContent}>
-                    <ProgressRing
-                      progress={goalProgressPercent}
-                      size={100}
-                      strokeWidth={10}
-                      color={theme.ringGreen}
-                      label={goal.name}
-                      value={`${Math.round(goalProgressPercent)}%`}
-                    />
-                    <View style={styles.ringDetails}>
-                      <Text style={[styles.ringDetailLabel, { color: theme.textSecondary }]}>Progress</Text>
-                      <Text style={[styles.ringDetailValue, { color: theme.text }]}>{formatCurrency(goal.currentAmount)}</Text>
-                      <Text style={[styles.ringDetailLabel, { color: theme.textSecondary }]}>of {formatCurrency(goal.targetAmount)}</Text>
-                      <Text style={[styles.ringDetailStatus, { color: statusConfig.color }]}>{statusConfig.text}</Text>
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
+            {goals.slice(0, 2).map(renderGoalCard)}
             {goals.length > 2 && (
-              <TouchableOpacity 
-                style={[styles.viewAllButton, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}
+              <TouchableOpacity
+                style={[styles.viewAllButton, { borderColor: theme.cardBorder }]}
                 onPress={() => router.push('/(tabs)/goals')}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.viewAllText, { color: theme.primary }]}>View All {goals.length} Goals</Text>
-                <Ionicons name="chevron-forward" size={20} color={theme.primary} />
+                <Text style={[styles.viewAllText, { color: theme.primary }]}>
+                  View All {goals.length} Goals
+                </Text>
+                <Ionicons name="chevron-forward" size={18} color={theme.primary} />
               </TouchableOpacity>
             )}
 
-            {/* Budget Remaining Section */}
             <Text style={[styles.sectionTitle, { color: theme.text }]}>Budget Remaining</Text>
-            <View style={[styles.ringCard, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
-              <View style={styles.ringCardContent}>
-                <ProgressRing
-                  progress={expenseProgress}
-                  size={100}
-                  strokeWidth={10}
-                  color={availableBudget < 0 ? theme.error : theme.ringOrange}
-                  label="Budget"
-                  value={`${Math.round(expenseProgress)}%`}
-                />
-                <View style={styles.ringDetails}>
-                  <Text style={[styles.ringDetailLabel, { color: theme.textSecondary }]}>
-                    {availableBudget >= 0 ? 'Available' : 'Over Budget'}
-                  </Text>
-                  <Text style={[
-                    styles.ringDetailValue, 
-                    { color: availableBudget < 0 ? theme.error : theme.text }
-                  ]}>
-                    {availableBudget >= 0 
-                      ? formatCurrency(availableBudget)
-                      : formatCurrency(Math.abs(availableBudget))
-                    }
-                  </Text>
-                  <Text style={[styles.ringDetailLabel, { color: theme.textSecondary }]}>
-                    Goals: {formatCurrency(monthlyGoalContributions)} • Spending: {formatCurrency(expenses)}
-                  </Text>
-                </View>
-              </View>
-            </View>
-            <TouchableOpacity 
-              style={[styles.addTransactionButton, { backgroundColor: theme.primary }]}
-              onPress={() => router.push('/(tabs)/transactions?openForm=true')}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="add-circle" size={20} color={buttonTextColor} />
-              <Text style={[styles.addTransactionText, { color: buttonTextColor }]}>Add Transaction</Text>
-            </TouchableOpacity>
+            {renderBudgetCard(`Goals: ${formatCurrency(monthlyGoalContributions)} • Spending: ${formatCurrency(expenses)}`)}
           </>
         ) : (
           <>
-            {/* No Goals - Show Savings Card */}
             <Text style={[styles.sectionTitle, { color: theme.text }]}>Savings</Text>
-            <View style={[styles.ringCard, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
-              <View style={styles.ringCardContent}>
-            <ProgressRing
-              progress={savingsProgress}
-                  size={100}
+            <GlassCard style={styles.ringCard} intensity="subtle">
+              <View style={styles.ringCardInner}>
+                <ProgressRing
+                  progress={savingsProgress}
+                  size={96}
                   strokeWidth={10}
                   color={theme.ringGreen}
-              label="Savings"
-              value={formatCurrency(savings)}
-            />
+                  label="Savings"
+                  value={formatCurrency(savings)}
+                />
                 <View style={styles.ringDetails}>
                   <Text style={[styles.ringDetailLabel, { color: theme.textSecondary }]}>Net Savings</Text>
                   <Text style={[styles.ringDetailValue, { color: theme.text }]}>{formatCurrency(savings)}</Text>
                   <Text style={[styles.ringDetailLabel, { color: theme.textSecondary }]}>Goal: {formatCurrency(savingsTarget)}</Text>
-          </View>
-          </View>
-        </View>
-
-            {/* Budget Remaining Section */}
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Budget Remaining</Text>
-            <View style={[styles.ringCard, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
-              <View style={styles.ringCardContent}>
-                <ProgressRing
-                  progress={expenseProgress}
-                  size={100}
-                  strokeWidth={10}
-                  color={availableBudget < 0 ? theme.error : theme.ringOrange}
-                  label="Budget"
-                  value={`${Math.round(expenseProgress)}%`}
-                />
-                <View style={styles.ringDetails}>
-                  <Text style={[styles.ringDetailLabel, { color: theme.textSecondary }]}>
-                    {availableBudget >= 0 ? 'Available' : 'Over Budget'}
-                  </Text>
-                  <Text style={[
-                    styles.ringDetailValue, 
-                    { color: availableBudget < 0 ? theme.error : theme.text }
-                  ]}>
-                    {availableBudget >= 0 
-                      ? formatCurrency(availableBudget)
-                      : formatCurrency(Math.abs(availableBudget))
-                    }
-            </Text>
-                  <Text style={[styles.ringDetailLabel, { color: theme.textSecondary }]}>
-                    Monthly spending: {formatCurrency(expenses)}
-            </Text>
-          </View>
+                </View>
               </View>
-            </View>
-            <TouchableOpacity 
-              style={[styles.addTransactionButton, { backgroundColor: theme.primary }]}
-              onPress={() => router.push('/(tabs)/transactions?openForm=true')}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="add-circle" size={20} color={buttonTextColor} />
-              <Text style={[styles.addTransactionText, { color: buttonTextColor }]}>Add Transaction</Text>
-            </TouchableOpacity>
+            </GlassCard>
+
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>Budget Remaining</Text>
+            {renderBudgetCard(`Monthly spending: ${formatCurrency(expenses)}`)}
           </>
         )}
 
-        {/* Statistics */}
-        <View style={[styles.statsCard, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
-          <View style={styles.statsHeader}>
-            <Text style={[styles.statsTitle, { color: theme.text }]}>Statistics</Text>
-            <Text style={[styles.statsSubtitle, { color: theme.textSecondary }]}>This month</Text>
-        </View>
+        <TouchableOpacity
+          style={[styles.addTransactionButton, { backgroundColor: theme.primary }, Shadow.medium]}
+          onPress={() => router.push('/(tabs)/transactions?openForm=true')}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="add-circle" size={20} color={buttonTextColor} />
+          <Text style={[styles.addTransactionText, { color: buttonTextColor }]}>Add Transaction</Text>
+        </TouchableOpacity>
 
-          {statsSlices.length === 0 ? (
-            <Text style={[styles.statsEmpty, { color: theme.textSecondary }]}>
-              No spending (or goal contributions) yet this month.
-                    </Text>
-          ) : (
-            <>
-              <View style={styles.statsChartContainer}>
-                <PieChart
-                  size={220}
-                  slices={statsSlices}
-                  selectedId={selectedSliceId}
-                  onPressSlice={(slice) => setSelectedSliceId(slice.id)}
-                      />
-                    </View>
+        <GlassCard style={styles.statsCard} intensity="subtle" borderRadius={Radius.lg}>
+          <View style={styles.statsInner}>
+            <View style={styles.statsHeader}>
+              <Text style={[styles.statsTitle, { color: theme.text }]}>Statistics</Text>
+              <Text style={[styles.statsSubtitle, { color: theme.textSecondary }]}>This month</Text>
+            </View>
 
-              <View style={[styles.statsSelectedCard, { backgroundColor: theme.backgroundSecondary, borderColor: theme.cardBorder }]}>
-                <Text style={[styles.statsSelectedLabel, { color: theme.textSecondary }]}>Selected</Text>
-                <Text style={[styles.statsSelectedValue, { color: theme.text }]}>
-                  {(selectedSlice?.label ?? '—') + ': ' + (selectedSlice ? formatCurrency(selectedSlice.value) : '—')}
-                    </Text>
-                  </View>
+            {statsSlices.length === 0 ? (
+              <Text style={[styles.statsEmpty, { color: theme.textSecondary }]}>
+                No spending (or goal contributions) yet this month.
+              </Text>
+            ) : (
+              <>
+                <View style={styles.statsChartContainer}>
+                  <PieChart
+                    size={220}
+                    slices={statsSlices}
+                    selectedId={selectedSliceId}
+                    onPressSlice={(slice) => setSelectedSliceId(slice.id)}
+                  />
+                </View>
 
-              <View style={styles.statsRows}>
-                {statsSlices.map((slice) => (
-                  <TouchableOpacity
-                    key={slice.id}
-                    style={styles.statsRow}
-                    onPress={() => setSelectedSliceId(slice.id)}
-                    activeOpacity={0.75}
-                  >
-                    <View style={styles.statsRowLeft}>
-                      <View style={[styles.statsSwatch, { backgroundColor: slice.color }]} />
-                      <Text style={[styles.statsRowLabel, { color: theme.text }]} numberOfLines={1}>
-                        {slice.label}
-          </Text>
-                    </View>
-                    <Text style={[styles.statsRowValue, { color: theme.textSecondary }]}>
-                      {formatCurrency(slice.value)}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </>
-          )}
-        </View>
+                <View style={[styles.statsSelectedCard, { backgroundColor: theme.backgroundSecondary + '80', borderColor: theme.cardBorder }]}>
+                  <Text style={[styles.statsSelectedLabel, { color: theme.textSecondary }]}>Selected</Text>
+                  <Text style={[styles.statsSelectedValue, { color: theme.text }]}>
+                    {(selectedSlice?.label ?? '—') + ': ' + (selectedSlice ? formatCurrency(selectedSlice.value) : '—')}
+                  </Text>
+                </View>
+
+                <View style={styles.statsRows}>
+                  {statsSlices.map((slice) => (
+                    <TouchableOpacity
+                      key={slice.id}
+                      style={[
+                        styles.statsRow,
+                        selectedSliceId === slice.id && { backgroundColor: theme.backgroundSecondary + '60', borderRadius: Radius.sm },
+                      ]}
+                      onPress={() => setSelectedSliceId(slice.id)}
+                      activeOpacity={0.75}
+                    >
+                      <View style={styles.statsRowLeft}>
+                        <View style={[styles.statsSwatch, { backgroundColor: slice.color }]} />
+                        <Text style={[styles.statsRowLabel, { color: theme.text }]} numberOfLines={1}>
+                          {slice.label}
+                        </Text>
+                      </View>
+                      <Text style={[styles.statsRowValue, { color: theme.textSecondary }]}>
+                        {formatCurrency(slice.value)}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </>
+            )}
+          </View>
+        </GlassCard>
       </ScrollView>
     </SafeAreaView>
   );
@@ -397,160 +342,174 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: 16,
+    padding: Spacing.xl,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginBottom: 24,
+    marginBottom: Spacing['3xl'],
   },
   headerLeft: {
     flex: 1,
   },
   settingsButton: {
-    padding: 4,
-    marginTop: -4,
-  },
-  greeting: {
-    fontSize: 32,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 16,
-  },
-  ringCard: {
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
+    width: 40,
+    height: 40,
+    borderRadius: Radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
   },
-  ringCardContent: {
+  greeting: {
+    fontSize: 34,
+    fontWeight: '700',
+    marginBottom: Spacing.xs,
+    letterSpacing: -0.5,
+  },
+  subtitle: {
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: Spacing.lg,
+    marginTop: Spacing.xl,
+  },
+  ringCard: {
+    marginBottom: Spacing.lg,
+    padding: Spacing.xl,
+  },
+  ringCardInner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: Spacing.xl,
   },
   ringDetails: {
     flex: 1,
-    paddingLeft: 4,
   },
   ringDetailLabel: {
-    fontSize: 11,
+    fontSize: 12,
+    fontWeight: '500',
     marginBottom: 2,
   },
   ringDetailValue: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '700',
-    marginBottom: 4,
+    marginBottom: Spacing.xs,
+    letterSpacing: -0.3,
   },
-  ringDetailStatus: {
+  statusPill: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: Radius.sm,
+    marginTop: Spacing.sm,
+  },
+  statusPillText: {
     fontSize: 11,
     fontWeight: '600',
-    marginTop: 4,
-  },
-  ringDetailSubtext: {
-    fontSize: 11,
-    marginTop: 2,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 12,
-    marginTop: 8,
   },
   viewAllButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
+    borderRadius: Radius.md,
+    padding: Spacing.lg,
+    marginBottom: Spacing.lg,
     borderWidth: 1,
+    borderStyle: 'dashed',
   },
   viewAllText: {
     fontSize: 14,
     fontWeight: '600',
-    marginRight: 8,
+    marginRight: Spacing.md,
   },
   addTransactionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 12,
+    borderRadius: Radius.lg,
+    paddingVertical: 15,
+    marginTop: Spacing.md,
+    marginBottom: Spacing.xl,
   },
   addTransactionText: {
     fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 8,
+    fontWeight: '700',
+    marginLeft: Spacing.md,
   },
   statsCard: {
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    marginBottom: 24,
+    marginBottom: Spacing['3xl'],
+  },
+  statsInner: {
+    padding: Spacing.xl,
   },
   statsHeader: {
     flexDirection: 'row',
     alignItems: 'baseline',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: Spacing.xl,
   },
   statsTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
   },
   statsSubtitle: {
     fontSize: 13,
     fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   statsEmpty: {
-    fontSize: 13,
-    paddingVertical: 12,
+    fontSize: 14,
+    paddingVertical: Spacing.xl,
+    textAlign: 'center',
   },
   statsChartContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: Spacing.xl,
   },
   statsSelectedCard: {
-    borderRadius: 12,
-    padding: 12,
+    borderRadius: Radius.md,
+    padding: Spacing.lg,
     borderWidth: 1,
-    marginBottom: 12,
+    marginBottom: Spacing.xl,
   },
   statsSelectedLabel: {
     fontSize: 11,
     fontWeight: '700',
-    marginBottom: 4,
+    marginBottom: Spacing.xs,
     textTransform: 'uppercase',
     letterSpacing: 0.6,
   },
   statsSelectedValue: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '700',
   },
   statsRows: {
-    gap: 10,
+    gap: 2,
   },
   statsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.sm,
   },
   statsRowLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
-    paddingRight: 10,
+    paddingRight: Spacing.lg,
   },
   statsSwatch: {
     width: 10,
     height: 10,
-    borderRadius: 10,
-    marginRight: 10,
+    borderRadius: Radius.full,
+    marginRight: Spacing.lg,
   },
   statsRowLabel: {
     fontSize: 14,
@@ -562,4 +521,3 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 });
-

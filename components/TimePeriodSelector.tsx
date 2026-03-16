@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { TimePeriod } from '@/types';
 import { useTheme } from '@/context/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
+import { Spacing, Radius } from '@/constants/design';
 
 interface TimePeriodSelectorProps {
   selectedPeriod: TimePeriod;
@@ -26,14 +27,11 @@ export const TimePeriodSelector: React.FC<TimePeriodSelectorProps> = ({
   onCalendarPress,
 }) => {
   const { theme, themeMode } = useTheme();
-  
-  // In dark mode, use black text on the light colored button for better contrast
   const activeTextColor = themeMode === 'dark' ? '#000505' : theme.text;
   
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundSecondary }]}>
       {periods.map((period) => {
-        // Don't highlight Month button if calendar view is active
         const isActive = selectedPeriod === period.value && !(period.value === 'month' && isCalendarActive);
         
         return (
@@ -80,14 +78,14 @@ export const TimePeriodSelector: React.FC<TimePeriodSelectorProps> = ({
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    borderRadius: 12,
-    padding: 4,
+    borderRadius: Radius.md,
+    padding: Spacing.xs,
   },
   button: {
     flex: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.xl,
+    borderRadius: Radius.sm,
     alignItems: 'center',
   },
   buttonText: {
@@ -98,8 +96,7 @@ const styles = StyleSheet.create({
     width: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 8,
-    marginLeft: 4,
+    borderRadius: Radius.sm,
+    marginLeft: Spacing.xs,
   },
 });
-

@@ -24,16 +24,18 @@ export const getCombinedTransactionsByPeriod = (
   return [...base, ...generated];
 };
 
+const safeAmount = (n: number): number => (Number.isFinite(n) && n >= 0 ? n : 0);
+
 export const calculateTotalIncome = (transactions: Transaction[]): number => {
   return transactions
     .filter(t => t.type === 'income')
-    .reduce((sum, t) => sum + t.amount, 0);
+    .reduce((sum, t) => sum + safeAmount(t.amount), 0);
 };
 
 export const calculateTotalExpenses = (transactions: Transaction[]): number => {
   return transactions
     .filter(t => t.type === 'expense')
-    .reduce((sum, t) => sum + t.amount, 0);
+    .reduce((sum, t) => sum + safeAmount(t.amount), 0);
 };
 
 export const calculateNetSavings = (transactions: Transaction[]): number => {
@@ -62,8 +64,9 @@ export const getExpensesByCategory = (transactions: Transaction[]): Record<strin
 };
 
 export const calculateGoalProgress = (goal: SavingsGoal): number => {
-  if (goal.targetAmount === 0) return 0;
-  return Math.min((goal.currentAmount / goal.targetAmount) * 100, 100);
+  if (!goal.targetAmount || goal.targetAmount <= 0) return 0;
+  const progress = (goal.currentAmount / goal.targetAmount) * 100;
+  return Number.isFinite(progress) ? Math.min(Math.max(progress, 0), 100) : 0;
 };
 
 export const calculateRecommendedContribution = (

@@ -15,6 +15,7 @@ import {
   subMonths,
 } from 'date-fns';
 import { Ionicons } from '@expo/vector-icons';
+import { abbreviateNumber } from '@/utils/dateHelpers';
 
 type Props = {
   /** Any transactions already filtered to the month being displayed */
@@ -27,10 +28,9 @@ type Props = {
 const toYMD = (d: Date) => format(d, 'yyyy-MM-dd');
 
 const formatMoneyCompact = (amount: number) => {
+  if (!Number.isFinite(amount)) return '$0';
   const abs = Math.abs(amount);
-  if (abs >= 1_000_000) return `$${(abs / 1_000_000).toFixed(1)}M`;
-  if (abs >= 10_000) return `$${Math.round(abs / 1000)}k`;
-  if (abs >= 1000) return `$${(abs / 1000).toFixed(1)}k`;
+  if (abs >= 1000) return `$${abbreviateNumber(abs, 1)}`;
   return `$${abs.toFixed(0)}`;
 };
 

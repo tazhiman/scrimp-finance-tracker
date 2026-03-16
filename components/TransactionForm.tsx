@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,24 +6,34 @@ import {
   TouchableOpacity,
   StyleSheet,
   Modal,
-  ScrollView,
   Alert,
-  KeyboardAvoidingView,
   Platform,
   Image,
+  ScrollView,
+  Animated,
+  Dimensions,
+  ActionSheetIOS,
 } from 'react-native';
+
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Transaction, TransactionType, Category, RecurringExpense, RecurrenceFrequency, UserCard } from '@/types';
 import { CategorySelector } from './CategorySelector';
 import { useTheme } from '@/context/ThemeContext';
+import { Spacing, Radius, Shadow } from '@/constants/design';
 import { useFinance } from '@/context/FinanceContext';
-import { formatCurrency } from '@/utils/dateHelpers';
-import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '@/constants/categories';
 import { Ionicons } from '@expo/vector-icons';
 import { loadUserCards } from '@/utils/storage';
 import { getAllCards } from '@/utils/cardEngine';
 import { getCachedCardImage } from '@/utils/remoteRewardsData';
-import { CardManagementModal } from './CardManagementModal';
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
+
+const NUM_KEYS = [
+  ['1', '2', '3'],
+  ['4', '5', '6'],
+  ['7', '8', '9'],
+  ['.', '0', 'del'],
+] as const;
 
 interface TransactionFormProps {
   visible: boolean;
@@ -44,33 +54,28 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
 }) => {
   const { theme, themeMode } = useTheme();
   const { addCustomCategory } = useFinance();
-  
-  // In dark mode, use black text on the light colored buttons for better contrast
   const activeButtonTextColor = themeMode === 'dark' ? '#000505' : theme.text;
-  const [type, setType] = useState<TransactionType>(
-    initialTransaction?.type || 'expense'
-  );
-  const [amount, setAmount] = useState(
-    initialTransaction?.amount.toString() || ''
-  );
-  const [category, setCategory] = useState(
-    initialTransaction?.category || ''
-  );
-  const [description, setDescription] = useState(
-    initialTransaction?.description || ''
-  );
+
+  const [step, setStep] = useState<1 | 2>(1);
+  const slideAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  const [type, setType] = useState<TransactionType>(initialTransaction?.type || 'expense');
+  const [amount, setAmount] = useState(initialTransaction?.amount.toString() || '');
+  const [category, setCategory] = useState(initialTransaction?.category || '');
+  const [description, setDescription] = useState(initialTransaction?.description || '');
   const [customCategoryName, setCustomCategoryName] = useState('');
   const [customCategoryEmoji, setCustomCategoryEmoji] = useState('');
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [date, setDate] = useState<Date>(
     initialTransaction?.date ? new Date(initialTransaction.date) : new Date()
   );
-  
-  // Credit card state
+
   const [selectedCard, setSelectedCard] = useState<string | undefined>(initialTransaction?.cardId);
   const [userCards, setUserCards] = useState<UserCard[]>([]);
-  const [showCardModal, setShowCardModal] = useState(false);
   const [cardImages, setCardImages] = useState<Record<string, string | null>>({});
+  const [showCardPicker, setShowCardPicker] = useState(false);
+
   const [scheduleMode, setScheduleMode] = useState<ScheduleMode>('one_time');
   const [recurrenceFrequency, setRecurrenceFrequency] = useState<RecurrenceFrequency>('monthly');
   const [planTitle, setPlanTitle] = useState('');
@@ -82,43 +87,28 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
     return d;
   });
 
-  const handleDateChange = (event: any, selectedDate?: Date) => {
-    if (selectedDate) {
-      setDate(selectedDate);
-    }
-  };
-
-  const handleEndDateChange = (event: any, selectedDate?: Date) => {
-    if (selectedDate) {
-      setEndDate(selectedDate);
-    }
-  };
-
-  // Load user cards on mount
   useEffect(() => {
-    loadCards();
-  }, []);
-
-  const loadCards = async () => {
-    const cards = await loadUserCards();
-    setUserCards(cards);
-    
-    // Load card images
-    const allCards = getAllCards();
-    const images: Record<string, string | null> = {};
-    
-    await Promise.all(
-      cards.map(async (userCard) => {
-        const cardData = allCards.find(c => c.id === userCard.id);
-        if (cardData && (cardData as any).imageUrl) {
-          const cachedImage = await getCachedCardImage(userCard.id);
-          images[userCard.id] = cachedImage;
+    if (visible) {
+      (async () => {
+        const cards = await loadUserCards();
+        setUserCards(cards);
+        if (cards.length > 0 && !initialTransaction?.cardId) {
+          setSelectedCard(cards[0].id);
         }
-      })
-    );
-    
-    setCardImages(images);
-  };
+        const allCards = getAllCards();
+        const images: Record<string, string | null> = {};
+        await Promise.all(
+          cards.map(async (uc) => {
+            const cd = allCards.find((c: any) => c.id === uc.id);
+            if (cd && (cd as any).imageUrl) {
+              images[uc.id] = await getCachedCardImage(uc.id);
+            }
+          })
+        );
+        setCardImages(images);
+      })();
+    }
+  }, [visible]);
 
   const resetForm = () => {
     setAmount('');
@@ -134,85 +124,108 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
     setInstallments('');
     setEndDateEnabled(false);
     setSelectedCard(undefined);
+    setStep(1);
+    slideAnim.setValue(0);
     const d = new Date();
     d.setMonth(d.getMonth() + 6);
     setEndDate(d);
   };
 
+  const handleCancel = () => {
+    resetForm();
+    onClose();
+  };
+
+  const animateToStep = (target: 1 | 2) => {
+    setStep(target);
+    Animated.spring(slideAnim, {
+      toValue: target === 1 ? 0 : 1,
+      useNativeDriver: true,
+      tension: 68,
+      friction: 12,
+    }).start();
+  };
+
+  const pulseAmount = () => {
+    Animated.sequence([
+      Animated.timing(scaleAnim, { toValue: 1.06, duration: 60, useNativeDriver: true }),
+      Animated.timing(scaleAnim, { toValue: 1, duration: 60, useNativeDriver: true }),
+    ]).start();
+  };
+
+  const handleNumPress = (key: string) => {
+    if (key === 'del') {
+      setAmount(prev => prev.slice(0, -1));
+      pulseAmount();
+      return;
+    }
+    setAmount(prev => {
+      if (key === '.') {
+        if (prev.includes('.')) return prev;
+        return prev.length === 0 ? '0.' : prev + '.';
+      }
+      const dotIdx = prev.indexOf('.');
+      if (dotIdx !== -1 && prev.length - dotIdx > 2) return prev;
+      if (prev === '0' && key !== '.') return key;
+      const integerPart = dotIdx !== -1 ? prev.substring(0, dotIdx) : prev;
+      if (integerPart.length >= 7) return prev;
+      return prev + key;
+    });
+    pulseAmount();
+  };
+
+  const handleNext = () => {
+    const n = parseFloat(amount);
+    if (!amount || isNaN(n) || n <= 0) {
+      Alert.alert('Enter Amount', 'Please enter an amount greater than zero.');
+      return;
+    }
+    animateToStep(2);
+  };
+
+  const handleBack = () => {
+    animateToStep(1);
+  };
+
   const handleSubmit = () => {
-    console.log('=== SUBMIT HANDLER START ===');
-    console.log('showCustomInput:', showCustomInput);
-    console.log('customCategoryName:', customCategoryName);
-    console.log('customCategoryEmoji:', customCategoryEmoji);
-    console.log('category:', category);
-    
     const amountNum = parseFloat(amount);
-    
     if (!amount || isNaN(amountNum) || amountNum <= 0) {
-      console.log('FAILED: Amount validation');
       Alert.alert('Error', 'Please enter a valid amount');
       return;
     }
-
     if (!category) {
-      console.log('FAILED: Category validation');
       Alert.alert('Error', 'Please select a category');
       return;
     }
 
-    // If custom category input is shown, validate and save it
+    let resolvedCategory = category;
     if (showCustomInput) {
-      console.log('=== CUSTOM CATEGORY VALIDATION ===');
-      console.log('Custom category validation:', {
-        name: customCategoryName,
-        nameLength: customCategoryName?.length,
-        emoji: customCategoryEmoji,
-        emojiLength: customCategoryEmoji?.length,
-        showCustomInput
-      });
-      
       if (!customCategoryName || customCategoryName.trim().length === 0) {
-        console.log('FAILED: Name validation');
         Alert.alert('Error', 'Please enter a category name');
         return;
       }
-      
       if (!customCategoryEmoji || customCategoryEmoji.trim().length === 0) {
-        console.log('FAILED: Emoji validation - empty');
         Alert.alert('Error', 'Please enter an emoji for the category');
         return;
       }
-      
-      console.log('Using emoji:', customCategoryEmoji);
-
-      console.log('=== SAVING CUSTOM CATEGORY ===');
-      // Save the custom category
-      const newCategory: Omit<Category, 'id'> = {
+      resolvedCategory = addCustomCategory({
         name: customCategoryName.trim(),
         icon: customCategoryEmoji.trim(),
         color: theme.primary,
-      };
-      console.log('New category:', newCategory);
-      addCustomCategory(newCategory);
-      console.log('Custom category saved!');
+      });
     }
-    
-    console.log('=== PROCEEDING TO SAVE TRANSACTION ===');
 
-    // Recurring / Installment (expenses only, and not supported for editing one-off transactions)
     if (type === 'expense' && !initialTransaction && scheduleMode !== 'one_time') {
       if (!onSubmitRecurring) {
         Alert.alert('Error', 'Recurring expenses are not available here.');
         return;
       }
-
       const title = (planTitle || description || 'Recurring Expense').trim();
       if (!title) {
         Alert.alert('Error', 'Please enter a name for this recurring expense');
         return;
       }
-
-      let totalInstallments: number | undefined = undefined;
+      let totalInstallments: number | undefined;
       if (scheduleMode === 'installment') {
         const n = parseInt(installments, 10);
         if (!installments || isNaN(n) || n < 1) {
@@ -221,24 +234,21 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
         }
         totalInstallments = n;
       }
-
       if (endDateEnabled && endDate && endDate.getTime() < date.getTime()) {
         Alert.alert('Error', 'End date must be after the start date');
         return;
       }
-
       onSubmitRecurring({
         kind: scheduleMode === 'recurring' ? 'recurring' : 'installment',
         title,
         amount: amountNum,
-        category,
+        category: resolvedCategory,
         startDate: date.toISOString().split('T')[0],
         frequency: recurrenceFrequency,
         endDate: endDateEnabled ? endDate.toISOString().split('T')[0] : undefined,
         totalInstallments,
         createdAt: new Date().toISOString(),
       });
-
       resetForm();
       onClose();
       return;
@@ -247,493 +257,365 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
     onSubmit({
       type,
       amount: amountNum,
-      category,
+      category: resolvedCategory,
       description,
       date: date.toISOString().split('T')[0],
       cardId: selectedCard,
     });
-
     resetForm();
     onClose();
   };
 
-  const handleCardModalClose = async () => {
-    setShowCardModal(false);
-    await loadCards();
+  const formatDisplay = (val: string): string => {
+    if (!val) return '$0.00';
+    const num = parseFloat(val);
+    if (isNaN(num)) return '$0.00';
+    if (val.endsWith('.')) return `$${val}`;
+    const dotIdx = val.indexOf('.');
+    if (dotIdx !== -1) {
+      const decimals = val.length - dotIdx - 1;
+      if (decimals === 1) return `$${val}`;
+    }
+    return `$${num.toFixed(2)}`;
   };
 
-  const getSelectedCardInfo = () => {
-    if (!selectedCard) return null;
-    const card = userCards.find(c => c.id === selectedCard);
-    if (!card) return null;
-    
-    const allCards = getAllCards();
-    const cardData = allCards.find(c => c.id === selectedCard);
-    
-    return {
-      ...card,
-      brandColor: (cardData as any)?.brandColor || '#666',
-      imageUrl: cardImages[selectedCard],
-    };
+  const getCardName = (cardId: string | undefined): string => {
+    if (!cardId) return 'No Card';
+    const card = userCards.find(c => c.id === cardId);
+    return card ? card.name : 'No Card';
   };
 
-  const handleCategorySelect = (selectedCategory: Category) => {
-    setCategory(selectedCategory.id);
+  const openCardPicker = () => {
+    const options = ['No Card', ...userCards.map(c => c.name), 'Cancel'];
+    const cancelIdx = options.length - 1;
+
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        { options, cancelButtonIndex: cancelIdx, title: 'Select Acc or Card' },
+        (idx) => {
+          if (idx === cancelIdx) return;
+          if (idx === 0) { setSelectedCard(undefined); return; }
+          setSelectedCard(userCards[idx - 1].id);
+        }
+      );
+    } else {
+      setShowCardPicker(true);
+    }
   };
+
+  const step1Translate = slideAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -SCREEN_WIDTH],
+  });
+  const step2Translate = slideAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [SCREEN_WIDTH, 0],
+  });
 
   return (
     <Modal
       visible={visible}
       animationType="slide"
       presentationStyle="pageSheet"
-      onRequestClose={onClose}
+      onRequestClose={handleCancel}
     >
-      <KeyboardAvoidingView 
-        style={[styles.container, { backgroundColor: theme.background }]}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-      >
-        <View style={[styles.header, { backgroundColor: theme.background, borderBottomColor: theme.cardBorder }]}>
-          <TouchableOpacity onPress={onClose} style={styles.cancelButton}>
-            <Text style={[styles.cancelText, { color: theme.textSecondary }]}>Cancel</Text>
-          </TouchableOpacity>
-          <Text style={[styles.title, { color: theme.text }]}>
-            {initialTransaction ? 'Edit Transaction' : 'Add Transaction'}
-          </Text>
-          <TouchableOpacity onPress={handleSubmit} style={styles.saveButton}>
-            <Text style={[styles.saveText, { color: theme.primary }]}>Save</Text>
-          </TouchableOpacity>
-        </View>
-
-        <ScrollView 
-          style={styles.content}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
+        {/* ===== STEP 1: Amount Entry ===== */}
+        <Animated.View
+          style={[styles.stepContainer, { transform: [{ translateX: step1Translate }] }]}
+          pointerEvents={step === 1 ? 'auto' : 'none'}
         >
-          {/* Type Selector */}
-          <View style={[styles.typeSelector, { backgroundColor: theme.backgroundSecondary }]}>
-            <TouchableOpacity
-              style={[
-                styles.typeButton,
-                type === 'expense' && { backgroundColor: theme.secondary },
-              ]}
-              onPress={() => {
-                setType('expense');
-                setCategory('');
-                setShowCustomInput(false);
-              }}
-            >
-              <Text
-                style={[
-                  styles.typeButtonText,
-                  { color: type === 'expense' ? activeButtonTextColor : theme.textSecondary },
-                ]}
-              >
-                Expense
-              </Text>
+          <View style={[styles.header, { borderBottomColor: theme.cardBorder }]}>
+            <TouchableOpacity onPress={handleCancel} style={styles.headerBtn}>
+              <Text style={[styles.cancelText, { color: theme.textSecondary }]}>Cancel</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.typeButton,
-                type === 'income' && { backgroundColor: theme.primary },
-              ]}
-              onPress={() => {
-                setType('income');
-                setCategory('');
-                setShowCustomInput(false);
-              }}
-            >
-              <Text
-                style={[
-                  styles.typeButtonText,
-                  { color: type === 'income' ? activeButtonTextColor : theme.textSecondary },
-                ]}
-              >
-                Income
-              </Text>
-            </TouchableOpacity>
+            <Text style={[styles.headerTitle, { color: theme.text }]}>
+              {initialTransaction ? 'Edit Transaction' : 'Add Transaction'}
+            </Text>
+            <View style={styles.headerBtn} />
           </View>
 
-          {/* Schedule (Expenses only) */}
-          {type === 'expense' && !initialTransaction && (
-            <View style={styles.section}>
-              <Text style={[styles.label, { color: theme.text }]}>Schedule</Text>
-              <View style={[styles.scheduleSelector, { backgroundColor: theme.backgroundSecondary }]}>
-                <TouchableOpacity
-                  style={[
-                    styles.scheduleButton,
-                    scheduleMode === 'one_time' && { backgroundColor: theme.backgroundTertiary },
-                  ]}
-                  onPress={() => setScheduleMode('one_time')}
-                >
-                  <Text style={[styles.scheduleButtonText, { color: theme.textSecondary }]}>One-time</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.scheduleButton,
-                    scheduleMode === 'recurring' && { backgroundColor: theme.primary },
-                  ]}
-                  onPress={() => setScheduleMode('recurring')}
-                >
-                  <Text
-                    style={[
-                      styles.scheduleButtonText,
-                      { color: scheduleMode === 'recurring' ? activeButtonTextColor : theme.textSecondary },
-                    ]}
-                  >
-                    Recurring
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.scheduleButton,
-                    scheduleMode === 'installment' && { backgroundColor: theme.primary },
-                  ]}
-                  onPress={() => setScheduleMode('installment')}
-                >
-                  <Text
-                    style={[
-                      styles.scheduleButtonText,
-                      { color: scheduleMode === 'installment' ? activeButtonTextColor : theme.textSecondary },
-                    ]}
-                  >
-                    Installment
-                  </Text>
-                </TouchableOpacity>
-              </View>
-              {(scheduleMode === 'recurring' || scheduleMode === 'installment') && (
-                <>
-                  <View style={styles.fieldSpacer} />
-                  <Text style={[styles.label, { color: theme.text }]}>Name</Text>
-                  <TextInput
-                    style={[
-                      styles.input,
-                      { backgroundColor: theme.inputBackground, borderColor: theme.inputBorder, color: theme.text },
-                    ]}
-                    value={planTitle}
-                    onChangeText={setPlanTitle}
-                    placeholder="e.g. Rent, Car loan"
-                    placeholderTextColor={theme.textTertiary}
-                  />
-
-                  <View style={styles.fieldSpacer} />
-                  <Text style={[styles.label, { color: theme.text }]}>Frequency</Text>
-                  <View style={[styles.frequencySelector, { backgroundColor: theme.backgroundSecondary }]}>
-                    <TouchableOpacity
-                      style={[
-                        styles.frequencyButton,
-                        recurrenceFrequency === 'weekly' && { backgroundColor: theme.primary },
-                      ]}
-                      onPress={() => setRecurrenceFrequency('weekly')}
-                    >
-                      <Text
-                        style={[
-                          styles.frequencyButtonText,
-                          { color: recurrenceFrequency === 'weekly' ? activeButtonTextColor : theme.textSecondary },
-                        ]}
-                      >
-                        Weekly
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[
-                        styles.frequencyButton,
-                        recurrenceFrequency === 'monthly' && { backgroundColor: theme.primary },
-                      ]}
-                      onPress={() => setRecurrenceFrequency('monthly')}
-                    >
-                      <Text
-                        style={[
-                          styles.frequencyButtonText,
-                          { color: recurrenceFrequency === 'monthly' ? activeButtonTextColor : theme.textSecondary },
-                        ]}
-                      >
-                        Monthly
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  {scheduleMode === 'installment' && (
-                    <>
-                      <View style={styles.fieldSpacer} />
-                      <Text style={[styles.label, { color: theme.text }]}>Number of installments</Text>
-                      <TextInput
-                        style={[
-                          styles.input,
-                          { backgroundColor: theme.inputBackground, borderColor: theme.inputBorder, color: theme.text },
-                        ]}
-                        value={installments}
-                        onChangeText={setInstallments}
-                        placeholder="e.g. 12"
-                        placeholderTextColor={theme.textTertiary}
-                        keyboardType="number-pad"
-                      />
-                    </>
-                  )}
-
-                  {scheduleMode === 'recurring' && (
-                    <>
-                      <View style={styles.fieldSpacer} />
-                      <TouchableOpacity
-                        style={styles.endDateToggle}
-                        onPress={() => setEndDateEnabled((v) => !v)}
-                        activeOpacity={0.7}
-                      >
-                        <Ionicons
-                          name={endDateEnabled ? 'checkbox' : 'square-outline'}
-                          size={20}
-                          color={theme.textSecondary}
-                        />
-                        <Text style={[styles.endDateToggleText, { color: theme.textSecondary }]}>
-                          Set an end date (optional)
-                        </Text>
-                      </TouchableOpacity>
-
-                      {endDateEnabled && (
-                        <View style={styles.endDateContainer}>
-                          <Text style={[styles.label, { color: theme.text }]}>End Date</Text>
-                          {Platform.OS === 'web' ? (
-                            <View
-                              style={[
-                                styles.webDateContainer,
-                                { backgroundColor: theme.inputBackground, borderColor: theme.inputBorder },
-                              ]}
-                            >
-                              <input
-                                type="date"
-                                value={endDate.toISOString().split('T')[0]}
-                                onChange={(e) => setEndDate(new Date(e.target.value))}
-                                style={{
-                                  backgroundColor: 'transparent',
-                                  border: 'none',
-                                  color: theme.text,
-                                  fontSize: 16,
-                                  fontFamily: 'inherit',
-                                  width: '100%',
-                                  outline: 'none',
-                                  cursor: 'pointer',
-                                }}
-                              />
-                            </View>
-                          ) : (
-                            <View
-                              style={[
-                                styles.datePickerContainer,
-                                { backgroundColor: theme.inputBackground, borderColor: theme.inputBorder },
-                              ]}
-                            >
-                              <DateTimePicker
-                                value={endDate}
-                                mode="date"
-                                display="default"
-                                onChange={handleEndDateChange}
-                                minimumDate={date}
-                                maximumDate={undefined}
-                                themeVariant={themeMode === 'dark' ? 'dark' : 'light'}
-                              />
-                            </View>
-                          )}
-                        </View>
-                      )}
-                    </>
-                  )}
-                </>
-              )}
+          <View style={styles.step1Body}>
+            <View style={[styles.typeSelector, { backgroundColor: theme.backgroundSecondary }]}>
+              <TouchableOpacity
+                style={[styles.typeButton, type === 'expense' && { backgroundColor: theme.secondary }]}
+                onPress={() => { setType('expense'); setCategory(''); setShowCustomInput(false); }}
+              >
+                <Text style={[styles.typeButtonText, { color: type === 'expense' ? activeButtonTextColor : theme.textSecondary }]}>
+                  Expense
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.typeButton, type === 'income' && { backgroundColor: theme.primary }]}
+                onPress={() => { setType('income'); setCategory(''); setShowCustomInput(false); }}
+              >
+                <Text style={[styles.typeButtonText, { color: type === 'income' ? activeButtonTextColor : theme.textSecondary }]}>
+                  Income
+                </Text>
+              </TouchableOpacity>
             </View>
-          )}
 
-          {/* Amount Input */}
-          <View style={styles.section}>
-            <Text style={[styles.label, { color: theme.text }]}>Amount</Text>
-            <TextInput
-              style={[styles.input, { backgroundColor: theme.inputBackground, borderColor: theme.inputBorder, color: theme.text }]}
-              value={amount}
-              onChangeText={setAmount}
-              placeholder="0.00"
-              placeholderTextColor={theme.textTertiary}
-              keyboardType="decimal-pad"
-              autoFocus
-            />
-          </View>
+            <View style={styles.amountArea}>
+              <Animated.Text
+                style={[
+                  styles.amountDisplay,
+                  { color: theme.text, transform: [{ scale: scaleAnim }] },
+                ]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+              >
+                {formatDisplay(amount)}
+              </Animated.Text>
 
-          {/* Category Selector */}
-          <View style={styles.section}>
-            <Text style={[styles.label, { color: theme.text }]}>Category</Text>
-            <CategorySelector
-              type={type}
-              selectedCategory={category}
-              onSelect={handleCategorySelect}
-              customCategoryName={customCategoryName}
-              onCustomCategoryNameChange={setCustomCategoryName}
-              customCategoryEmoji={customCategoryEmoji}
-              onCustomCategoryEmojiChange={setCustomCategoryEmoji}
-              showCustomInput={showCustomInput}
-              onShowCustomInputChange={setShowCustomInput}
-            />
-          </View>
-
-          {/* Credit Card Selector (Expenses only) */}
-          {type === 'expense' && (
-            <View style={styles.section}>
-              <Text style={[styles.label, { color: theme.text }]}>Credit Card (Optional)</Text>
-              
-              {userCards.length === 0 ? (
+              {type === 'expense' && userCards.length > 0 && (
                 <TouchableOpacity
-                  style={[styles.addCardButton, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}
-                  onPress={() => setShowCardModal(true)}
+                  style={[styles.cardPill, { backgroundColor: theme.backgroundSecondary, borderColor: theme.cardBorder }]}
+                  onPress={openCardPicker}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="add-circle" size={20} color={theme.primary} />
-                  <Text style={[styles.addCardText, { color: theme.primary }]}>Add a Card</Text>
+                  <Ionicons name="card-outline" size={16} color={theme.textSecondary} />
+                  <Text style={[styles.cardPillText, { color: theme.text }]} numberOfLines={1}>
+                    {getCardName(selectedCard)}
+                  </Text>
+                  <Ionicons name="chevron-down" size={14} color={theme.textTertiary} />
                 </TouchableOpacity>
-              ) : (
-                <View style={styles.cardSelectionContainer}>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.cardScrollContent}
+              )}
+            </View>
+
+            <View style={styles.numpad}>
+              {NUM_KEYS.map((row, ri) => (
+                <View key={ri} style={styles.numRow}>
+                  {row.map((key) => (
+                    <TouchableOpacity
+                      key={key}
+                      style={[styles.numKey, { backgroundColor: theme.backgroundSecondary }]}
+                      onPress={() => handleNumPress(key)}
+                      activeOpacity={0.6}
+                    >
+                      {key === 'del' ? (
+                        <Ionicons name="backspace-outline" size={24} color={theme.text} />
+                      ) : (
+                        <Text style={[styles.numKeyText, { color: theme.text }]}>{key}</Text>
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              ))}
+            </View>
+
+            <View style={styles.step1Bottom}>
+              <TouchableOpacity
+                style={[styles.nextButton, { backgroundColor: theme.primary }, Shadow.medium]}
+                onPress={handleNext}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.nextButtonText, { color: activeButtonTextColor }]}>Next</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Animated.View>
+
+        {/* ===== STEP 2: Details ===== */}
+        <Animated.View
+          style={[styles.stepContainer, { transform: [{ translateX: step2Translate }] }]}
+          pointerEvents={step === 2 ? 'auto' : 'none'}
+        >
+          <View style={[styles.header, { borderBottomColor: theme.cardBorder }]}>
+            <TouchableOpacity onPress={handleBack} style={styles.headerBtn}>
+              <Ionicons name="arrow-back" size={24} color={theme.text} />
+            </TouchableOpacity>
+            <Text style={[styles.headerTitle, { color: theme.text }]}>Details</Text>
+            <View style={styles.headerBtn} />
+          </View>
+
+          <ScrollView
+            style={styles.step2Scroll}
+            contentContainerStyle={styles.step2Content}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
+            automaticallyAdjustKeyboardInsets
+          >
+            <View style={styles.section}>
+              <Text style={[styles.label, { color: theme.textSecondary }]}>Category</Text>
+              <CategorySelector
+                type={type}
+                selectedCategory={category}
+                onSelect={(c) => setCategory(c.id)}
+                customCategoryName={customCategoryName}
+                onCustomCategoryNameChange={setCustomCategoryName}
+                customCategoryEmoji={customCategoryEmoji}
+                onCustomCategoryEmojiChange={setCustomCategoryEmoji}
+                showCustomInput={showCustomInput}
+                onShowCustomInputChange={setShowCustomInput}
+              />
+            </View>
+
+            {type === 'expense' && !initialTransaction && (
+              <View style={styles.section}>
+                <Text style={[styles.label, { color: theme.textSecondary }]}>Schedule</Text>
+                <View style={[styles.scheduleSelector, { backgroundColor: theme.backgroundSecondary }]}>
+                  <TouchableOpacity
+                    style={[styles.scheduleButton, scheduleMode === 'one_time' && { backgroundColor: theme.backgroundTertiary }]}
+                    onPress={() => setScheduleMode('one_time')}
                   >
-                    {/* None option */}
-                    <TouchableOpacity
-                      style={[
-                        styles.cardOption,
-                        { 
-                          backgroundColor: theme.cardBackground, 
-                          borderColor: selectedCard === undefined ? theme.primary : theme.cardBorder,
-                          borderWidth: selectedCard === undefined ? 2 : 1,
-                        }
-                      ]}
-                      onPress={() => setSelectedCard(undefined)}
-                      activeOpacity={0.7}
-                    >
-                      <View style={[styles.cardVisualPlaceholder, { backgroundColor: theme.backgroundSecondary }]}>
-                        <Ionicons name="close" size={16} color={theme.textSecondary} />
-                      </View>
-                      <Text style={[styles.cardOptionText, { color: theme.textSecondary }]}>None</Text>
-                    </TouchableOpacity>
+                    <Text style={[styles.scheduleButtonText, { color: theme.textSecondary }]}>One-time</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.scheduleButton, scheduleMode === 'recurring' && { backgroundColor: theme.primary }]}
+                    onPress={() => setScheduleMode('recurring')}
+                  >
+                    <Text style={[styles.scheduleButtonText, { color: scheduleMode === 'recurring' ? activeButtonTextColor : theme.textSecondary }]}>Recurring</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.scheduleButton, scheduleMode === 'installment' && { backgroundColor: theme.primary }]}
+                    onPress={() => setScheduleMode('installment')}
+                  >
+                    <Text style={[styles.scheduleButtonText, { color: scheduleMode === 'installment' ? activeButtonTextColor : theme.textSecondary }]}>Installment</Text>
+                  </TouchableOpacity>
+                </View>
 
-                    {/* User's cards */}
-                    {userCards.map((card: any) => {
-                      const cardInfo = getSelectedCardInfo();
-                      const isSelected = selectedCard === card.id;
-                      const allCards = getAllCards();
-                      const cardData = allCards.find(c => c.id === card.id);
-                      const brandColor = card.isCustom ? theme.accent : ((cardData as any)?.brandColor || '#666');
-                      const imageUrl = card.isCustom ? null : cardImages[card.id];
+                {(scheduleMode === 'recurring' || scheduleMode === 'installment') && (
+                  <>
+                    <View style={styles.fieldSpacer} />
+                    <Text style={[styles.label, { color: theme.textSecondary }]}>Name</Text>
+                    <TextInput
+                      style={[styles.input, { backgroundColor: theme.inputBackground, borderColor: theme.inputBorder, color: theme.text }]}
+                      value={planTitle}
+                      onChangeText={setPlanTitle}
+                      placeholder="e.g. Rent, Car loan"
+                      placeholderTextColor={theme.textTertiary}
+                    />
+                    <View style={styles.fieldSpacer} />
+                    <Text style={[styles.label, { color: theme.textSecondary }]}>Frequency</Text>
+                    <View style={[styles.frequencySelector, { backgroundColor: theme.backgroundSecondary }]}>
+                      <TouchableOpacity
+                        style={[styles.frequencyButton, recurrenceFrequency === 'weekly' && { backgroundColor: theme.primary }]}
+                        onPress={() => setRecurrenceFrequency('weekly')}
+                      >
+                        <Text style={[styles.frequencyButtonText, { color: recurrenceFrequency === 'weekly' ? activeButtonTextColor : theme.textSecondary }]}>Weekly</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.frequencyButton, recurrenceFrequency === 'monthly' && { backgroundColor: theme.primary }]}
+                        onPress={() => setRecurrenceFrequency('monthly')}
+                      >
+                        <Text style={[styles.frequencyButtonText, { color: recurrenceFrequency === 'monthly' ? activeButtonTextColor : theme.textSecondary }]}>Monthly</Text>
+                      </TouchableOpacity>
+                    </View>
 
-                      return (
-                        <TouchableOpacity
-                          key={card.id}
-                          style={[
-                            styles.cardOption,
-                            { 
-                              backgroundColor: theme.cardBackground, 
-                              borderColor: isSelected ? theme.primary : theme.cardBorder,
-                              borderWidth: isSelected ? 2 : 1,
-                            }
-                          ]}
-                          onPress={() => setSelectedCard(card.id)}
-                          activeOpacity={0.7}
-                        >
-                          {imageUrl ? (
-                            <Image 
-                              source={{ uri: imageUrl }} 
-                              style={styles.cardVisual}
-                              resizeMode="cover"
-                            />
-                          ) : (
-                            <View style={[styles.cardVisualPlaceholder, { backgroundColor: brandColor }]}>
-                              <Ionicons name="card" size={12} color="#FFF" />
-                            </View>
-                          )}
-                          <Text 
-                            style={[styles.cardOptionText, { color: theme.text }]} 
-                            numberOfLines={1}
-                          >
-                            {card.name.split(' ')[0]}
-                          </Text>
+                    {scheduleMode === 'installment' && (
+                      <>
+                        <View style={styles.fieldSpacer} />
+                        <Text style={[styles.label, { color: theme.textSecondary }]}>Number of installments</Text>
+                        <TextInput
+                          style={[styles.input, { backgroundColor: theme.inputBackground, borderColor: theme.inputBorder, color: theme.text }]}
+                          value={installments}
+                          onChangeText={setInstallments}
+                          placeholder="e.g. 12"
+                          placeholderTextColor={theme.textTertiary}
+                          keyboardType="number-pad"
+                        />
+                      </>
+                    )}
+
+                    {scheduleMode === 'recurring' && (
+                      <>
+                        <View style={styles.fieldSpacer} />
+                        <TouchableOpacity style={styles.endDateToggle} onPress={() => setEndDateEnabled(v => !v)} activeOpacity={0.7}>
+                          <Ionicons name={endDateEnabled ? 'checkbox' : 'square-outline'} size={20} color={theme.textSecondary} />
+                          <Text style={[styles.endDateToggleText, { color: theme.textSecondary }]}>Set an end date (optional)</Text>
                         </TouchableOpacity>
-                      );
-                    })}
+                        {endDateEnabled && (
+                          <View style={styles.endDateContainer}>
+                            <Text style={[styles.label, { color: theme.textSecondary }]}>End Date</Text>
+                            {Platform.OS === 'web' ? (
+                              <View style={[styles.webDateContainer, { backgroundColor: theme.inputBackground, borderColor: theme.inputBorder }]}>
+                                <input
+                                  type="date"
+                                  value={endDate.toISOString().split('T')[0]}
+                                  onChange={(e) => setEndDate(new Date(e.target.value))}
+                                  style={{ backgroundColor: 'transparent', border: 'none', color: theme.text, fontSize: 16, fontFamily: 'inherit', width: '100%', outline: 'none', cursor: 'pointer' }}
+                                />
+                              </View>
+                            ) : (
+                              <View style={[styles.datePickerContainer, { backgroundColor: theme.inputBackground, borderColor: theme.inputBorder }]}>
+                                <DateTimePicker value={endDate} mode="date" display="default" onChange={(_, d) => d && setEndDate(d)} minimumDate={date} themeVariant={themeMode === 'dark' ? 'dark' : 'light'} />
+                              </View>
+                            )}
+                          </View>
+                        )}
+                      </>
+                    )}
+                  </>
+                )}
+              </View>
+            )}
 
-                    {/* Add card button */}
-                    <TouchableOpacity
-                      style={[
-                        styles.cardOption,
-                        { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder, borderStyle: 'dashed' }
-                      ]}
-                      onPress={() => setShowCardModal(true)}
-                      activeOpacity={0.7}
-                    >
-                      <View style={[styles.cardVisualPlaceholder, { backgroundColor: theme.backgroundSecondary }]}>
-                        <Ionicons name="add" size={16} color={theme.primary} />
-                      </View>
-                      <Text style={[styles.cardOptionText, { color: theme.primary }]}>Add</Text>
-                    </TouchableOpacity>
-                  </ScrollView>
+            <View style={styles.section}>
+              <Text style={[styles.label, { color: theme.textSecondary }]}>Description (Optional)</Text>
+              <TextInput
+                style={[styles.input, styles.textArea, { backgroundColor: theme.inputBackground, borderColor: theme.inputBorder, color: theme.text }]}
+                value={description}
+                onChangeText={setDescription}
+                placeholder="Add a note..."
+                placeholderTextColor={theme.textTertiary}
+                multiline
+                numberOfLines={3}
+              />
+            </View>
+
+            <View style={styles.section}>
+              <Text style={[styles.label, { color: theme.textSecondary }]}>Date</Text>
+              {Platform.OS === 'web' ? (
+                <View style={[styles.webDateContainer, { backgroundColor: theme.inputBackground, borderColor: theme.inputBorder }]}>
+                  <input
+                    type="date"
+                    value={date.toISOString().split('T')[0]}
+                    onChange={(e) => setDate(new Date(e.target.value))}
+                    max={new Date().toISOString().split('T')[0]}
+                    style={{ backgroundColor: 'transparent', border: 'none', color: theme.text, fontSize: 16, fontFamily: 'inherit', width: '100%', outline: 'none', cursor: 'pointer' }}
+                  />
+                </View>
+              ) : (
+                <View style={[styles.datePickerContainer, { backgroundColor: theme.inputBackground, borderColor: theme.inputBorder }]}>
+                  <DateTimePicker value={date} mode="date" display="default" onChange={(_, d) => d && setDate(d)} maximumDate={new Date()} themeVariant={themeMode === 'dark' ? 'dark' : 'light'} />
                 </View>
               )}
             </View>
-          )}
 
-          {/* Description Input */}
-          <View style={styles.section}>
-            <Text style={[styles.label, { color: theme.text }]}>Description (Optional)</Text>
-            <TextInput
-              style={[styles.input, styles.textArea, { backgroundColor: theme.inputBackground, borderColor: theme.inputBorder, color: theme.text }]}
-              value={description}
-              onChangeText={setDescription}
-              placeholder="Add a note..."
-              placeholderTextColor={theme.textTertiary}
-              multiline
-              numberOfLines={3}
-            />
-          </View>
+            <TouchableOpacity
+              style={[styles.saveButton, { backgroundColor: theme.primary }, Shadow.medium]}
+              onPress={handleSubmit}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.saveButtonText, { color: activeButtonTextColor }]}>
+                {initialTransaction ? 'Save Changes' : 'Save Transaction'}
+              </Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </Animated.View>
 
-          {/* Date Input */}
-          <View style={styles.section}>
-            <Text style={[styles.label, { color: theme.text }]}>Date</Text>
-            {Platform.OS === 'web' ? (
-              <View style={[styles.webDateContainer, { backgroundColor: theme.inputBackground, borderColor: theme.inputBorder }]}>
-                <input
-                  type="date"
-                  value={date.toISOString().split('T')[0]}
-                  onChange={(e) => setDate(new Date(e.target.value))}
-                  max={new Date().toISOString().split('T')[0]}
-                  style={{
-                    backgroundColor: 'transparent',
-                    border: 'none',
-                    color: theme.text,
-                    fontSize: 16,
-                    fontFamily: 'inherit',
-                    width: '100%',
-                    outline: 'none',
-                    cursor: 'pointer',
-                  }}
-                />
+        {/* Android card picker fallback */}
+        {Platform.OS !== 'ios' && showCardPicker && (
+          <Modal transparent animationType="fade" visible={showCardPicker} onRequestClose={() => setShowCardPicker(false)}>
+            <TouchableOpacity style={styles.pickerOverlay} activeOpacity={1} onPress={() => setShowCardPicker(false)}>
+              <View style={[styles.pickerCard, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
+                <Text style={[styles.pickerTitle, { color: theme.text }]}>Select Acc or Card</Text>
+                <TouchableOpacity style={styles.pickerOption} onPress={() => { setSelectedCard(undefined); setShowCardPicker(false); }}>
+                  <Text style={[styles.pickerOptionText, { color: selectedCard === undefined ? theme.primary : theme.text }]}>No Card</Text>
+                  {selectedCard === undefined && <Ionicons name="checkmark" size={20} color={theme.primary} />}
+                </TouchableOpacity>
+                {userCards.map(c => (
+                  <TouchableOpacity key={c.id} style={styles.pickerOption} onPress={() => { setSelectedCard(c.id); setShowCardPicker(false); }}>
+                    <Text style={[styles.pickerOptionText, { color: selectedCard === c.id ? theme.primary : theme.text }]}>{c.name}</Text>
+                    {selectedCard === c.id && <Ionicons name="checkmark" size={20} color={theme.primary} />}
+                  </TouchableOpacity>
+                ))}
               </View>
-            ) : (
-              <View style={[styles.datePickerContainer, { backgroundColor: theme.inputBackground, borderColor: theme.inputBorder }]}>
-                <DateTimePicker
-              value={date}
-                  mode="date"
-                  display="default"
-                  onChange={handleDateChange}
-                  maximumDate={new Date()}
-                  themeVariant={themeMode === 'dark' ? 'dark' : 'light'}
-            />
-              </View>
-            )}
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-
-      {/* Card Management Modal */}
-      <CardManagementModal
-        visible={showCardModal}
-        onClose={handleCardModalClose}
-      />
+            </TouchableOpacity>
+          </Modal>
+        )}
+      </View>
     </Modal>
   );
 };
@@ -741,111 +623,135 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    overflow: 'hidden',
+  },
+  stepContainer: {
+    ...StyleSheet.absoluteFillObject,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.xl,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  cancelButton: {
-    padding: 8,
+  headerBtn: {
+    width: 60,
+    paddingVertical: Spacing.xs,
   },
   cancelText: {
     fontSize: 16,
   },
-  title: {
-    fontSize: 18,
+  headerTitle: {
+    fontSize: 17,
     fontWeight: '600',
   },
-  saveButton: {
-    padding: 8,
-  },
-  saveText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  content: {
+
+  step1Body: {
     flex: 1,
-  },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: Platform.OS === 'ios' ? 400 : 350,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.xl,
   },
   typeSelector: {
     flexDirection: 'row',
-    borderRadius: 12,
-    padding: 4,
-    marginBottom: 24,
+    borderRadius: Radius.md,
+    padding: Spacing.xs,
+    marginBottom: Spacing.lg,
   },
   typeButton: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: Spacing.lg,
     alignItems: 'center',
-    borderRadius: 8,
+    borderRadius: Radius.sm,
   },
   typeButtonText: {
     fontSize: 16,
     fontWeight: '600',
   },
-  scheduleSelector: {
-    flexDirection: 'row',
-    borderRadius: 12,
-    padding: 4,
-  },
-  scheduleButton: {
+
+  amountArea: {
     flex: 1,
-    paddingVertical: 10,
+    justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 10,
+    paddingVertical: Spacing['3xl'],
   },
-  scheduleButtonText: {
-    fontSize: 14,
+  amountDisplay: {
+    fontSize: 52,
     fontWeight: '700',
+    letterSpacing: -1,
+    textAlign: 'center',
+    paddingHorizontal: Spacing.xl,
   },
-  frequencySelector: {
-    flexDirection: 'row',
-    borderRadius: 12,
-    padding: 4,
-  },
-  frequencyButton: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: 'center',
-    borderRadius: 10,
-  },
-  frequencyButtonText: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  endDateToggle: {
+  cardPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: Spacing.sm,
+    marginTop: Spacing.xl,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.md,
+    borderRadius: Radius.full,
+    borderWidth: 1,
   },
-  endDateToggleText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  fieldSpacer: {
-    marginTop: 12,
-  },
-  endDateContainer: {
-    marginTop: 12,
-  },
-  section: {
-    marginBottom: 24,
-  },
-  label: {
+  cardPillText: {
     fontSize: 14,
     fontWeight: '500',
-    marginBottom: 8,
+    maxWidth: 160,
+  },
+
+  numpad: {
+    gap: Spacing.md,
+    paddingBottom: Spacing.md,
+  },
+  numRow: {
+    flexDirection: 'row',
+    gap: Spacing.md,
+  },
+  numKey: {
+    flex: 1,
+    height: 56,
+    borderRadius: Radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  numKeyText: {
+    fontSize: 24,
+    fontWeight: '500',
+  },
+
+  step1Bottom: {
+    paddingVertical: Spacing.xl,
+  },
+  nextButton: {
+    paddingVertical: 16,
+    borderRadius: Radius.lg,
+    alignItems: 'center',
+  },
+  nextButtonText: {
+    fontSize: 17,
+    fontWeight: '700',
+  },
+
+  step2Scroll: {
+    flex: 1,
+  },
+  step2Content: {
+    padding: Spacing.xl,
+    paddingBottom: Platform.OS === 'ios' ? 400 : 350,
+  },
+  section: {
+    marginBottom: Spacing['3xl'],
+  },
+  label: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: Spacing.md,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
   input: {
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: Radius.md,
+    padding: Spacing.xl,
     fontSize: 16,
     borderWidth: 1,
   },
@@ -853,67 +759,107 @@ const styles = StyleSheet.create({
     minHeight: 80,
     textAlignVertical: 'top',
   },
+  scheduleSelector: {
+    flexDirection: 'row',
+    borderRadius: Radius.md,
+    padding: Spacing.xs,
+  },
+  scheduleButton: {
+    flex: 1,
+    paddingVertical: Spacing.lg,
+    alignItems: 'center',
+    borderRadius: Radius.sm,
+  },
+  scheduleButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  frequencySelector: {
+    flexDirection: 'row',
+    borderRadius: Radius.md,
+    padding: Spacing.xs,
+  },
+  frequencyButton: {
+    flex: 1,
+    paddingVertical: Spacing.lg,
+    alignItems: 'center',
+    borderRadius: Radius.sm,
+  },
+  frequencyButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  fieldSpacer: {
+    marginTop: Spacing.lg,
+  },
+  endDateToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.lg,
+  },
+  endDateToggleText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  endDateContainer: {
+    marginTop: Spacing.lg,
+  },
   webDateContainer: {
-    borderRadius: 12,
+    borderRadius: Radius.md,
     borderWidth: 1,
-    padding: 16,
+    padding: Spacing.xl,
     minHeight: 52,
     justifyContent: 'center',
   },
   datePickerContainer: {
-    borderRadius: 12,
+    borderRadius: Radius.md,
     borderWidth: 1,
-    padding: 12,
+    padding: Spacing.lg,
     minHeight: 52,
     justifyContent: 'center',
   },
-  addCardButton: {
-    flexDirection: 'row',
+  saveButton: {
+    paddingVertical: Spacing.xl,
+    borderRadius: Radius.lg,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderStyle: 'dashed',
+    marginTop: Spacing.md,
+    marginBottom: Spacing.xl,
   },
-  addCardText: {
-    fontSize: 15,
-    fontWeight: '600',
+  saveButtonText: {
+    fontSize: 17,
+    fontWeight: '700',
   },
-  cardSelectionContainer: {
-    marginTop: 4,
-  },
-  cardScrollContent: {
-    gap: 12,
-    paddingHorizontal: 2,
-    paddingVertical: 2,
-  },
-  cardOption: {
-    alignItems: 'center',
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    minWidth: 80,
-  },
-  cardVisual: {
-    width: 44,
-    height: 28,
-    borderRadius: 6,
-    marginBottom: 6,
-  },
-  cardVisualPlaceholder: {
-    width: 44,
-    height: 28,
-    borderRadius: 6,
-    marginBottom: 6,
-    alignItems: 'center',
+
+  pickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
     justifyContent: 'center',
+    alignItems: 'center',
+    padding: Spacing['3xl'],
   },
-  cardOptionText: {
-    fontSize: 12,
-    fontWeight: '600',
+  pickerCard: {
+    width: '100%',
+    maxWidth: 340,
+    borderRadius: Radius.xl,
+    padding: Spacing.xl,
+    borderWidth: 1,
+  },
+  pickerTitle: {
+    fontSize: 17,
+    fontWeight: '700',
     textAlign: 'center',
+    marginBottom: Spacing.xl,
+  },
+  pickerOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.md,
+  },
+  pickerOptionText: {
+    fontSize: 16,
+    fontWeight: '500',
   },
 });
-

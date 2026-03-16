@@ -21,7 +21,7 @@ export const INCOME_CATEGORIES: Category[] = [
 
 export const ALL_CATEGORIES = [...EXPENSE_CATEGORIES, ...INCOME_CATEGORIES];
 
-export const getCategoryById = (id: string): Category | undefined => {
-  return ALL_CATEGORIES.find(cat => cat.id === id);
+export const getCategoryById = (id: string, customCategories: Category[] = []): Category | undefined => {
+  return ALL_CATEGORIES.find(cat => cat.id === id) || customCategories.find(cat => cat.id === id);
 };
 

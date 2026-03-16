@@ -1,13 +1,61 @@
+import { useEffect, useRef, useCallback } from 'react';
 import { Tabs } from 'expo-router';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { AppState, Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { useTheme } from '@/context/ThemeContext';
+import { useFinance } from '@/context/FinanceContext';
+import { getPendingTransactions, clearPendingTransactions } from '@/utils/transactionSync';
+
+function useSyncPendingTransactions() {
+  const { addTransaction } = useFinance();
+  const isSyncing = useRef(false);
+
+  const sync = useCallback(async () => {
+    if (Platform.OS !== 'ios' || isSyncing.current) return;
+    isSyncing.current = true;
+    try {
+      const pending = await getPendingTransactions();
+      if (pending.length === 0) return;
+
+      for (const tx of pending) {
+        addTransaction({
+          type: tx.type,
+          amount: tx.amount,
+          category: tx.category || 'other',
+          description: tx.description || '',
+          date: tx.date,
+        });
+      }
+
+      await clearPendingTransactions();
+      console.log(`Synced ${pending.length} pending transaction(s) from Shortcuts`);
+    } catch (error) {
+      console.error('Error syncing pending transactions:', error);
+    } finally {
+      isSyncing.current = false;
+    }
+  }, [addTransaction]);
+
+  useEffect(() => {
+    sync();
+
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        sync();
+      }
+    });
+
+    return () => subscription.remove();
+  }, [sync]);
+}
 
 export default function TabLayout() {
   const { theme, themeMode } = useTheme();
   const router = useRouter();
+
+  useSyncPendingTransactions();
   
   return (
     <Tabs
@@ -99,9 +147,15 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="manage-cards"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
         name="settings"
         options={{
-          href: null, // Hide from tab bar
+          href: null,
         }}
       />
       <Tabs.Screen

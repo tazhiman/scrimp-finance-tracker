@@ -6,6 +6,7 @@ import { getMerchantAtCurrentLocation } from '@/utils/locationServiceStub';
 import { loadUserCards, loadCardPreference } from '@/utils/storage';
 import { useTheme } from '@/context/ThemeContext';
 import { UserCard } from '@/types';
+import { abbreviateNumber } from '@/utils/dateHelpers';
 
 interface LobangCardProps {
   onPress?: () => void;
@@ -137,7 +138,7 @@ export function LobangCard({ onPress }: LobangCardProps) {
                 💰 {recommendation.rewardRate}{recommendation.rewardUnit} {recommendation.rewardType}
                 {!recommendation.meetsMinSpend && recommendation.minSpend > 0 && (
                   <Text style={[styles.warningText, { color: theme.error }]}>
-                    {' '}(Min ${recommendation.minSpend} needed)
+                    {' '}(Min ${recommendation.minSpend >= 10000 ? abbreviateNumber(recommendation.minSpend, 1) : recommendation.minSpend} needed)
                   </Text>
                 )}
               </Text>
@@ -174,7 +175,7 @@ export function LobangCard({ onPress }: LobangCardProps) {
                     {progress.cardName}
                   </Text>
                   <Text style={[styles.progressAmount, { color: theme.textSecondary }]}>
-                    ${progress.currentSpend} / ${progress.minSpend}
+                    ${progress.currentSpend >= 10000 ? abbreviateNumber(progress.currentSpend, 1) : progress.currentSpend} / ${progress.minSpend >= 10000 ? abbreviateNumber(progress.minSpend, 1) : progress.minSpend}
                   </Text>
                 </View>
                 <View style={[styles.progressBarBg, { backgroundColor: theme.cardBorder }]}>
@@ -190,7 +191,7 @@ export function LobangCard({ onPress }: LobangCardProps) {
                 </View>
                 {progress.remaining > 0 && (
                   <Text style={[styles.progressRemaining, { color: theme.textSecondary }]}>
-                    ${progress.remaining.toFixed(0)} to go
+                    ${Number.isFinite(progress.remaining) ? (progress.remaining >= 10000 ? abbreviateNumber(progress.remaining, 1) : progress.remaining.toFixed(0)) : '0'} to go
                   </Text>
                 )}
               </View>

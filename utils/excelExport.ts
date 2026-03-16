@@ -8,20 +8,21 @@ import * as XLSX from 'xlsx';
 import { writeAsStringAsync, documentDirectory } from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { Platform } from 'react-native';
-import { Transaction } from '@/types';
+import { Transaction, Category } from '@/types';
 import { getCategoryById } from '@/constants/categories';
 
 interface ExportOptions {
   startDate: Date;
   endDate: Date;
   transactions: Transaction[];
+  customCategories?: Category[];
 }
 
 /**
  * Exports transactions to Excel file
  */
 export async function exportTransactionsToExcel(options: ExportOptions): Promise<void> {
-  const { startDate, endDate, transactions } = options;
+  const { startDate, endDate, transactions, customCategories = [] } = options;
 
   // Filter transactions by date range
   const filteredTransactions = transactions.filter(tx => {
@@ -44,7 +45,7 @@ export async function exportTransactionsToExcel(options: ExportOptions): Promise
 
   // Prepare data for Excel
   const excelData = sortedTransactions.map(tx => {
-    const category = getCategoryById(tx.category);
+    const category = getCategoryById(tx.category, customCategories);
     
     return {
       'Date': formatDate(tx.date),
@@ -76,7 +77,7 @@ export async function exportTransactionsToExcel(options: ExportOptions): Promise
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Transactions');
 
   // Add summary sheet
-  const summary = createSummarySheet(sortedTransactions);
+  const summary = createSummarySheet(sortedTransactions, customCategories);
   const summaryWorksheet = XLSX.utils.json_to_sheet(summary);
   summaryWorksheet['!cols'] = [
     { wch: 20 },  // Label
@@ -114,7 +115,7 @@ export async function exportTransactionsToExcel(options: ExportOptions): Promise
 /**
  * Creates summary data for the summary sheet
  */
-function createSummarySheet(transactions: Transaction[]) {
+function createSummarySheet(transactions: Transaction[], customCategories: Category[]) {
   const income = transactions
     .filter(tx => tx.type === 'income')
     .reduce((sum, tx) => sum + tx.amount, 0);
@@ -130,23 +131,25 @@ function createSummarySheet(transactions: Transaction[]) {
   transactions
     .filter(tx => tx.type === 'expense')
     .forEach(tx => {
-      const category = getCategoryById(tx.category);
+      const category = getCategoryById(tx.category, customCategories);
       const categoryName = category?.name || tx.category;
       categoryBreakdown[categoryName] = (categoryBreakdown[categoryName] || 0) + tx.amount;
     });
 
+  const safeFmt = (n: number) => (Number.isFinite(n) ? n.toFixed(2) : '0.00');
+
   const summary = [
-    { Label: 'Total Income', Value: `$${income.toFixed(2)}` },
-    { Label: 'Total Expenses', Value: `$${expenses.toFixed(2)}` },
-    { Label: 'Net Balance', Value: `$${netBalance.toFixed(2)}` },
+    { Label: 'Total Income', Value: `$${safeFmt(income)}` },
+    { Label: 'Total Expenses', Value: `$${safeFmt(expenses)}` },
+    { Label: 'Net Balance', Value: `$${safeFmt(netBalance)}` },
     { Label: 'Total Transactions', Value: transactions.length },
-    { Label: '', Value: '' }, // Empty row
+    { Label: '', Value: '' },
     { Label: 'Expenses by Category', Value: '' },
     ...Object.entries(categoryBreakdown)
       .sort((a, b) => b[1] - a[1])
       .map(([category, amount]) => ({
         Label: `  ${category}`,
-        Value: `$${amount.toFixed(2)}`,
+        Value: `$${safeFmt(amount)}`,
       })),
   ];
 
