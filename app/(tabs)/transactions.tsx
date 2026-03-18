@@ -17,7 +17,6 @@ import { TransactionForm } from '@/components/TransactionForm';
 import { TimePeriodSelector } from '@/components/TimePeriodSelector';
 import { TransactionCalendarMonth } from '@/components/TransactionCalendarMonth';
 import { TransactionDayModal } from '@/components/TransactionDayModal';
-import { GlassHeader } from '@/components/ui/GlassHeader';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { Spacing, Radius, Shadow } from '@/constants/design';
 import { Transaction, TimePeriod } from '@/types';
@@ -182,11 +181,9 @@ export default function TransactionsScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
-      <GlassHeader style={styles.headerContainer}>
-        <View style={styles.header}>
-          <Text style={[styles.title, { color: theme.text }]}>Transactions</Text>
-        </View>
-      </GlassHeader>
+      <View style={styles.headerContainer}>
+        <Text style={[styles.title, { color: theme.text }]}>Transactions</Text>
+      </View>
 
       <View style={styles.periodSelector}>
         <TimePeriodSelector
@@ -323,17 +320,13 @@ const styles = StyleSheet.create({
   },
   headerContainer: {
     paddingHorizontal: Spacing.xl,
-    paddingVertical: Spacing.xl,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    paddingTop: Spacing['3xl'],
+    paddingBottom: Spacing.lg,
   },
   title: {
-    fontSize: 28,
-    fontWeight: '700',
-    letterSpacing: -0.3,
+    fontSize: 32,
+    fontWeight: '800',
+    letterSpacing: -0.5,
   },
   periodSelector: {
     paddingHorizontal: Spacing.xl,

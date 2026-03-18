@@ -18,7 +18,6 @@ import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useTheme } from '@/context/ThemeContext';
 import { useFinance } from '@/context/FinanceContext';
-import { GlassHeader } from '@/components/ui/GlassHeader';
 import { Spacing, Radius } from '@/constants/design';
 import { generateTestData } from '@/utils/generateTestData';
 import { seedTestData, loadNotificationSettings, saveNotificationSettings, loadUserCards, loadCardPreference, saveCardPreference } from '@/utils/storage';
@@ -223,7 +222,7 @@ export default function SettingsScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
-      <GlassHeader style={styles.header}>
+      <View style={styles.header}>
         <View style={styles.headerInner}>
           <TouchableOpacity
             style={styles.backButton}
@@ -234,7 +233,7 @@ export default function SettingsScreen() {
           <Text style={[styles.headerTitle, { color: theme.text }]}>Settings</Text>
           <View style={styles.placeholder} />
         </View>
-      </GlassHeader>
+      </View>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingBottom: tabBarHeight + 24 }}>
         <View style={styles.section}>

@@ -8,6 +8,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NativeModules, Platform } from 'react-native';
 
+// Temporary kill switch for diagnosing iOS startup crashes.
+// Set to true to re-enable widget bridge calls.
+const WIDGET_SYNC_ENABLED = false;
+
 // Check if native module is available
 const WidgetDataModule = Platform.OS === 'ios' ? NativeModules.WidgetDataModule : null;
 
@@ -24,19 +28,28 @@ export async function updateWidgetData(
     console.log('Widget updates are only available on iOS');
     return;
   }
+  if (!WIDGET_SYNC_ENABLED) {
+    return;
+  }
 
   try {
+    // Prevent invalid numeric payloads from reaching native bridge.
+    // Some iOS APIs can throw Objective-C exceptions for non-finite values.
+    const safeTodaySpending = Number.isFinite(todaySpending) ? todaySpending : 0;
+    const safeMonthlySpending = Number.isFinite(monthlySpending) ? monthlySpending : 0;
+    const safeMonthlyBudget = Number.isFinite(monthlyBudget) ? monthlyBudget : 0;
+
     // Store data for widget access
-    await AsyncStorage.setItem('@widget_today_spending', todaySpending.toString());
-    await AsyncStorage.setItem('@widget_monthly_spending', monthlySpending.toString());
-    await AsyncStorage.setItem('@widget_monthly_budget', monthlyBudget.toString());
+    await AsyncStorage.setItem('@widget_today_spending', safeTodaySpending.toString());
+    await AsyncStorage.setItem('@widget_monthly_spending', safeMonthlySpending.toString());
+    await AsyncStorage.setItem('@widget_monthly_budget', safeMonthlyBudget.toString());
 
     // If native module is available, use it to update shared UserDefaults
     if (WidgetDataModule?.updateWidgetData) {
       await WidgetDataModule.updateWidgetData({
-        todaySpending,
-        monthlySpending,
-        monthlyBudget,
+        todaySpending: safeTodaySpending,
+        monthlySpending: safeMonthlySpending,
+        monthlyBudget: safeMonthlyBudget,
       });
       console.log('Widget data updated successfully');
     }
@@ -49,7 +62,7 @@ export async function updateWidgetData(
  * Reloads all widgets to show updated data
  */
 export async function reloadWidgets(): Promise<void> {
-  if (Platform.OS !== 'ios') return;
+  if (Platform.OS !== 'ios' || !WIDGET_SYNC_ENABLED) return;
 
   try {
     if (WidgetDataModule?.reloadWidgets) {

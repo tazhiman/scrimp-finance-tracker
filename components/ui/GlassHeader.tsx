@@ -17,9 +17,11 @@ try {
 interface GlassHeaderProps {
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
+  /** Hide the bottom separator for a seamless look */
+  borderless?: boolean;
 }
 
-export function GlassHeader({ children, style }: GlassHeaderProps) {
+export function GlassHeader({ children, style, borderless = false }: GlassHeaderProps) {
   const { theme, themeMode } = useTheme();
 
   const useLiquidGlass =
@@ -38,12 +40,14 @@ export function GlassHeader({ children, style }: GlassHeaderProps) {
         colorScheme={themeMode}
       >
         {children}
-        <View
-          style={[
-            styles.bottomBorder,
-            { backgroundColor: themeMode === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' },
-          ]}
-        />
+        {!borderless && (
+          <View
+            style={[
+              styles.bottomBorder,
+              { backgroundColor: themeMode === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' },
+            ]}
+          />
+        )}
       </GlassView>
     );
   }
@@ -52,7 +56,7 @@ export function GlassHeader({ children, style }: GlassHeaderProps) {
     return (
       <View style={[styles.header, { overflow: 'hidden' }, style]}>
         <BlurView
-          intensity={80}
+          intensity={40}
           tint={themeMode === 'dark' ? 'dark' : 'light'}
           style={StyleSheet.absoluteFill}
         />
@@ -62,18 +66,20 @@ export function GlassHeader({ children, style }: GlassHeaderProps) {
             {
               backgroundColor:
                 themeMode === 'dark'
-                  ? 'rgba(0, 5, 5, 0.65)'
-                  : 'rgba(254, 252, 253, 0.65)',
+                  ? 'rgba(0, 5, 5, 0.85)'
+                  : 'rgba(254, 252, 253, 0.85)',
             },
           ]}
         />
         <View style={{ position: 'relative', flex: 1 }}>{children}</View>
-        <View
-          style={[
-            styles.bottomBorder,
-            { backgroundColor: theme.cardBorder },
-          ]}
-        />
+        {!borderless && (
+          <View
+            style={[
+              styles.bottomBorder,
+              { backgroundColor: theme.cardBorder },
+            ]}
+          />
+        )}
       </View>
     );
   }
@@ -84,8 +90,7 @@ export function GlassHeader({ children, style }: GlassHeaderProps) {
         styles.header,
         {
           backgroundColor: theme.background,
-          borderBottomWidth: 1,
-          borderBottomColor: theme.cardBorder,
+          ...(borderless ? {} : { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.cardBorder }),
         },
         style,
       ]}

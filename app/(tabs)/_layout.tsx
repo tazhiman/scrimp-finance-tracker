@@ -16,10 +16,13 @@ function useSyncPendingTransactions() {
     if (Platform.OS !== 'ios' || isSyncing.current) return;
     isSyncing.current = true;
     try {
+      console.log('[TransactionSync] Checking for pending transactions...');
       const pending = await getPendingTransactions();
+      console.log(`[TransactionSync] Found ${pending.length} pending transaction(s)`);
       if (pending.length === 0) return;
 
       for (const tx of pending) {
+        console.log(`[TransactionSync] Adding: $${tx.amount} - ${tx.description} (${tx.type})`);
         addTransaction({
           type: tx.type,
           amount: tx.amount,
@@ -30,9 +33,9 @@ function useSyncPendingTransactions() {
       }
 
       await clearPendingTransactions();
-      console.log(`Synced ${pending.length} pending transaction(s) from Shortcuts`);
+      console.log(`[TransactionSync] Synced ${pending.length} pending transaction(s) from Shortcuts`);
     } catch (error) {
-      console.error('Error syncing pending transactions:', error);
+      console.error('[TransactionSync] Error syncing pending transactions:', error);
     } finally {
       isSyncing.current = false;
     }

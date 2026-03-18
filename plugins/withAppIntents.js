@@ -5,7 +5,7 @@ const fs = require("fs");
 const SWIFT_FILES = [
   "LogTransactionIntent.swift",
   "ScimpShortcuts.swift",
-  "TransactionSyncModule.swift",
+  "TransactionSyncModule.m",
 ];
 
 function withAppIntents(config) {
@@ -30,7 +30,7 @@ function withAppIntents(config) {
     }
 
     if (!appIntentsGroupId) {
-      appIntentsGroupId = project.pbxCreateGroup(groupName, groupName);
+      appIntentsGroupId = project.pbxCreateGroup(groupName, targetName);
       const mainGroupObj = groups[mainGroup];
       if (mainGroupObj && mainGroupObj.children) {
         mainGroupObj.children.push({
@@ -40,7 +40,7 @@ function withAppIntents(config) {
       }
     }
 
-    const iosSourceDir = path.join(config.modRequest.projectRoot, "ios");
+    const iosSourceDir = path.join(config.modRequest.projectRoot, "native", "ios");
     const iosTargetDir = path.join(
       config.modRequest.platformProjectRoot,
       targetName
@@ -51,6 +51,7 @@ function withAppIntents(config) {
       const destFile = path.join(iosTargetDir, fileName);
 
       if (fs.existsSync(srcFile)) {
+        fs.mkdirSync(path.dirname(destFile), { recursive: true });
         fs.copyFileSync(srcFile, destFile);
       }
 
@@ -71,7 +72,7 @@ function withAppIntents(config) {
 
       if (!existingFile) {
         project.addSourceFile(
-          `${targetName}/${fileName}`,
+          fileName,
           { target: project.getFirstTarget().uuid },
           appIntentsGroupId
         );

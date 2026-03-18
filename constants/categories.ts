@@ -19,7 +19,9 @@ export const INCOME_CATEGORIES: Category[] = [
   { id: 'other', name: 'Other', icon: '💰', color: '#9E9E9E' },
 ];
 
-export const ALL_CATEGORIES = [...EXPENSE_CATEGORIES, ...INCOME_CATEGORIES];
+export const UNCATEGORIZED: Category = { id: 'uncategorized', name: 'Uncategorized', icon: '🏷️', color: '#B0BEC5' };
+
+export const ALL_CATEGORIES = [...EXPENSE_CATEGORIES, ...INCOME_CATEGORIES, UNCATEGORIZED];
 
 export const getCategoryById = (id: string, customCategories: Category[] = []): Category | undefined => {
   return ALL_CATEGORIES.find(cat => cat.id === id) || customCategories.find(cat => cat.id === id);

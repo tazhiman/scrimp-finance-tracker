@@ -162,168 +162,105 @@ function MockCardSelection({ theme, pulseAnim }: { theme: any; pulseAnim: Animat
   );
 }
 
-function MockActionSearch({ theme, pulseAnim }: { theme: any; pulseAnim: Animated.Value }) {
+function MockSearchScrimp({ theme, pulseAnim }: { theme: any; pulseAnim: Animated.Value }) {
   return (
     <View style={[mockStyles.phone, { borderColor: theme.cardBorder }]}>
       <View style={[mockStyles.phoneScreen, { backgroundColor: '#1C1C1E' }]}>
-        <View style={[mockStyles.searchBar, { backgroundColor: '#2C2C2E' }]}>
-          <Ionicons name="search" size={16} color="#8E8E93" />
-          <Text style={{ color: '#FFF', fontSize: 14, marginLeft: 6 }}>Scrimp</Text>
+        <Text style={[mockStyles.phoneTitle, { fontSize: 14 }]}>New Automation</Text>
+        <View style={{ paddingHorizontal: 12, marginBottom: 10 }}>
+          <View style={[mockStyles.searchBar, { backgroundColor: '#2C2C2E', marginHorizontal: 0 }]}>
+            <Ionicons name="search" size={16} color="#8E8E93" />
+            <Text style={{ color: '#FFF', fontSize: 14, marginLeft: 6 }}>Scrimp</Text>
+          </View>
         </View>
+        <Text style={{ color: '#8E8E93', fontSize: 11, paddingHorizontal: 14, marginBottom: 6 }}>Actions</Text>
         <Animated.View style={[
           mockStyles.listRow,
           {
             backgroundColor: '#007AFF15',
             borderRadius: 8,
+            marginHorizontal: 6,
             transform: [{ scale: pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.03] }) }],
           },
         ]}>
           <View style={[mockStyles.appIconSmall, { backgroundColor: theme.primary + '30' }]}>
             <Ionicons name="wallet" size={16} color={theme.primary} />
           </View>
-          <View>
+          <View style={{ flex: 1 }}>
             <Text style={[mockStyles.listText, { color: '#FFF', fontWeight: '600' }]}>Log Transaction</Text>
-            <Text style={[mockStyles.listSubtext]}>Scrimp App</Text>
+            <Text style={[mockStyles.listSubtext]}>Scrimp</Text>
           </View>
+          <Ionicons name="add-circle" size={22} color="#007AFF" />
         </Animated.View>
       </View>
     </View>
   );
 }
 
-function MockSetAmountVariable({ theme, pulseAnim }: { theme: any; pulseAnim: Animated.Value }) {
-  const variableItems = ['Transaction', 'Card or Pass', 'Merchant', 'Amount'];
+function MockConfigureParams({ theme, pulseAnim }: { theme: any; pulseAnim: Animated.Value }) {
   return (
     <View style={{ alignItems: 'center', width: '100%', gap: 12 }}>
-      {/* Action card at the top */}
-      <View style={[mockStyles.phone, { borderColor: theme.cardBorder, width: SCREEN_WIDTH * 0.72 }]}>
+      <View style={[mockStyles.phone, { borderColor: theme.cardBorder, width: SCREEN_WIDTH * 0.78 }]}>
         <View style={{ backgroundColor: '#1C1C1E', paddingVertical: 12, paddingHorizontal: 14 }}>
-          <Text style={{ color: '#8E8E93', fontSize: 11, marginBottom: 6 }}>When I tap any of 2 Wallet passes...</Text>
-          <View style={{ backgroundColor: '#2C2C2E', borderRadius: 10, padding: 12 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-              <Ionicons name="card" size={14} color="#30D158" />
-              <Text style={{ color: '#FFF', fontSize: 13 }}>Import </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+            <Ionicons name="flash" size={14} color="#FFCC00" />
+            <Text style={{ color: '#8E8E93', fontSize: 11 }}>Receive transaction as input</Text>
+          </View>
+
+          <View style={{ backgroundColor: '#2C2C2E', borderRadius: 12, padding: 14 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+              <View style={[mockStyles.appIconSmall, { backgroundColor: theme.primary + '30', width: 24, height: 24, borderRadius: 6 }]}>
+                <Ionicons name="wallet" size={12} color={theme.primary} />
+              </View>
+              <Text style={{ color: '#FFF', fontSize: 13, fontWeight: '600' }}>Import</Text>
               <Animated.View style={[
-                { backgroundColor: '#007AFF', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 5 },
-                { transform: [{ scale: pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] }) }] },
+                { backgroundColor: '#007AFF', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 5, flexDirection: 'row', alignItems: 'center', gap: 3 },
+                { transform: [{ scale: pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.06] }) }] },
               ]}>
+                <Ionicons name="pricetag" size={10} color="#FFF" />
                 <Text style={{ color: '#FFF', fontSize: 12, fontWeight: '700' }}>Amount</Text>
               </Animated.View>
-              <Text style={{ color: '#FFF', fontSize: 13 }}> from</Text>
+              <Text style={{ color: '#FFF', fontSize: 13 }}>from</Text>
             </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: 20 }}>
-              <Ionicons name="pricetag" size={12} color="#007AFF" />
-              <Text style={{ color: '#007AFF', fontSize: 12, fontWeight: '600' }}>Merchant</Text>
-            </View>
-          </View>
-        </View>
-      </View>
-
-      {/* Shortcut Input bottom sheet */}
-      <View style={[mockStyles.phone, { borderColor: theme.cardBorder, width: SCREEN_WIDTH * 0.72 }]}>
-        <View style={{ backgroundColor: '#2C2C2E', borderTopLeftRadius: 14, borderTopRightRadius: 14, paddingTop: 10 }}>
-          <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: '#555', alignSelf: 'center', marginBottom: 10 }} />
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, marginBottom: 10 }}>
-            <Ionicons name="pricetag" size={16} color="#007AFF" />
-            <Text style={{ color: '#FFF', fontSize: 15, fontWeight: '700' }}>Shortcut Input</Text>
-          </View>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 8, borderBottomWidth: 0.5, borderBottomColor: '#3A3A3C' }}>
-            <Text style={{ color: '#8E8E93', fontSize: 13 }}>Type</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <Text style={{ color: '#FFF', fontSize: 13 }}>Transaction</Text>
-              <Ionicons name="chevron-forward" size={14} color="#8E8E93" />
-            </View>
-          </View>
-          {variableItems.map((item) => (
-            <Animated.View
-              key={item}
-              style={[
-                { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 11, paddingHorizontal: 14, borderBottomWidth: 0.5, borderBottomColor: '#3A3A3C' },
-                item === 'Amount' && {
-                  transform: [{ scale: pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.03] }) }],
-                },
-              ]}
-            >
-              <Text style={{ color: '#FFF', fontSize: 14, fontWeight: item === 'Amount' ? '600' : '400' }}>{item}</Text>
-              {item === 'Amount' && <Ionicons name="checkmark" size={18} color="#007AFF" />}
-            </Animated.View>
-          ))}
-        </View>
-      </View>
-    </View>
-  );
-}
-
-function MockSetMerchantVariable({ theme, pulseAnim }: { theme: any; pulseAnim: Animated.Value }) {
-  const variableItems = ['Transaction', 'Card or Pass', 'Merchant', 'Amount'];
-  return (
-    <View style={{ alignItems: 'center', width: '100%', gap: 12 }}>
-      {/* Action card at the top */}
-      <View style={[mockStyles.phone, { borderColor: theme.cardBorder, width: SCREEN_WIDTH * 0.72 }]}>
-        <View style={{ backgroundColor: '#1C1C1E', paddingVertical: 12, paddingHorizontal: 14 }}>
-          <Text style={{ color: '#8E8E93', fontSize: 11, marginBottom: 6 }}>When I tap any of 2 Wallet passes...</Text>
-          <View style={{ backgroundColor: '#2C2C2E', borderRadius: 10, padding: 12 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-              <Ionicons name="card" size={14} color="#30D158" />
-              <Text style={{ color: '#FFF', fontSize: 13 }}>Import </Text>
-              <View style={{ backgroundColor: '#007AFF', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 5 }}>
-                <Text style={{ color: '#FFF', fontSize: 12, fontWeight: '700' }}>Amount</Text>
-              </View>
-              <Text style={{ color: '#FFF', fontSize: 13 }}> from</Text>
-            </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: 20 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: 30 }}>
               <Animated.View style={[
-                { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#007AFF', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 5 },
-                { transform: [{ scale: pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] }) }] },
+                { backgroundColor: '#007AFF', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 5, flexDirection: 'row', alignItems: 'center', gap: 3 },
+                { transform: [{ scale: pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.06] }) }] },
               ]}>
-                <Ionicons name="pricetag" size={11} color="#FFF" />
+                <Ionicons name="pricetag" size={10} color="#FFF" />
                 <Text style={{ color: '#FFF', fontSize: 12, fontWeight: '700' }}>Merchant</Text>
               </Animated.View>
+              <Ionicons name="chevron-forward-circle" size={16} color="#8E8E93" />
             </View>
           </View>
         </View>
       </View>
 
-      {/* Shortcut Input bottom sheet */}
-      <View style={[mockStyles.phone, { borderColor: theme.cardBorder, width: SCREEN_WIDTH * 0.72 }]}>
-        <View style={{ backgroundColor: '#2C2C2E', borderTopLeftRadius: 14, borderTopRightRadius: 14, paddingTop: 10 }}>
-          <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: '#555', alignSelf: 'center', marginBottom: 10 }} />
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, marginBottom: 10 }}>
-            <Ionicons name="pricetag" size={16} color="#007AFF" />
-            <Text style={{ color: '#FFF', fontSize: 15, fontWeight: '700' }}>Shortcut Input</Text>
-          </View>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 8, borderBottomWidth: 0.5, borderBottomColor: '#3A3A3C' }}>
-            <Text style={{ color: '#8E8E93', fontSize: 13 }}>Type</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <Text style={{ color: '#FFF', fontSize: 13 }}>Transaction</Text>
-              <Ionicons name="chevron-forward" size={14} color="#8E8E93" />
-            </View>
-          </View>
-          {variableItems.map((item) => (
-            <Animated.View
-              key={item}
-              style={[
-                { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 11, paddingHorizontal: 14, borderBottomWidth: 0.5, borderBottomColor: '#3A3A3C' },
-                item === 'Merchant' && {
-                  transform: [{ scale: pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.03] }) }],
-                },
-              ]}
-            >
-              <Text style={{ color: '#FFF', fontSize: 14, fontWeight: item === 'Merchant' ? '600' : '400' }}>{item}</Text>
-              {item === 'Merchant' && <Ionicons name="checkmark" size={18} color="#007AFF" />}
-            </Animated.View>
-          ))}
-        </View>
+      <View style={{ backgroundColor: '#2C2C2E20', borderRadius: 12, padding: 14, width: SCREEN_WIDTH * 0.78 }}>
+        <Text style={{ color: theme.textSecondary, fontSize: 12, lineHeight: 18, textAlign: 'center' }}>
+          Tap each blue field to choose the matching variable from the Shortcut Input list.{'\n\n'}
+          <Text style={{ fontWeight: '700', color: theme.text }}>Amount</Text> field  {'->'}  select <Text style={{ fontWeight: '700', color: '#007AFF' }}>Amount</Text>{'\n'}
+          <Text style={{ fontWeight: '700', color: theme.text }}>Merchant</Text> field  {'->'}  select <Text style={{ fontWeight: '700', color: '#007AFF' }}>Merchant</Text>
+        </Text>
       </View>
     </View>
   );
 }
 
-function MockRunImmediately({ theme, pulseAnim }: { theme: any; pulseAnim: Animated.Value }) {
+function MockSaveAutomation({ theme, pulseAnim }: { theme: any; pulseAnim: Animated.Value }) {
   return (
     <View style={[mockStyles.phone, { borderColor: theme.cardBorder }]}>
       <View style={[mockStyles.phoneScreen, { backgroundColor: '#1C1C1E' }]}>
-        <Text style={[mockStyles.phoneTitle, { fontSize: 15 }]}>Settings</Text>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 14, marginBottom: 16 }}>
+          <Text style={{ color: '#007AFF', fontSize: 14 }}>Cancel</Text>
+          <Text style={{ color: '#FFF', fontSize: 16, fontWeight: '700' }}>New Automation</Text>
+          <Animated.View style={{
+            transform: [{ scale: pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.1] }) }],
+          }}>
+            <Text style={{ color: '#007AFF', fontSize: 14, fontWeight: '700' }}>Done</Text>
+          </Animated.View>
+        </View>
+
         <Animated.View style={[
           mockStyles.listRow,
           {
@@ -341,20 +278,17 @@ function MockRunImmediately({ theme, pulseAnim }: { theme: any; pulseAnim: Anima
             Runs without asking when triggered
           </Text>
         </View>
+
         <View style={{ flex: 1 }} />
-        <Animated.View style={[
-          mockStyles.doneButton,
-          { backgroundColor: '#007AFF' },
-          {
-            transform: [{ scale: pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.05] }) }],
-          },
-        ]}>
-          <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 16 }}>Done</Text>
-        </Animated.View>
+        <View style={{ alignItems: 'center', paddingVertical: 16 }}>
+          <Ionicons name="checkmark-circle" size={40} color="#30D158" />
+          <Text style={{ color: '#30D158', fontSize: 13, fontWeight: '600', marginTop: 6 }}>You're all set!</Text>
+        </View>
       </View>
     </View>
   );
 }
+
 
 const STEPS: GuideStep[] = [
   {
@@ -383,24 +317,19 @@ const STEPS: GuideStep[] = [
     mockUI: (theme, pulse) => <MockCardSelection theme={theme} pulseAnim={pulse} />,
   },
   {
-    title: 'Search "Scrimp"',
-    description: 'In the action search, type "Scrimp" and select "Log Transaction".',
-    mockUI: (theme, pulse) => <MockActionSearch theme={theme} pulseAnim={pulse} />,
+    title: 'Add "Log Transaction" Action',
+    description: 'Tap "New Blank Automation", then search for "Scrimp" in the search bar and select "Log Transaction".',
+    mockUI: (theme, pulse) => <MockSearchScrimp theme={theme} pulseAnim={pulse} />,
   },
   {
-    title: 'Set the Amount Variable',
-    description: 'Tap the Amount field in the action, then select "Amount" from the Shortcut Input list to pass the transaction amount.',
-    mockUI: (theme, pulse) => <MockSetAmountVariable theme={theme} pulseAnim={pulse} />,
+    title: 'Map Amount & Merchant',
+    description: 'Tap the Amount field and pick "Amount" from the variable list. Then tap the Merchant field and pick "Merchant". This links your payment details to Scrimp automatically.',
+    mockUI: (theme, pulse) => <MockConfigureParams theme={theme} pulseAnim={pulse} />,
   },
   {
-    title: 'Set the Merchant Variable',
-    description: 'Now tap the Merchant field and select "Merchant" from the list so the store name is captured too.',
-    mockUI: (theme, pulse) => <MockSetMerchantVariable theme={theme} pulseAnim={pulse} />,
-  },
-  {
-    title: 'Enable "Run Immediately"',
-    description: 'Toggle on "Run Immediately" so it logs silently without asking. Then tap Done!',
-    mockUI: (theme, pulse) => <MockRunImmediately theme={theme} pulseAnim={pulse} />,
+    title: 'Save Automation',
+    description: 'Toggle on "Run Immediately" so transactions are logged silently. Then tap Done — you\'re all set!',
+    mockUI: (theme, pulse) => <MockSaveAutomation theme={theme} pulseAnim={pulse} />,
   },
 ];
 

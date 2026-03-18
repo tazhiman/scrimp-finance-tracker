@@ -2,7 +2,7 @@
   "expo": {
     "name": "Scrimp App",
     "slug": "scrimp-app",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "sdkVersion": "55.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -18,6 +18,12 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.scrimp.app",
+      "buildNumber": "2",
+      "entitlements": {
+        "com.apple.security.application-groups": [
+          "group.com.scrimp.app"
+        ]
+      },
       "infoPlist": {
         "UIBackgroundModes": [
           "remote-notification"
@@ -35,8 +41,6 @@
       },
       "package": "com.scrimp.app",
       "permissions": [
-        "android.permission.RECEIVE_BOOT_COMPLETED",
-        "android.permission.VIBRATE",
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.VIBRATE"
       ]
@@ -65,8 +69,6 @@
         "projectId": "5d8353be-4e02-4bd5-a796-648c22a2f592"
       }
     },
-    "runtimeVersion": {
-      "policy": "appVersion"
-    }
+    "runtimeVersion": "1.0.2"
   }
 }

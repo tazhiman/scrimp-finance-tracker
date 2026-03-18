@@ -12,19 +12,25 @@ import {
   ScrollView,
   Animated,
   Dimensions,
-  ActionSheetIOS,
 } from 'react-native';
 
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { Transaction, TransactionType, Category, RecurringExpense, RecurrenceFrequency, UserCard } from '@/types';
+import { Transaction, TransactionType, Category, RecurringExpense, RecurrenceFrequency, UserCard, BankAccount } from '@/types';
 import { CategorySelector } from './CategorySelector';
 import { useTheme } from '@/context/ThemeContext';
 import { Spacing, Radius, Shadow } from '@/constants/design';
 import { useFinance } from '@/context/FinanceContext';
 import { Ionicons } from '@expo/vector-icons';
 import { loadUserCards } from '@/utils/storage';
+import { loadBankAccounts } from '@/utils/onboarding';
 import { getAllCards } from '@/utils/cardEngine';
 import { getCachedCardImage } from '@/utils/remoteRewardsData';
+import { GlassCard } from './ui/GlassCard';
+
+type SelectedAccount =
+  | { kind: 'bank'; id: string }
+  | { kind: 'card'; id: string }
+  | undefined;
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -71,10 +77,15 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
     initialTransaction?.date ? new Date(initialTransaction.date) : new Date()
   );
 
-  const [selectedCard, setSelectedCard] = useState<string | undefined>(initialTransaction?.cardId);
+  const [selectedAccount, setSelectedAccount] = useState<SelectedAccount>(
+    initialTransaction?.cardId ? { kind: 'card', id: initialTransaction.cardId }
+    : initialTransaction?.accountId ? { kind: 'bank', id: initialTransaction.accountId }
+    : undefined
+  );
   const [userCards, setUserCards] = useState<UserCard[]>([]);
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [cardImages, setCardImages] = useState<Record<string, string | null>>({});
-  const [showCardPicker, setShowCardPicker] = useState(false);
+  const [showAccountPicker, setShowAccountPicker] = useState(false);
 
   const [scheduleMode, setScheduleMode] = useState<ScheduleMode>('one_time');
   const [recurrenceFrequency, setRecurrenceFrequency] = useState<RecurrenceFrequency>('monthly');
@@ -90,10 +101,15 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
   useEffect(() => {
     if (visible) {
       (async () => {
-        const cards = await loadUserCards();
+        const [cards, accounts] = await Promise.all([loadUserCards(), loadBankAccounts()]);
         setUserCards(cards);
-        if (cards.length > 0 && !initialTransaction?.cardId) {
-          setSelectedCard(cards[0].id);
+        setBankAccounts(accounts);
+        if (!initialTransaction?.cardId && !initialTransaction?.accountId) {
+          if (accounts.length > 0) {
+            setSelectedAccount({ kind: 'bank', id: accounts[0].id });
+          } else if (cards.length > 0) {
+            setSelectedAccount({ kind: 'card', id: cards[0].id });
+          }
         }
         const allCards = getAllCards();
         const images: Record<string, string | null> = {};
@@ -123,7 +139,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
     setPlanTitle('');
     setInstallments('');
     setEndDateEnabled(false);
-    setSelectedCard(undefined);
+    setSelectedAccount(undefined);
     setStep(1);
     slideAnim.setValue(0);
     const d = new Date();
@@ -193,12 +209,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
       Alert.alert('Error', 'Please enter a valid amount');
       return;
     }
-    if (!category) {
-      Alert.alert('Error', 'Please select a category');
-      return;
-    }
-
-    let resolvedCategory = category;
+    let resolvedCategory = category || 'uncategorized';
     if (showCustomInput) {
       if (!customCategoryName || customCategoryName.trim().length === 0) {
         Alert.alert('Error', 'Please enter a category name');
@@ -260,7 +271,8 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
       category: resolvedCategory,
       description,
       date: date.toISOString().split('T')[0],
-      cardId: selectedCard,
+      cardId: selectedAccount?.kind === 'card' ? selectedAccount.id : undefined,
+      accountId: selectedAccount?.kind === 'bank' ? selectedAccount.id : undefined,
     });
     resetForm();
     onClose();
@@ -279,29 +291,34 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
     return `$${num.toFixed(2)}`;
   };
 
-  const getCardName = (cardId: string | undefined): string => {
-    if (!cardId) return 'No Card';
-    const card = userCards.find(c => c.id === cardId);
-    return card ? card.name : 'No Card';
-  };
-
-  const openCardPicker = () => {
-    const options = ['No Card', ...userCards.map(c => c.name), 'Cancel'];
-    const cancelIdx = options.length - 1;
-
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
-        { options, cancelButtonIndex: cancelIdx, title: 'Select Acc or Card' },
-        (idx) => {
-          if (idx === cancelIdx) return;
-          if (idx === 0) { setSelectedCard(undefined); return; }
-          setSelectedCard(userCards[idx - 1].id);
-        }
-      );
-    } else {
-      setShowCardPicker(true);
+  const getAccountLabel = (sel: SelectedAccount): string => {
+    if (!sel) return 'No Account';
+    if (sel.kind === 'bank') {
+      const acct = bankAccounts.find(a => a.id === sel.id);
+      return acct ? acct.name : 'No Account';
     }
+    const card = userCards.find(c => c.id === sel.id);
+    return card ? card.name : 'No Account';
   };
+
+  const getAccountIcon = (sel: SelectedAccount): 'wallet-outline' | 'card-outline' => {
+    if (sel?.kind === 'card') return 'card-outline';
+    return 'wallet-outline';
+  };
+
+  type PickerEntry = { id: string; kind: 'bank' | 'card'; name: string };
+
+  const pickerEntries: PickerEntry[] = [
+    ...bankAccounts.map(a => ({ id: a.id, kind: 'bank' as const, name: a.name })),
+    ...userCards.map(c => ({ id: c.id, kind: 'card' as const, name: c.name })),
+  ];
+
+  const selectAccount = (sel: SelectedAccount) => {
+    setSelectedAccount(sel);
+    setShowAccountPicker(false);
+  };
+
+  const openAccountPicker = () => setShowAccountPicker(true);
 
   const step1Translate = slideAnim.interpolate({
     inputRange: [0, 1],
@@ -367,15 +384,15 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
                 {formatDisplay(amount)}
               </Animated.Text>
 
-              {type === 'expense' && userCards.length > 0 && (
+              {(bankAccounts.length > 0 || userCards.length > 0) && (
                 <TouchableOpacity
                   style={[styles.cardPill, { backgroundColor: theme.backgroundSecondary, borderColor: theme.cardBorder }]}
-                  onPress={openCardPicker}
+                  onPress={openAccountPicker}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="card-outline" size={16} color={theme.textSecondary} />
+                  <Ionicons name={getAccountIcon(selectedAccount)} size={16} color={theme.textSecondary} />
                   <Text style={[styles.cardPillText, { color: theme.text }]} numberOfLines={1}>
-                    {getCardName(selectedCard)}
+                    {getAccountLabel(selectedAccount)}
                   </Text>
                   <Ionicons name="chevron-down" size={14} color={theme.textTertiary} />
                 </TouchableOpacity>
@@ -595,23 +612,29 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
           </ScrollView>
         </Animated.View>
 
-        {/* Android card picker fallback */}
-        {Platform.OS !== 'ios' && showCardPicker && (
-          <Modal transparent animationType="fade" visible={showCardPicker} onRequestClose={() => setShowCardPicker(false)}>
-            <TouchableOpacity style={styles.pickerOverlay} activeOpacity={1} onPress={() => setShowCardPicker(false)}>
-              <View style={[styles.pickerCard, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
-                <Text style={[styles.pickerTitle, { color: theme.text }]}>Select Acc or Card</Text>
-                <TouchableOpacity style={styles.pickerOption} onPress={() => { setSelectedCard(undefined); setShowCardPicker(false); }}>
-                  <Text style={[styles.pickerOptionText, { color: selectedCard === undefined ? theme.primary : theme.text }]}>No Card</Text>
-                  {selectedCard === undefined && <Ionicons name="checkmark" size={20} color={theme.primary} />}
+        {showAccountPicker && (
+          <Modal transparent animationType="fade" visible onRequestClose={() => setShowAccountPicker(false)}>
+            <TouchableOpacity style={styles.dropdownOverlay} activeOpacity={1} onPress={() => setShowAccountPicker(false)}>
+              <GlassCard style={styles.dropdownCard} intensity="strong" borderRadius={14}>
+                <TouchableOpacity style={styles.dropdownItem} onPress={() => selectAccount(undefined)} activeOpacity={0.6}>
+                  <Ionicons name="close-circle-outline" size={20} color={!selectedAccount ? theme.primary : theme.textSecondary} />
+                  <Text style={[styles.dropdownItemText, { color: !selectedAccount ? theme.primary : theme.text }]}>No Account</Text>
+                  {!selectedAccount && <Ionicons name="checkmark" size={18} color={theme.primary} />}
                 </TouchableOpacity>
-                {userCards.map(c => (
-                  <TouchableOpacity key={c.id} style={styles.pickerOption} onPress={() => { setSelectedCard(c.id); setShowCardPicker(false); }}>
-                    <Text style={[styles.pickerOptionText, { color: selectedCard === c.id ? theme.primary : theme.text }]}>{c.name}</Text>
-                    {selectedCard === c.id && <Ionicons name="checkmark" size={20} color={theme.primary} />}
-                  </TouchableOpacity>
-                ))}
-              </View>
+                {pickerEntries.map((entry, idx) => {
+                  const isSelected = selectedAccount?.kind === entry.kind && selectedAccount?.id === entry.id;
+                  return (
+                    <React.Fragment key={entry.id}>
+                      <View style={[styles.dropdownDivider, { backgroundColor: theme.cardBorder }]} />
+                      <TouchableOpacity style={styles.dropdownItem} onPress={() => selectAccount({ kind: entry.kind, id: entry.id })} activeOpacity={0.6}>
+                        <Ionicons name={entry.kind === 'bank' ? 'wallet-outline' : 'card-outline'} size={20} color={isSelected ? theme.primary : theme.textSecondary} />
+                        <Text style={[styles.dropdownItemText, { color: isSelected ? theme.primary : theme.text }]}>{entry.name}</Text>
+                        {isSelected && <Ionicons name="checkmark" size={18} color={theme.primary} />}
+                      </TouchableOpacity>
+                    </React.Fragment>
+                  );
+                })}
+              </GlassCard>
             </TouchableOpacity>
           </Modal>
         )}
@@ -831,35 +854,30 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  pickerOverlay: {
+  dropdownOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: Spacing['3xl'],
+    backgroundColor: 'rgba(0,0,0,0.3)',
   },
-  pickerCard: {
-    width: '100%',
-    maxWidth: 340,
-    borderRadius: Radius.xl,
-    padding: Spacing.xl,
-    borderWidth: 1,
+  dropdownCard: {
+    width: 260,
+    paddingVertical: Spacing.sm,
   },
-  pickerTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    textAlign: 'center',
-    marginBottom: Spacing.xl,
-  },
-  pickerOption: {
+  dropdownItem: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: Spacing.lg,
-    paddingHorizontal: Spacing.md,
+    gap: Spacing.lg,
+    paddingVertical: 14,
+    paddingHorizontal: Spacing.xl,
   },
-  pickerOptionText: {
+  dropdownItemText: {
     fontSize: 16,
     fontWeight: '500',
+    flex: 1,
+  },
+  dropdownDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginHorizontal: Spacing.xl,
   },
 });

@@ -18,7 +18,6 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useFinance } from '@/context/FinanceContext';
 import { useTheme } from '@/context/ThemeContext';
 import { GoalCard } from '@/components/GoalCard';
-import { GlassHeader } from '@/components/ui/GlassHeader';
 import { Spacing, Radius, Shadow } from '@/constants/design';
 import { SavingsGoal, ContributionFrequency } from '@/types';
 import { Ionicons } from '@expo/vector-icons';
@@ -129,11 +128,9 @@ export default function GoalsScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
-      <GlassHeader style={styles.headerContainer}>
-        <View style={styles.header}>
-          <Text style={[styles.title, { color: theme.text }]}>Savings Goals</Text>
-        </View>
-      </GlassHeader>
+      <View style={styles.headerContainer}>
+        <Text style={[styles.title, { color: theme.text }]}>Savings Goals</Text>
+      </View>
 
       <ScrollView
         style={styles.scrollView}
@@ -321,17 +318,13 @@ const styles = StyleSheet.create({
   },
   headerContainer: {
     paddingHorizontal: Spacing.xl,
-    paddingVertical: Spacing.xl,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    paddingTop: Spacing['3xl'],
+    paddingBottom: Spacing.lg,
   },
   title: {
-    fontSize: 28,
-    fontWeight: '700',
-    letterSpacing: -0.3,
+    fontSize: 32,
+    fontWeight: '800',
+    letterSpacing: -0.5,
   },
   fab: {
     position: 'absolute',

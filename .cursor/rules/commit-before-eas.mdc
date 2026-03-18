@@ -1,0 +1,24 @@
+---
+description: Always commit changes with a message before submitting builds to EAS
+alwaysApply: true
+---
+
+# Commit Before EAS Build/Submit
+
+Before running any `eas build` or `eas submit` command:
+
+1. Stage all relevant changed files with `git add`
+2. Create a commit with a clear, descriptive message summarizing what changed and why
+3. Verify the commit succeeded before proceeding to the EAS command
+
+```bash
+# ❌ BAD — pushing to EAS without committing
+eas build --platform ios --profile production
+
+# ✅ GOOD — commit first, then build
+git add -A
+git commit -m "Add debug notifications to LogTransactionIntent for automation troubleshooting"
+eas build --platform ios --profile production
+```
+
+Never skip the commit step, even for small or temporary changes.

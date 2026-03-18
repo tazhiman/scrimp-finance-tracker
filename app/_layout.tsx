@@ -7,6 +7,7 @@ import { GamificationProvider } from '@/context/GamificationContext';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { loadRewardsData } from '@/utils/cardEngine';
 import { isOnboardingCompleted } from '@/utils/onboarding';
+import { requestNotificationPermissions } from '@/utils/notifications';
 import { OnboardingFlow } from '@/components/onboarding/OnboardingFlow';
 
 // Configure how notifications are handled when app is in foreground
@@ -21,8 +22,8 @@ Notifications.setNotificationHandler({
 });
 
 export default function RootLayout() {
-  const notificationListener = useRef<Notifications.Subscription>();
-  const responseListener = useRef<Notifications.Subscription>();
+  const notificationListener = useRef<Notifications.Subscription | null>(null);
+  const responseListener = useRef<Notifications.Subscription | null>(null);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState<boolean | null>(null);
 
@@ -30,6 +31,7 @@ export default function RootLayout() {
     const initializeData = async () => {
       try {
         await loadRewardsData();
+        await requestNotificationPermissions();
         const completed = await isOnboardingCompleted();
         setShowOnboarding(!completed);
       } catch (error) {

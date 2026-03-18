@@ -1,0 +1,19 @@
+---
+description: Always use local EAS builds unless cloud build is explicitly requested
+alwaysApply: true
+---
+
+# Prefer Local EAS Builds
+
+Always build locally by default using the `--local` flag:
+
+```bash
+# ✅ DEFAULT — local build then submit
+eas build --platform ios --profile uat --local
+eas submit --platform ios --profile uat --path ./build-*.ipa
+
+# ❌ AVOID — cloud build (only if user explicitly requests it)
+eas build --platform ios --profile uat
+```
+
+Only use cloud builds (without `--local`) if the user explicitly asks, e.g. "build on EAS servers" or "use cloud build".

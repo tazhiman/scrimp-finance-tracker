@@ -126,7 +126,7 @@ export const loadNotificationSettings = async (): Promise<boolean> => {
       const settings = JSON.parse(data);
       return settings.enabled ?? false;
     }
-    return false; // Default to disabled
+    return true; // Default to enabled
   } catch (error) {
     console.error('Error loading notification settings:', error);
     return false;

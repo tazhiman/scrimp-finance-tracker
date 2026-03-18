@@ -1,5 +1,6 @@
 import Foundation
 import AppIntents
+import UserNotifications
 
 @available(iOS 16.0, *)
 enum TransactionTypeAppEnum: String, AppEnum {
@@ -70,12 +71,33 @@ struct LogTransactionIntent: AppIntent {
     }
   }
 
-  private static let appGroupIdentifier = "group.com.financetracker.app"
+  private static let appGroupIdentifier = "group.com.scrimp.app"
   private static let pendingKey = "pendingTransactions"
 
   func perform() async throws -> some IntentResult & ProvidesDialog {
+    let debugContent = UNMutableNotificationContent()
+    debugContent.title = "Shortcut Triggered"
+    debugContent.body = "Amount: \(amount), Merchant: \(merchant)"
+    debugContent.sound = .default
+    let debugReq = UNNotificationRequest(
+      identifier: "debug-\(UUID().uuidString)",
+      content: debugContent,
+      trigger: nil
+    )
+    try? await UNUserNotificationCenter.current().add(debugReq)
+
     guard amount > 0 else {
-      throw $amount.needsValueError("Please provide a positive amount.")
+      let errContent = UNMutableNotificationContent()
+      errContent.title = "Transaction Failed"
+      errContent.body = "Amount was \(amount). Please check that the Amount variable is mapped in your Shortcuts automation."
+      errContent.sound = .default
+      let errReq = UNNotificationRequest(
+        identifier: "error-\(UUID().uuidString)",
+        content: errContent,
+        trigger: nil
+      )
+      try? await UNUserNotificationCenter.current().add(errReq)
+      return .result(dialog: "Amount must be positive. Received: \(amount)")
     }
 
     let now = Date()
@@ -115,6 +137,19 @@ struct LogTransactionIntent: AppIntent {
 
     let desc = merchant.isEmpty ? "" : " at \(merchant)"
     let amountStr = String(format: "%.2f", amount)
+
+    let content = UNMutableNotificationContent()
+    content.title = "Transaction Logged"
+    content.body = "$\(amountStr)\(desc) added to Scrimp"
+    content.sound = .default
+
+    let request = UNNotificationRequest(
+      identifier: "transaction-\(id)",
+      content: content,
+      trigger: nil
+    )
+    try? await UNUserNotificationCenter.current().add(request)
+
     return .result(dialog: "Logged \(transactionType.rawValue) of $\(amountStr)\(desc)")
   }
 }

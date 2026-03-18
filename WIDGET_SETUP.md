@@ -33,7 +33,7 @@ App Groups allow the widget to share data with the main app.
 2. Select the main app target
 3. Go to "Signing & Capabilities"
 4. Click "+ Capability" and add "App Groups"
-5. Enable a new group: `group.com.financetracker.app`
+5. Enable a new group: `group.com.scrimp.app`
 6. Repeat for the widget extension target
 
 ### 2. Add Widget Extension to Xcode Project

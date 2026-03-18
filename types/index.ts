@@ -19,6 +19,7 @@ export interface Transaction {
   createdAt: string; // ISO date-time string - when added to this app
   description?: string;
   cardId?: string; // Optional credit card used for this transaction
+  accountId?: string; // Optional bank account linked to this transaction
 }
 
 export interface GoalContribution {
