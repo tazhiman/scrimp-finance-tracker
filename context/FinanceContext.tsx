@@ -47,6 +47,7 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [customCategories, setCustomCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const appState = useRef<AppStateStatus>(AppState.currentState);
+  const isSyncingPending = useRef(false);
 
   // Load data on mount
   useEffect(() => {
@@ -85,26 +86,32 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
   // Sync pending transactions written by the Shortcuts intent when app becomes active
   useEffect(() => {
     const syncPending = async () => {
-      const pending = await getPendingTransactions();
-      if (pending.length === 0) return;
+      if (isSyncingPending.current) return;
+      isSyncingPending.current = true;
+      try {
+        const pending = await getPendingTransactions();
+        if (pending.length === 0) return;
 
-      setTransactions(prev => {
-        const existingIds = new Set(prev.map(t => t.id));
-        const newTxs: Transaction[] = pending
-          .filter(p => !existingIds.has(p.id))
-          .map(p => ({
-            id: p.id,
-            amount: p.amount,
-            type: p.type,
-            category: p.category,
-            description: p.description ?? '',
-            date: p.date,
-            createdAt: p.createdAt,
-          }));
-        return newTxs.length > 0 ? [...prev, ...newTxs] : prev;
-      });
+        setTransactions(prev => {
+          const existingIds = new Set(prev.map(t => t.id));
+          const newTxs: Transaction[] = pending
+            .filter(p => !existingIds.has(p.id))
+            .map(p => ({
+              id: p.id,
+              amount: p.amount,
+              type: p.type,
+              category: p.category,
+              description: p.description ?? '',
+              date: p.date,
+              createdAt: p.createdAt,
+            }));
+          return newTxs.length > 0 ? [...prev, ...newTxs] : prev;
+        });
 
-      await clearPendingTransactions();
+        await clearPendingTransactions();
+      } finally {
+        isSyncingPending.current = false;
+      }
     };
 
     // Sync once on mount (covers: app opened after shortcut ran)
