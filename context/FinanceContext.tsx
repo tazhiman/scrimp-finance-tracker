@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
+import { AppState, AppStateStatus } from 'react-native';
 import { Transaction, SavingsGoal, RecurringExpense, Category } from '@/types';
 import {
   loadTransactions,
@@ -16,6 +17,7 @@ import {
 import { UserCard } from '@/types';
 import { scheduleGoalNotifications } from '@/utils/notifications';
 import { updateWidgetData, reloadWidgets } from '@/utils/widgetData';
+import { getPendingTransactions, clearPendingTransactions } from '@/utils/transactionSync';
 
 interface FinanceContextType {
   transactions: Transaction[];
@@ -44,6 +46,7 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [recurringExpenses, setRecurringExpenses] = useState<RecurringExpense[]>([]);
   const [customCategories, setCustomCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
+  const appState = useRef<AppStateStatus>(AppState.currentState);
 
   // Load data on mount
   useEffect(() => {
@@ -78,6 +81,47 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
     };
     loadData();
   }, []);
+
+  // Sync pending transactions written by the Shortcuts intent when app becomes active
+  useEffect(() => {
+    const syncPending = async () => {
+      const pending = await getPendingTransactions();
+      if (pending.length === 0) return;
+
+      setTransactions(prev => {
+        const existingIds = new Set(prev.map(t => t.id));
+        const newTxs: Transaction[] = pending
+          .filter(p => !existingIds.has(p.id))
+          .map(p => ({
+            id: p.id,
+            amount: p.amount,
+            type: p.type,
+            category: p.category,
+            description: p.description ?? '',
+            date: p.date,
+            createdAt: p.createdAt,
+          }));
+        return newTxs.length > 0 ? [...prev, ...newTxs] : prev;
+      });
+
+      await clearPendingTransactions();
+    };
+
+    // Sync once on mount (covers: app opened after shortcut ran)
+    if (!loading) {
+      syncPending();
+    }
+
+    // Sync whenever app comes back to foreground
+    const subscription = AppState.addEventListener('change', (nextState: AppStateStatus) => {
+      if (appState.current.match(/inactive|background/) && nextState === 'active') {
+        syncPending();
+      }
+      appState.current = nextState;
+    });
+
+    return () => subscription.remove();
+  }, [loading]);
 
   // Save transactions whenever they change
   useEffect(() => {
