@@ -13,6 +13,7 @@ import {
   saveCustomCategories,
   loadUserCards,
   saveUserCards,
+  setMerchantCategory,
 } from '@/utils/storage';
 import { UserCard } from '@/types';
 import { scheduleGoalNotifications } from '@/utils/notifications';
@@ -219,7 +220,12 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
       createdAt: new Date().toISOString(),
     };
     setTransactions(prev => [...prev, newTransaction]);
-    
+
+    const DEFAULT_CATEGORIES = new Set(['other', 'uncategorized']);
+    if (newTransaction.description && !DEFAULT_CATEGORIES.has(newTransaction.category)) {
+      setMerchantCategory(newTransaction.description, newTransaction.category).catch(console.error);
+    }
+
     // Update card spending if transaction is linked to a card
     if (newTransaction.cardId && newTransaction.type === 'expense') {
       try {
@@ -253,6 +259,15 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   const updateTransaction = (id: string, updates: Partial<Transaction>) => {
+    const DEFAULT_CATEGORIES = new Set(['other', 'uncategorized']);
+    if (updates.category && !DEFAULT_CATEGORIES.has(updates.category)) {
+      const existing = transactions.find(t => t.id === id);
+      const merchant = updates.description || existing?.description;
+      if (merchant) {
+        setMerchantCategory(merchant, updates.category).catch(console.error);
+      }
+    }
+
     setTransactions(prev =>
       prev.map(t => (t.id === id ? { ...t, ...updates } : t))
     );

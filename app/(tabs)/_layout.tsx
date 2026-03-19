@@ -7,6 +7,7 @@ import { BlurView } from 'expo-blur';
 import { useTheme } from '@/context/ThemeContext';
 import { useFinance } from '@/context/FinanceContext';
 import { getPendingTransactions, clearPendingTransactions } from '@/utils/transactionSync';
+import { loadMerchantCategoryMap } from '@/utils/storage';
 
 function useSyncPendingTransactions() {
   const { addTransaction } = useFinance();
@@ -21,12 +22,24 @@ function useSyncPendingTransactions() {
       console.log(`[TransactionSync] Found ${pending.length} pending transaction(s)`);
       if (pending.length === 0) return;
 
+      const merchantMap = await loadMerchantCategoryMap();
+      const DEFAULT_CATEGORIES = new Set(['other', 'uncategorized']);
+
       for (const tx of pending) {
-        console.log(`[TransactionSync] Adding: $${tx.amount} - ${tx.description} (${tx.type})`);
+        let category = tx.category || 'other';
+        if (DEFAULT_CATEGORIES.has(category) && tx.description) {
+          const learned = merchantMap[tx.description.trim().toLowerCase()];
+          if (learned) {
+            console.log(`[TransactionSync] Auto-categorized "${tx.description}" as "${learned}"`);
+            category = learned;
+          }
+        }
+
+        console.log(`[TransactionSync] Adding: $${tx.amount} - ${tx.description} (${tx.type}) [${category}]`);
         addTransaction({
           type: tx.type,
           amount: tx.amount,
-          category: tx.category || 'other',
+          category,
           description: tx.description || '',
           date: tx.date,
         });

@@ -10,6 +10,7 @@ const STORAGE_KEYS = {
   CUSTOM_CATEGORIES: '@finance_tracker:custom_categories',
   USER_CARDS: '@finance_tracker:user_cards',
   CARD_PREFERENCE: '@finance_tracker:card_preference',
+  MERCHANT_CATEGORIES: '@finance_tracker:merchant_categories',
 };
 
 // Transactions
@@ -195,6 +196,40 @@ export const loadCardPreference = async (): Promise<boolean> => {
     console.error('Error loading card preference:', error);
     return false;
   }
+};
+
+// Merchant -> Category mapping (learned from user edits)
+type MerchantCategoryMap = Record<string, string>;
+
+const normalizeMerchant = (name: string): string => name.trim().toLowerCase();
+
+export const loadMerchantCategoryMap = async (): Promise<MerchantCategoryMap> => {
+  try {
+    const data = await AsyncStorage.getItem(STORAGE_KEYS.MERCHANT_CATEGORIES);
+    return data ? JSON.parse(data) : {};
+  } catch (error) {
+    console.error('Error loading merchant category map:', error);
+    return {};
+  }
+};
+
+export const saveMerchantCategoryMap = async (map: MerchantCategoryMap): Promise<void> => {
+  try {
+    await AsyncStorage.setItem(STORAGE_KEYS.MERCHANT_CATEGORIES, JSON.stringify(map));
+  } catch (error) {
+    console.error('Error saving merchant category map:', error);
+  }
+};
+
+export const getMerchantCategory = async (merchant: string): Promise<string | undefined> => {
+  const map = await loadMerchantCategoryMap();
+  return map[normalizeMerchant(merchant)];
+};
+
+export const setMerchantCategory = async (merchant: string, categoryId: string): Promise<void> => {
+  const map = await loadMerchantCategoryMap();
+  map[normalizeMerchant(merchant)] = categoryId;
+  await saveMerchantCategoryMap(map);
 };
 
 // Seed test data (for development/testing)
