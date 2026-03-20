@@ -28,7 +28,7 @@ import {
 } from '@/utils/calculations';
 import { formatCurrency, isDateInPeriod } from '@/utils/dateHelpers';
 import { getCategoryById } from '@/constants/categories';
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 
 export default function DashboardScreen() {
   const router = useRouter();
@@ -212,7 +212,7 @@ export default function DashboardScreen() {
             onPress={() => router.push('/(tabs)/settings')}
             activeOpacity={0.7}
           >
-            <Ionicons name="settings-outline" size={22} color={theme.textSecondary} />
+            <Icon name="settings-outline" size={22} color={theme.textSecondary} />
           </TouchableOpacity>
         </View>
 
@@ -231,7 +231,7 @@ export default function DashboardScreen() {
                 <Text style={[styles.viewAllText, { color: theme.primary }]}>
                   View All {goals.length} Goals
                 </Text>
-                <Ionicons name="chevron-forward" size={18} color={theme.primary} />
+                <Icon name="chevron-forward" size={18} color={theme.primary} />
               </TouchableOpacity>
             )}
 
@@ -269,7 +269,7 @@ export default function DashboardScreen() {
           onPress={() => router.push('/(tabs)/transactions?openForm=true')}
           activeOpacity={0.8}
         >
-          <Ionicons name="add-circle" size={20} color={buttonTextColor} />
+          <Icon name="add-circle" size={20} color={buttonTextColor} />
           <Text style={[styles.addTransactionText, { color: buttonTextColor }]}>Add Transaction</Text>
         </TouchableOpacity>
 

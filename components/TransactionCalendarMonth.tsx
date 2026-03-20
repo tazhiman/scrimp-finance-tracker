@@ -14,7 +14,7 @@ import {
   startOfWeek,
   subMonths,
 } from 'date-fns';
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 import { abbreviateNumber } from '@/utils/dateHelpers';
 
 type Props = {
@@ -117,7 +117,7 @@ export function TransactionCalendarMonth({
           onPress={() => onMonthChange(subMonths(monthDate, 1))}
           activeOpacity={0.7}
         >
-          <Ionicons name="chevron-back" size={22} color={theme.textSecondary} />
+          <Icon name="chevron-back" size={22} color={theme.textSecondary} />
         </TouchableOpacity>
         <TouchableOpacity
           onPress={() => setShowDatePicker(true)}
@@ -131,7 +131,7 @@ export function TransactionCalendarMonth({
           onPress={() => onMonthChange(addMonths(monthDate, 1))}
           activeOpacity={0.7}
         >
-          <Ionicons name="chevron-forward" size={22} color={theme.textSecondary} />
+          <Icon name="chevron-forward" size={22} color={theme.textSecondary} />
         </TouchableOpacity>
       </View>
 

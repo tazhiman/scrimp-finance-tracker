@@ -9,7 +9,7 @@ import {
   ScrollView,
   Image,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 import { useTheme } from '@/context/ThemeContext';
 import { getAllCards } from '@/utils/cardEngine';
 import { getCachedCardImage } from '@/utils/remoteRewardsData';
@@ -27,9 +27,10 @@ interface SelectedCardData {
 interface CreditCardSetupStepProps {
   onNext: (cards: UserCard[]) => void;
   onSkip: () => void;
+  onBack?: () => void;
 }
 
-export function CreditCardSetupStep({ onNext, onSkip }: CreditCardSetupStepProps) {
+export function CreditCardSetupStep({ onNext, onSkip, onBack }: CreditCardSetupStepProps) {
   const { theme, themeMode } = useTheme();
   const [availableCards, setAvailableCards] = useState<any[]>([]);
   const [cardImages, setCardImages] = useState<Record<string, string | null>>({});
@@ -98,6 +99,13 @@ export function CreditCardSetupStep({ onNext, onSkip }: CreditCardSetupStepProps
   return (
     <View style={[styles.container, { width }]}>
       <View style={styles.header}>
+        {onBack ? (
+          <TouchableOpacity onPress={onBack} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+            <Icon name="arrow-back" size={24} color={theme.text} />
+          </TouchableOpacity>
+        ) : (
+          <View style={{ width: 24 }} />
+        )}
         <TouchableOpacity onPress={onSkip} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           <Text style={[styles.skipText, { color: theme.primary }]}>Skip for Now</Text>
         </TouchableOpacity>
@@ -137,7 +145,7 @@ export function CreditCardSetupStep({ onNext, onSkip }: CreditCardSetupStepProps
                   <Image source={{ uri: imageUrl }} style={styles.cardImage} resizeMode="cover" />
                 ) : (
                   <View style={[styles.cardImagePlaceholder, { backgroundColor: brandColor }]}>
-                    <Ionicons name="card" size={16} color="#FFF" />
+                    <Icon name="card" size={16} color="#FFF" />
                   </View>
                 )}
                 <View style={styles.cardInfo}>
@@ -148,7 +156,7 @@ export function CreditCardSetupStep({ onNext, onSkip }: CreditCardSetupStepProps
                     </Text>
                   )}
                 </View>
-                <Ionicons
+                <Icon
                   name={isSelected ? 'checkmark-circle' : 'ellipse-outline'}
                   size={24}
                   color={isSelected ? theme.primary : theme.textTertiary}
@@ -194,11 +202,12 @@ export function CreditCardSetupStep({ onNext, onSkip }: CreditCardSetupStepProps
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingBottom: 60,
+    paddingBottom: 16,
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 24,
     paddingTop: 16,
   },

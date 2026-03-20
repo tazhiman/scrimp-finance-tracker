@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 import { useFinance } from '@/context/FinanceContext';
 import { useTheme } from '@/context/ThemeContext';
 import { ProgressRing } from '@/components/ProgressRing';
@@ -22,7 +22,7 @@ export default function GoalDetailScreen() {
       <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
         <View style={[styles.header, { backgroundColor: theme.background, borderBottomColor: theme.cardBorder }]}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color={theme.text} />
+            <Icon name="arrow-back" size={24} color={theme.text} />
           </TouchableOpacity>
           <Text style={[styles.title, { color: theme.text }]}>Goal Not Found</Text>
           <View style={styles.placeholder} />
@@ -61,7 +61,7 @@ export default function GoalDetailScreen() {
     <View style={[styles.contributionCard, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
       <View style={styles.contributionLeft}>
         <View style={[styles.contributionIcon, { backgroundColor: theme.primary + '20' }]}>
-          <Ionicons name="arrow-up" size={18} color={theme.primary} />
+          <Icon name="arrow-up" size={18} color={theme.primary} />
         </View>
         <View>
           <Text style={[styles.contributionDate, { color: theme.text }]}>
@@ -80,7 +80,7 @@ export default function GoalDetailScreen() {
 
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
-      <Ionicons name="wallet-outline" size={48} color={theme.textTertiary} />
+      <Icon name="wallet-outline" size={48} color={theme.textTertiary} />
       <Text style={[styles.emptyText, { color: theme.text }]}>No contributions yet</Text>
       <Text style={[styles.emptySubtext, { color: theme.textSecondary }]}>
         Start contributing to reach your goal
@@ -92,7 +92,7 @@ export default function GoalDetailScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
       <View style={[styles.header, { backgroundColor: theme.background, borderBottomColor: theme.cardBorder }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={theme.text} />
+          <Icon name="arrow-back" size={24} color={theme.text} />
         </TouchableOpacity>
         <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>
           {goal.name}
@@ -102,14 +102,14 @@ export default function GoalDetailScreen() {
             onPress={handleDelete}
             style={styles.editButton}
           >
-            <Ionicons name="trash-outline" size={24} color={theme.error} />
+            <Icon name="trash-outline" size={24} color={theme.error} />
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
             onPress={() => router.push(`/goals?editGoalId=${id}`)}
             style={styles.editButton}
           >
-            <Ionicons name="create-outline" size={24} color={theme.primary} />
+            <Icon name="create-outline" size={24} color={theme.primary} />
           </TouchableOpacity>
         )}
       </View>
@@ -137,7 +137,7 @@ export default function GoalDetailScreen() {
 
           {remaining > 0 && (
             <View style={[styles.remainingBadge, { backgroundColor: theme.backgroundTertiary }]}>
-              <Ionicons name="flag-outline" size={16} color={theme.textSecondary} />
+              <Icon name="flag-outline" size={16} color={theme.textSecondary} />
               <Text style={[styles.remainingText, { color: theme.textSecondary }]}>
                 {formatCurrency(remaining)} remaining
               </Text>
@@ -146,7 +146,7 @@ export default function GoalDetailScreen() {
 
           {remaining <= 0 && (
             <View style={[styles.completeBadge, { backgroundColor: theme.primary + '20' }]}>
-              <Ionicons name="checkmark-circle" size={20} color={theme.primary} />
+              <Icon name="checkmark-circle" size={20} color={theme.primary} />
               <Text style={[styles.completeText, { color: theme.primary }]}>
                 Goal Reached! 🎉
               </Text>

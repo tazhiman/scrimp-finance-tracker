@@ -20,7 +20,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { GoalCard } from '@/components/GoalCard';
 import { Spacing, Radius, Shadow } from '@/constants/design';
 import { SavingsGoal, ContributionFrequency } from '@/types';
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 import { calculateRecommendedContribution } from '@/utils/calculations';
 import { formatCurrency, formatDate } from '@/utils/dateHelpers';
 
@@ -115,7 +115,13 @@ export default function GoalsScreen() {
       `How much would you like to contribute?\nRecommended: ${formatCurrency(goal.contributionAmount)}`,
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Contribute', onPress: (amount) => { const c = parseFloat(amount || '0'); if (c > 0) contributeToGoal(goal.id, c); } },
+        {
+          text: 'Contribute',
+          onPress: (amount?: string) => {
+            const c = parseFloat(amount || '0');
+            if (c > 0) contributeToGoal(goal.id, c);
+          },
+        },
       ],
       'plain-text',
       goal.contributionAmount.toString()
@@ -139,7 +145,7 @@ export default function GoalsScreen() {
         {goals.length === 0 ? (
           <View style={styles.emptyState}>
             <View style={[styles.emptyIconCircle, { backgroundColor: theme.backgroundSecondary }]}>
-              <Ionicons name="flag-outline" size={48} color={theme.textTertiary} />
+              <Icon name="flag-outline" size={48} color={theme.textTertiary} />
             </View>
             <Text style={[styles.emptyText, { color: theme.text }]}>No goals yet</Text>
             <Text style={[styles.emptySubtext, { color: theme.textSecondary }]}>
@@ -170,7 +176,7 @@ export default function GoalsScreen() {
         onPress={openAddModal}
         activeOpacity={0.8}
       >
-        <Ionicons name="add" size={28} color={buttonTextColor} />
+        <Icon name="add" size={28} color={buttonTextColor} />
       </TouchableOpacity>
 
       <Modal
@@ -301,7 +307,7 @@ export default function GoalsScreen() {
                 onPress={() => { setModalVisible(false); handleDelete(editingGoal.id); }}
                 activeOpacity={0.7}
               >
-                <Ionicons name="trash-outline" size={18} color={theme.error} />
+                <Icon name="trash-outline" size={18} color={theme.error} />
                 <Text style={[styles.deleteButtonText, { color: theme.error }]}>Delete Goal</Text>
               </TouchableOpacity>
             )}

@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
   Dimensions,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 import { useTheme } from '@/context/ThemeContext';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { Spacing, Radius, Shadow } from '@/constants/design';
@@ -18,15 +18,16 @@ export type AccountType = 'credit_card' | 'bank_account';
 interface CardSelectionStepProps {
   onNext: (selected: AccountType) => void;
   onSkip: () => void;
+  onBack?: () => void;
 }
 
-export function CardSelectionStep({ onNext, onSkip }: CardSelectionStepProps) {
+export function CardSelectionStep({ onNext, onSkip, onBack }: CardSelectionStepProps) {
   const { theme, themeMode } = useTheme();
   const [selected, setSelected] = useState<AccountType | null>(null);
 
   const buttonTextColor = themeMode === 'dark' ? '#000505' : '#FEFCFD';
 
-  const options: { type: AccountType; label: string; icon: keyof typeof Ionicons.glyphMap; description: string }[] = [
+  const options: { type: AccountType; label: string; icon: string; description: string }[] = [
     { type: 'credit_card', label: 'Credit Card', icon: 'card', description: 'Track spending and rewards' },
     { type: 'bank_account', label: 'Bank Account', icon: 'cash', description: 'Track your balance' },
   ];
@@ -34,6 +35,13 @@ export function CardSelectionStep({ onNext, onSkip }: CardSelectionStepProps) {
   return (
     <View style={[styles.container, { width }]}>
       <View style={styles.header}>
+        {onBack ? (
+          <TouchableOpacity onPress={onBack} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+            <Icon name="arrow-back" size={24} color={theme.text} />
+          </TouchableOpacity>
+        ) : (
+          <View style={{ width: 24 }} />
+        )}
         <TouchableOpacity onPress={onSkip} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           <Text style={[styles.skipText, { color: theme.primary }]}>Skip for Now</Text>
         </TouchableOpacity>
@@ -67,7 +75,7 @@ export function CardSelectionStep({ onNext, onSkip }: CardSelectionStepProps) {
                       styles.optionIcon,
                       { backgroundColor: isSelected ? theme.primary + '25' : theme.backgroundTertiary },
                     ]}>
-                      <Ionicons name={opt.icon} size={26} color={isSelected ? theme.primary : theme.textSecondary} />
+                      <Icon name={opt.icon} size={26} color={isSelected ? theme.primary : theme.textSecondary} />
                     </View>
                     <View style={styles.optionTextBlock}>
                       <Text style={[styles.optionLabel, { color: isSelected ? theme.primary : theme.text }]}>
@@ -78,7 +86,7 @@ export function CardSelectionStep({ onNext, onSkip }: CardSelectionStepProps) {
                       </Text>
                     </View>
                     {isSelected && (
-                      <Ionicons name="checkmark-circle" size={24} color={theme.primary} />
+                      <Icon name="checkmark-circle" size={24} color={theme.primary} />
                     )}
                   </View>
                 </GlassCard>
@@ -106,11 +114,12 @@ export function CardSelectionStep({ onNext, onSkip }: CardSelectionStepProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingBottom: 60,
+    paddingBottom: 16,
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: Spacing['3xl'],
     paddingTop: Spacing.xl,
   },

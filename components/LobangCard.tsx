@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 import { getBestCard, getMinSpendProgress, CardRecommendation } from '@/utils/cardEngine';
 import { getMerchantAtCurrentLocation } from '@/utils/locationServiceStub';
 import { loadUserCards, loadCardPreference } from '@/utils/storage';
@@ -96,7 +96,7 @@ export function LobangCard({ onPress }: LobangCardProps) {
         activeOpacity={0.7}
       >
         <View style={styles.iconContainer}>
-          <Ionicons name="card-outline" size={32} color={theme.primary} />
+          <Icon name="card-outline" size={32} color={theme.primary} />
         </View>
         <View style={styles.content}>
           <Text style={[styles.title, { color: theme.text }]}>Setup Lobang Cards</Text>
@@ -104,7 +104,7 @@ export function LobangCard({ onPress }: LobangCardProps) {
             Get the best credit card recommendations
           </Text>
         </View>
-        <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
+        <Icon name="chevron-forward" size={20} color={theme.textSecondary} />
       </TouchableOpacity>
     );
   }
@@ -122,7 +122,7 @@ export function LobangCard({ onPress }: LobangCardProps) {
           {loading ? (
             <ActivityIndicator size="small" color={theme.primary} />
           ) : (
-            <Ionicons name="card" size={32} color={theme.primary} />
+            <Icon name="card" size={32} color={theme.primary} />
           )}
         </View>
         <View style={styles.content}>
@@ -152,7 +152,7 @@ export function LobangCard({ onPress }: LobangCardProps) {
             </>
           )}
         </View>
-        <Ionicons 
+        <Icon 
           name={loading ? "sync" : "refresh"} 
           size={20} 
           color={theme.primary} 

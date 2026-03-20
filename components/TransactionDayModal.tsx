@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 import { format } from 'date-fns';
 import { useTheme } from '@/context/ThemeContext';
 import { useFinance } from '@/context/FinanceContext';
@@ -108,13 +108,13 @@ export function TransactionDayModal({
           onPress={onClose}
           activeOpacity={0.7}
         >
-          <Ionicons name="close" size={18} color={theme.textSecondary} />
+          <Icon name="close" size={18} color={theme.textSecondary} />
         </TouchableOpacity>
 
         <View style={styles.contentArea}>
           {transactions.length === 0 ? (
             <View style={styles.emptyState}>
-              <Ionicons name="calendar-outline" size={40} color={theme.textTertiary} />
+              <Icon name="calendar-outline" size={40} color={theme.textTertiary} />
               <Text style={[styles.emptyText, { color: theme.text }]}>No transactions</Text>
               <Text style={[styles.emptySubtext, { color: theme.textSecondary }]}>
                 Nothing recorded for this date.
@@ -138,7 +138,7 @@ export function TransactionDayModal({
             style={[styles.footerButton, { backgroundColor: theme.backgroundSecondary }]}
             activeOpacity={0.7}
           >
-            <Ionicons name="chevron-back" size={20} color={theme.textSecondary} />
+            <Icon name="chevron-back" size={20} color={theme.textSecondary} />
             <Text style={[styles.footerButtonText, { color: theme.textSecondary }]}>Prev</Text>
           </TouchableOpacity>
 
@@ -148,7 +148,7 @@ export function TransactionDayModal({
             activeOpacity={0.7}
           >
             <Text style={[styles.footerButtonText, { color: theme.textSecondary }]}>Next</Text>
-            <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
+            <Icon name="chevron-forward" size={20} color={theme.textSecondary} />
           </TouchableOpacity>
         </View>
       </View>

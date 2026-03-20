@@ -20,12 +20,13 @@ import { CategorySelector } from './CategorySelector';
 import { useTheme } from '@/context/ThemeContext';
 import { Spacing, Radius, Shadow } from '@/constants/design';
 import { useFinance } from '@/context/FinanceContext';
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 import { loadUserCards } from '@/utils/storage';
 import { loadBankAccounts } from '@/utils/onboarding';
 import { getAllCards } from '@/utils/cardEngine';
 import { getCachedCardImage } from '@/utils/remoteRewardsData';
 import { GlassCard } from './ui/GlassCard';
+import { BankAvatar } from './ui/BankAvatar';
 
 type SelectedAccount =
   | { kind: 'bank'; id: string }
@@ -216,7 +217,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
         return;
       }
       if (!customCategoryEmoji || customCategoryEmoji.trim().length === 0) {
-        Alert.alert('Error', 'Please enter an emoji for the category');
+        Alert.alert('Error', 'Please select an emoji for the category');
         return;
       }
       resolvedCategory = addCustomCategory({
@@ -390,11 +391,15 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
                   onPress={openAccountPicker}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name={getAccountIcon(selectedAccount)} size={16} color={theme.textSecondary} />
+                  {selectedAccount?.kind === 'bank' ? (
+                    <BankAvatar name={getAccountLabel(selectedAccount)} size={18} />
+                  ) : (
+                    <Icon name={getAccountIcon(selectedAccount)} size={16} color={theme.textSecondary} />
+                  )}
                   <Text style={[styles.cardPillText, { color: theme.text }]} numberOfLines={1}>
                     {getAccountLabel(selectedAccount)}
                   </Text>
-                  <Ionicons name="chevron-down" size={14} color={theme.textTertiary} />
+                  <Icon name="chevron-down" size={14} color={theme.textTertiary} />
                 </TouchableOpacity>
               )}
             </View>
@@ -410,7 +415,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
                       activeOpacity={0.6}
                     >
                       {key === 'del' ? (
-                        <Ionicons name="backspace-outline" size={24} color={theme.text} />
+                        <Icon name="backspace-outline" size={24} color={theme.text} />
                       ) : (
                         <Text style={[styles.numKeyText, { color: theme.text }]}>{key}</Text>
                       )}
@@ -439,7 +444,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
         >
           <View style={[styles.header, { borderBottomColor: theme.cardBorder }]}>
             <TouchableOpacity onPress={handleBack} style={styles.headerBtn}>
-              <Ionicons name="arrow-back" size={24} color={theme.text} />
+              <Icon name="arrow-back" size={24} color={theme.text} />
             </TouchableOpacity>
             <Text style={[styles.headerTitle, { color: theme.text }]}>Details</Text>
             <View style={styles.headerBtn} />
@@ -539,7 +544,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
                       <>
                         <View style={styles.fieldSpacer} />
                         <TouchableOpacity style={styles.endDateToggle} onPress={() => setEndDateEnabled(v => !v)} activeOpacity={0.7}>
-                          <Ionicons name={endDateEnabled ? 'checkbox' : 'square-outline'} size={20} color={theme.textSecondary} />
+                          <Icon name={endDateEnabled ? 'checkbox' : 'square-outline'} size={20} color={theme.textSecondary} />
                           <Text style={[styles.endDateToggleText, { color: theme.textSecondary }]}>Set an end date (optional)</Text>
                         </TouchableOpacity>
                         {endDateEnabled && (
@@ -617,19 +622,23 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
             <TouchableOpacity style={styles.dropdownOverlay} activeOpacity={1} onPress={() => setShowAccountPicker(false)}>
               <GlassCard style={styles.dropdownCard} intensity="strong" borderRadius={14}>
                 <TouchableOpacity style={styles.dropdownItem} onPress={() => selectAccount(undefined)} activeOpacity={0.6}>
-                  <Ionicons name="close-circle-outline" size={20} color={!selectedAccount ? theme.primary : theme.textSecondary} />
+                  <Icon name="close-circle-outline" size={20} color={!selectedAccount ? theme.primary : theme.textSecondary} />
                   <Text style={[styles.dropdownItemText, { color: !selectedAccount ? theme.primary : theme.text }]}>No Account</Text>
-                  {!selectedAccount && <Ionicons name="checkmark" size={18} color={theme.primary} />}
+                  {!selectedAccount && <Icon name="checkmark" size={18} color={theme.primary} />}
                 </TouchableOpacity>
-                {pickerEntries.map((entry, idx) => {
+                {pickerEntries.map((entry) => {
                   const isSelected = selectedAccount?.kind === entry.kind && selectedAccount?.id === entry.id;
                   return (
                     <React.Fragment key={entry.id}>
                       <View style={[styles.dropdownDivider, { backgroundColor: theme.cardBorder }]} />
                       <TouchableOpacity style={styles.dropdownItem} onPress={() => selectAccount({ kind: entry.kind, id: entry.id })} activeOpacity={0.6}>
-                        <Ionicons name={entry.kind === 'bank' ? 'wallet-outline' : 'card-outline'} size={20} color={isSelected ? theme.primary : theme.textSecondary} />
+                        {entry.kind === 'bank' ? (
+                          <BankAvatar name={entry.name} size={22} />
+                        ) : (
+                          <Icon name="card-outline" size={20} color={isSelected ? theme.primary : theme.textSecondary} />
+                        )}
                         <Text style={[styles.dropdownItemText, { color: isSelected ? theme.primary : theme.text }]}>{entry.name}</Text>
-                        {isSelected && <Ionicons name="checkmark" size={18} color={theme.primary} />}
+                        {isSelected && <Icon name="checkmark" size={18} color={theme.primary} />}
                       </TouchableOpacity>
                     </React.Fragment>
                   );

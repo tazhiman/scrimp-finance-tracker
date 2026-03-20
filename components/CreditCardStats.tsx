@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 import { useFocusEffect } from 'expo-router';
 import { getMinSpendProgress, getAllCards } from '@/utils/cardEngine';
 import { loadUserCards, loadCardPreference } from '@/utils/storage';
@@ -39,8 +39,8 @@ export function CreditCardStats({ onManagePress }: CreditCardStatsProps) {
       
       await Promise.all(
         cards.map(async (userCard) => {
-          const cardData = allCards.find(c => c.id === userCard.id);
-          if (cardData && (cardData as any).imageUrl) {
+          const cardData = allCards.find((c: { id: string; imageUrl?: string | null }) => c.id === userCard.id);
+          if (cardData?.imageUrl) {
             const cachedImage = await getCachedCardImage(userCard.id);
             images[userCard.id] = cachedImage;
           }
@@ -65,7 +65,7 @@ export function CreditCardStats({ onManagePress }: CreditCardStatsProps) {
             <View style={styles.setupInner}>
               <View style={styles.setupContent}>
                 <View style={[styles.setupIconCircle, { backgroundColor: theme.primary + '18' }]}>
-                  <Ionicons name="card-outline" size={24} color={theme.primary} />
+                  <Icon name="card-outline" size={24} color={theme.primary} />
                 </View>
                 <View style={styles.setupText}>
                   <Text style={[styles.setupTitle, { color: theme.text }]}>Setup Credit Cards</Text>
@@ -74,7 +74,7 @@ export function CreditCardStats({ onManagePress }: CreditCardStatsProps) {
                   </Text>
                 </View>
               </View>
-              <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
+              <Icon name="chevron-forward" size={20} color={theme.textSecondary} />
             </View>
           </GlassCard>
         </TouchableOpacity>
@@ -118,10 +118,10 @@ export function CreditCardStats({ onManagePress }: CreditCardStatsProps) {
                           }
                           const brandColor = isCustom 
                             ? theme.accent 
-                            : (getAllCards().find(c => c.id === progress.cardId)?.brandColor || '#666');
+                            : (getAllCards().find((c: { id: string; brandColor?: string }) => c.id === progress.cardId)?.brandColor || '#666');
                           return (
                             <View style={[styles.cardVisualSmall, { backgroundColor: brandColor }]}>
-                              <Ionicons name="card" size={10} color="#FFF" />
+                              <Icon name="card" size={10} color="#FFF" />
                             </View>
                           );
                         })()}
@@ -146,7 +146,7 @@ export function CreditCardStats({ onManagePress }: CreditCardStatsProps) {
                         if (progress.metMinSpend && !isCustomWithNoMinSpend) {
                           return (
                             <View style={[styles.metBadge, { backgroundColor: theme.primary }]}>
-                              <Ionicons name="checkmark" size={10} color="#000" />
+                              <Icon name="checkmark" size={10} color="#000" />
                             </View>
                           );
                         }

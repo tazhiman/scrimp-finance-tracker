@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 import { useTheme } from '@/context/ThemeContext';
 import { GlassHeader } from '@/components/ui/GlassHeader';
 import { Spacing, Radius } from '@/constants/design';
@@ -45,8 +45,8 @@ export default function ManageCardsScreen() {
   const loadCardImages = async () => {
     const images: Record<string, string | null> = {};
     await Promise.all(
-      availableCards.map(async (card) => {
-        if ((card as any).imageUrl) {
+      availableCards.map(async (card: { id: string; imageUrl?: string | null }) => {
+        if (card.imageUrl) {
           const cachedImage = await getCachedCardImage(card.id);
           images[card.id] = cachedImage;
         }
@@ -112,7 +112,7 @@ export default function ManageCardsScreen() {
       <GlassHeader style={styles.headerOuter}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color={theme.text} />
+            <Icon name="arrow-back" size={24} color={theme.text} />
           </TouchableOpacity>
           <Text style={[styles.title, { color: theme.text }]}>Manage Credit Cards</Text>
           <View style={styles.placeholder} />
@@ -121,7 +121,7 @@ export default function ManageCardsScreen() {
 
       {/* Disclaimer */}
       <View style={[styles.disclaimer, { backgroundColor: theme.backgroundSecondary }]}>
-        <Ionicons name="information-circle-outline" size={16} color={theme.textSecondary} />
+        <Icon name="information-circle-outline" size={16} color={theme.textSecondary} />
         <Text style={[styles.disclaimerText, { color: theme.textSecondary }]}>
           Select the cards you own. No actual card details needed.
         </Text>
@@ -175,7 +175,7 @@ export default function ManageCardsScreen() {
               >
                 <View style={styles.cardContent}>
                   <View style={[styles.cardVisual, { backgroundColor: theme.accent }]}>
-                    <Ionicons name="card" size={16} color="#FFF" />
+                    <Icon name="card" size={16} color="#FFF" />
                   </View>
                   <View style={styles.cardInfo}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -203,7 +203,7 @@ export default function ManageCardsScreen() {
                 </View>
                 {isSelected && (
                   <View style={[styles.checkmark, { backgroundColor: theme.primary }]}>
-                    <Ionicons name="checkmark" size={16} color="#000" />
+                    <Icon name="checkmark" size={16} color="#000" />
                   </View>
                 )}
               </TouchableOpacity>
@@ -214,7 +214,15 @@ export default function ManageCardsScreen() {
         {availableCards.length === 0 && userCards.filter((c: any) => c.isCustom).length === 0 && (
           <Text style={{ color: theme.text, padding: 16 }}>No cards available</Text>
         )}
-        {availableCards.map((card) => {
+        {availableCards.map((card: {
+          id: string;
+          name: string;
+          issuer?: string;
+          rewardType?: string;
+          minSpend?: number;
+          imageUrl?: string | null;
+          brandColor?: string;
+        }) => {
           const isSelected = isCardSelected(card.id);
 
           return (
@@ -242,7 +250,7 @@ export default function ManageCardsScreen() {
                     styles.cardVisual,
                     { backgroundColor: (card as any).brandColor || '#666' }
                   ]}>
-                    <Ionicons name="card" size={16} color="#FFF" />
+                    <Icon name="card" size={16} color="#FFF" />
                   </View>
                 )}
                 <View style={styles.cardInfo}>
@@ -257,11 +265,11 @@ export default function ManageCardsScreen() {
                     <Text style={[styles.cardType, { color: theme.textSecondary }]}>
                       {card.rewardType === 'miles' ? '✈️ Miles' : '💰 Cashback'}
                     </Text>
-                    {card.minSpend > 0 && (
+                    {(card.minSpend ?? 0) > 0 && (
                       <>
                         <Text style={[styles.cardDot, { color: theme.textSecondary }]}>•</Text>
                         <Text style={[styles.cardMinSpend, { color: theme.textSecondary }]}>
-                          Min ${card.minSpend}
+                          Min ${card.minSpend ?? 0}
                         </Text>
                       </>
                     )}
@@ -270,7 +278,7 @@ export default function ManageCardsScreen() {
               </View>
               {isSelected && (
                 <View style={[styles.checkmark, { backgroundColor: theme.primary }]}>
-                  <Ionicons name="checkmark" size={16} color="#000" />
+                  <Icon name="checkmark" size={16} color="#000" />
                 </View>
               )}
             </TouchableOpacity>
@@ -289,7 +297,7 @@ export default function ManageCardsScreen() {
               onPress={() => setShowCustomCardForm(true)}
               activeOpacity={0.7}
             >
-              <Ionicons name="add-circle" size={20} color={theme.primary} />
+              <Icon name="add-circle" size={20} color={theme.primary} />
               <Text style={[styles.addCustomCardText, { color: theme.primary }]}>
                 Add Custom Card
               </Text>
@@ -297,7 +305,7 @@ export default function ManageCardsScreen() {
           ) : (
             <View style={[styles.customCardForm, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
               <View style={[styles.formDisclaimer, { backgroundColor: theme.backgroundSecondary }]}>
-                <Ionicons name="alert-circle-outline" size={16} color={theme.accent} />
+                <Icon name="alert-circle-outline" size={16} color={theme.accent} />
                 <Text style={[styles.formDisclaimerText, { color: theme.textSecondary }]}>
                   Custom cards won't receive automatic reward updates.
                 </Text>

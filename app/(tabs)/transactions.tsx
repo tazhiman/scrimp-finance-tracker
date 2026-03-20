@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import React, { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,8 @@ import {
   TouchableOpacity,
   RefreshControl,
   Dimensions,
+  Modal,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
@@ -18,12 +20,63 @@ import { TimePeriodSelector } from '@/components/TimePeriodSelector';
 import { TransactionCalendarMonth } from '@/components/TransactionCalendarMonth';
 import { TransactionDayModal } from '@/components/TransactionDayModal';
 import { GlassCard } from '@/components/ui/GlassCard';
-import { Spacing, Radius, Shadow } from '@/constants/design';
-import { Transaction, TimePeriod } from '@/types';
+import { Spacing, Radius, Shadow, FILTER_TRACK_HEIGHT } from '@/constants/design';
+import { Transaction, TimePeriod, BankAccount, UserCard } from '@/types';
 import { getCombinedTransactionsByPeriod } from '@/utils/calculations';
 import { formatCurrency, formatDateShort } from '@/utils/dateHelpers';
 import { getCategoryById } from '@/constants/categories';
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
+import { BankAvatar } from '@/components/ui/BankAvatar';
+import { loadBankAccounts } from '@/utils/onboarding';
+import { loadUserCards } from '@/utils/storage';
+
+type TypeFilter = 'all' | 'income' | 'expense';
+type AccountFilter =
+  | 'all'
+  | { kind: 'bank'; id: string }
+  | { kind: 'card'; id: string };
+
+const WINDOW_W = Dimensions.get('window').width;
+const WINDOW_H = Dimensions.get('window').height;
+
+type MenuAnchor = { x: number; y: number; width: number; height: number };
+
+function clampMenuLeft(left: number, menuWidth: number, margin = Spacing.md): number {
+  return Math.min(Math.max(margin, left), WINDOW_W - menuWidth - margin);
+}
+
+/** Flip above anchor only using realistic menu height (not max scroll height). */
+function computePopoverTop(
+  anchor: MenuAnchor,
+  approxMenuHeight: number,
+  gap: number,
+  bottomSafe = 88
+): number {
+  let top = anchor.y + anchor.height + gap;
+  if (top + approxMenuHeight > WINDOW_H - bottomSafe) {
+    const aboveTop = anchor.y - approxMenuHeight - gap;
+    if (aboveTop >= 44) top = aboveTop;
+  }
+  return top;
+}
+
+function applyTransactionFilters(
+  list: Transaction[],
+  typeFilter: TypeFilter,
+  accountFilter: AccountFilter
+): Transaction[] {
+  let next = list;
+  if (typeFilter === 'income') next = next.filter((t) => t.type === 'income');
+  else if (typeFilter === 'expense') next = next.filter((t) => t.type === 'expense');
+  if (accountFilter !== 'all') {
+    if (accountFilter.kind === 'bank') {
+      next = next.filter((t) => t.accountId === accountFilter.id);
+    } else {
+      next = next.filter((t) => t.cardId === accountFilter.id);
+    }
+  }
+  return next;
+}
 
 export default function TransactionsScreen() {
   const router = useRouter();
@@ -49,6 +102,61 @@ export default function TransactionsScreen() {
   const [formVisible, setFormVisible] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
+  const [accountFilter, setAccountFilter] = useState<AccountFilter>('all');
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+  const [userCards, setUserCards] = useState<UserCard[]>([]);
+  const [showTypeFilterModal, setShowTypeFilterModal] = useState(false);
+  const [showAccountFilterModal, setShowAccountFilterModal] = useState(false);
+  const [typeMenuAnchor, setTypeMenuAnchor] = useState<MenuAnchor | null>(null);
+  const [accountMenuAnchor, setAccountMenuAnchor] = useState<MenuAnchor | null>(null);
+  const typePillRef = useRef<View>(null);
+  const accountPillRef = useRef<View>(null);
+
+  const openTypeFilterMenu = useCallback(() => {
+    requestAnimationFrame(() => {
+      typePillRef.current?.measureInWindow((x, y, width, height) => {
+        setTypeMenuAnchor({ x, y, width, height });
+        setShowTypeFilterModal(true);
+      });
+    });
+  }, []);
+
+  const closeTypeFilterMenu = useCallback(() => {
+    setShowTypeFilterModal(false);
+    setTypeMenuAnchor(null);
+  }, []);
+
+  const openAccountFilterMenu = useCallback(() => {
+    requestAnimationFrame(() => {
+      accountPillRef.current?.measureInWindow((x, y, width, height) => {
+        setAccountMenuAnchor({ x, y, width, height });
+        setShowAccountFilterModal(true);
+      });
+    });
+  }, []);
+
+  const closeAccountFilterMenu = useCallback(() => {
+    setShowAccountFilterModal(false);
+    setAccountMenuAnchor(null);
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      (async () => {
+        const [accounts, cards] = await Promise.all([loadBankAccounts(), loadUserCards()]);
+        setBankAccounts(accounts);
+        setUserCards(cards);
+        setAccountFilter((prev) => {
+          if (prev === 'all') return prev;
+          if (prev.kind === 'bank' && !accounts.some((a) => a.id === prev.id)) return 'all';
+          if (prev.kind === 'card' && !cards.some((c) => c.id === prev.id)) return 'all';
+          return prev;
+        });
+      })();
+    }, [])
+  );
 
   useEffect(() => {
     if (params.openForm === 'true') {
@@ -86,9 +194,61 @@ export default function TransactionsScreen() {
     });
   }, [transactions, recurringExpenses, dayModalDate]);
 
-  const sortedTransactions = [...periodTransactions].sort(
-    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+  const sortedPeriodTransactions = useMemo(
+    () =>
+      [...periodTransactions].sort(
+        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+      ),
+    [periodTransactions]
   );
+
+  const filteredTransactions = useMemo(
+    () => applyTransactionFilters(sortedPeriodTransactions, typeFilter, accountFilter),
+    [sortedPeriodTransactions, typeFilter, accountFilter]
+  );
+
+  const filteredDayModalTransactions = useMemo(
+    () => applyTransactionFilters(dayModalTransactions, typeFilter, accountFilter),
+    [dayModalTransactions, typeFilter, accountFilter]
+  );
+
+  const hasActiveFilters = typeFilter !== 'all' || accountFilter !== 'all';
+  const hasAccountsOrCards = bankAccounts.length > 0 || userCards.length > 0;
+
+  const typeFilterLabel =
+    typeFilter === 'all' ? 'All' : typeFilter === 'income' ? 'Income' : 'Expenses';
+
+  const accountFilterLabel = useMemo(() => {
+    if (accountFilter === 'all') return '';
+    if (accountFilter.kind === 'bank') {
+      const a = bankAccounts.find((x) => x.id === accountFilter.id);
+      return a?.name ?? 'Account';
+    }
+    const c = userCards.find((x) => x.id === accountFilter.id);
+    return c?.name ?? 'Card';
+  }, [accountFilter, bankAccounts, userCards]);
+
+  const typePopoverLayout = useMemo(() => {
+    if (!typeMenuAnchor) return null;
+    const width = Math.min(Math.max(typeMenuAnchor.width, 232), WINDOW_W - Spacing.md * 2);
+    const left = clampMenuLeft(typeMenuAnchor.x, width);
+    const gap = 10;
+    const approxH = 188;
+    const top = computePopoverTop(typeMenuAnchor, approxH, gap);
+    return { top, left, width };
+  }, [typeMenuAnchor]);
+
+  const accountPopoverLayout = useMemo(() => {
+    if (!accountMenuAnchor) return null;
+    const width = Math.min(Math.max(accountMenuAnchor.width, 260), WINDOW_W - Spacing.md * 2);
+    const left = clampMenuLeft(accountMenuAnchor.x, width);
+    const gap = 10;
+    const rowCount = 1 + bankAccounts.length + userCards.length;
+    const approxH = Math.min(56 + rowCount * 52, WINDOW_H * 0.42);
+    const top = computePopoverTop(accountMenuAnchor, approxH, gap);
+    const scrollMaxHeight = Math.min(WINDOW_H * 0.42, 320);
+    return { top, left, width, scrollMaxHeight };
+  }, [accountMenuAnchor, bankAccounts.length, userCards.length]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -153,30 +313,50 @@ export default function TransactionsScreen() {
     );
   };
 
-  const renderEmptyState = () => (
-    <View style={styles.emptyState}>
-      <View style={[styles.emptyIconCircle, { backgroundColor: theme.backgroundSecondary }]}>
-        <Ionicons name="receipt-outline" size={48} color={theme.textTertiary} />
+  const renderEmptyState = () => {
+    const filteredEmpty = hasActiveFilters && sortedPeriodTransactions.length > 0;
+    return (
+      <View style={styles.emptyState}>
+        <View style={[styles.emptyIconCircle, { backgroundColor: theme.backgroundSecondary }]}>
+          <Icon name="receipt-outline" size={48} color={theme.textTertiary} />
+        </View>
+        <Text style={[styles.emptyText, { color: theme.text }]}>
+          {filteredEmpty ? 'No matching transactions' : 'No transactions yet'}
+        </Text>
+        <Text style={[styles.emptySubtext, { color: theme.textSecondary }]}>
+          {filteredEmpty
+            ? 'Try changing your filters or time period.'
+            : 'Add your first transaction to start tracking'}
+        </Text>
+        {filteredEmpty ? (
+          <TouchableOpacity
+            style={[styles.emptyButton, { backgroundColor: theme.cardBackground, borderWidth: 1, borderColor: theme.cardBorder }]}
+            onPress={() => {
+              setTypeFilter('all');
+              setAccountFilter('all');
+            }}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.emptyButtonText, { color: theme.primary }]}>Clear filters</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={[styles.emptyButton, { backgroundColor: theme.primary }, Shadow.small]}
+            onPress={handleAdd}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.emptyButtonText, { color: buttonTextColor }]}>Add Transaction</Text>
+          </TouchableOpacity>
+        )}
       </View>
-      <Text style={[styles.emptyText, { color: theme.text }]}>No transactions yet</Text>
-      <Text style={[styles.emptySubtext, { color: theme.textSecondary }]}>
-        Add your first transaction to start tracking
-      </Text>
-      <TouchableOpacity
-        style={[styles.emptyButton, { backgroundColor: theme.primary }, Shadow.small]}
-        onPress={handleAdd}
-        activeOpacity={0.8}
-      >
-        <Text style={[styles.emptyButtonText, { color: buttonTextColor }]}>Add Transaction</Text>
-      </TouchableOpacity>
-    </View>
-  );
+    );
+  };
 
-  const totalIncome = periodTransactions
-    .filter(t => t.type === 'income')
+  const totalIncome = filteredTransactions
+    .filter((t) => t.type === 'income')
     .reduce((sum, t) => sum + t.amount, 0);
-  const totalExpenses = periodTransactions
-    .filter(t => t.type === 'expense')
+  const totalExpenses = filteredTransactions
+    .filter((t) => t.type === 'expense')
     .reduce((sum, t) => sum + t.amount, 0);
 
   return (
@@ -207,6 +387,67 @@ export default function TransactionsScreen() {
             setShowCalendar(v => !v);
           }}
         />
+      </View>
+
+      <View style={styles.filterRow}>
+        <View ref={typePillRef} collapsable={false} style={styles.filterPillWrap}>
+        <TouchableOpacity
+          style={[styles.filterPill, { backgroundColor: theme.backgroundSecondary, borderColor: theme.cardBorder }]}
+          onPress={openTypeFilterMenu}
+          activeOpacity={0.7}
+        >
+          <View style={styles.filterPillTextWrap}>
+            <Text style={[styles.filterPillText, { color: theme.text }]} numberOfLines={1}>
+              {typeFilterLabel}
+            </Text>
+          </View>
+          <Icon name="chevron-down" size={16} color={theme.textTertiary} />
+        </TouchableOpacity>
+        </View>
+        <View ref={accountPillRef} collapsable={false} style={styles.filterPillWrap}>
+        <TouchableOpacity
+          style={[
+            styles.filterPill,
+            { backgroundColor: theme.backgroundSecondary, borderColor: theme.cardBorder },
+            !hasAccountsOrCards && { opacity: 0.55 },
+          ]}
+          onPress={() => hasAccountsOrCards && openAccountFilterMenu()}
+          activeOpacity={hasAccountsOrCards ? 0.7 : 1}
+          disabled={!hasAccountsOrCards}
+        >
+          <View style={styles.filterPillMain}>
+            {accountFilter === 'all' ? (
+              <>
+                <Icon name="bank" size={20} color={theme.text} />
+                <View style={styles.filterPillLabelSlot}>
+                  <Text style={[styles.filterPillText, { color: theme.text }]} numberOfLines={1}>
+                    All
+                  </Text>
+                </View>
+              </>
+            ) : accountFilter.kind === 'bank' ? (
+              <>
+                <BankAvatar name={accountFilterLabel} size={20} />
+                <View style={styles.filterPillLabelSlot}>
+                  <Text style={[styles.filterPillText, { color: theme.text }]} numberOfLines={1}>
+                    {accountFilterLabel}
+                  </Text>
+                </View>
+              </>
+            ) : (
+              <>
+                <Icon name="card-outline" size={20} color={theme.textSecondary} />
+                <View style={styles.filterPillLabelSlot}>
+                  <Text style={[styles.filterPillText, { color: theme.text }]} numberOfLines={1}>
+                    {accountFilterLabel}
+                  </Text>
+                </View>
+              </>
+            )}
+          </View>
+          <Icon name="chevron-down" size={16} color={theme.textTertiary} />
+        </TouchableOpacity>
+        </View>
       </View>
 
       {selectedPeriod === 'month' && showCalendar && (
@@ -258,11 +499,11 @@ export default function TransactionsScreen() {
 
       {!showCalendar && (
         <FlatList
-          data={sortedTransactions}
+          data={filteredTransactions}
           renderItem={renderTransaction}
           keyExtractor={(item) => item.id}
           contentContainerStyle={[
-            sortedTransactions.length === 0 ? styles.emptyContainer : styles.listContent,
+            filteredTransactions.length === 0 ? styles.emptyContainer : styles.listContent,
             { paddingBottom: tabBarHeight + Spacing['3xl'] },
           ]}
           ListEmptyComponent={renderEmptyState}
@@ -275,7 +516,7 @@ export default function TransactionsScreen() {
       <TransactionDayModal
         visible={dayModalVisible}
         date={dayModalDate}
-        transactions={dayModalTransactions}
+        transactions={filteredDayModalTransactions}
         modalHeight={(Dimensions.get('window').height - tabBarHeight) * 0.8}
         onClose={() => {
           setDayModalVisible(false);
@@ -299,6 +540,181 @@ export default function TransactionsScreen() {
           setTimeout(() => { router.push(`/transaction/${tx.id}`); }, 50);
         }}
       />
+
+      {showTypeFilterModal && (
+        <Modal transparent animationType="fade" visible onRequestClose={closeTypeFilterMenu}>
+          <View style={styles.filterMenuOverlay}>
+            <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={closeTypeFilterMenu} />
+            {typePopoverLayout && (
+              <GlassCard
+                style={[
+                  styles.filterMenuPopover,
+                  Shadow.small,
+                  {
+                    position: 'absolute',
+                    top: typePopoverLayout.top,
+                    left: typePopoverLayout.left,
+                    width: typePopoverLayout.width,
+                  },
+                ]}
+                intensity="strong"
+                borderRadius={18}
+              >
+                {(['all', 'income', 'expense'] as const).map((key, idx) => {
+                  const labels = { all: 'All', income: 'Income', expense: 'Expenses' } as const;
+                  const isSelected = typeFilter === key;
+                  return (
+                    <React.Fragment key={key}>
+                      {idx > 0 && <View style={[styles.dropdownDivider, { backgroundColor: theme.cardBorder }]} />}
+                      <TouchableOpacity
+                        style={styles.dropdownItem}
+                        onPress={() => {
+                          setTypeFilter(key);
+                          closeTypeFilterMenu();
+                        }}
+                        activeOpacity={0.6}
+                      >
+                        <View style={styles.menuLeading}>
+                          {isSelected ? (
+                            <Icon name="checkmark" size={18} color={theme.primary} />
+                          ) : (
+                            <Icon
+                              name={key === 'all' ? 'list' : key === 'income' ? 'arrow-down-circle' : 'arrow-up-circle'}
+                              size={20}
+                              color={theme.textSecondary}
+                            />
+                          )}
+                        </View>
+                        <Text style={[styles.dropdownItemText, { color: isSelected ? theme.primary : theme.text }]}>
+                          {labels[key]}
+                        </Text>
+                      </TouchableOpacity>
+                    </React.Fragment>
+                  );
+                })}
+              </GlassCard>
+            )}
+          </View>
+        </Modal>
+      )}
+
+      {showAccountFilterModal && (
+        <Modal transparent animationType="fade" visible onRequestClose={closeAccountFilterMenu}>
+          <View style={styles.filterMenuOverlay}>
+            <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={closeAccountFilterMenu} />
+            {accountPopoverLayout && (
+              <GlassCard
+                style={[
+                  styles.filterMenuPopover,
+                  Shadow.small,
+                  {
+                    position: 'absolute',
+                    top: accountPopoverLayout.top,
+                    left: accountPopoverLayout.left,
+                    width: accountPopoverLayout.width,
+                  },
+                ]}
+                intensity="strong"
+                borderRadius={18}
+              >
+                <ScrollView
+                  nestedScrollEnabled
+                  keyboardShouldPersistTaps="handled"
+                  showsVerticalScrollIndicator={false}
+                  style={{ maxHeight: accountPopoverLayout.scrollMaxHeight }}
+                >
+                  <TouchableOpacity
+                    style={styles.dropdownItem}
+                    onPress={() => {
+                      setAccountFilter('all');
+                      closeAccountFilterMenu();
+                    }}
+                    activeOpacity={0.6}
+                  >
+                    <View style={styles.menuLeading}>
+                      {accountFilter === 'all' ? (
+                        <Icon name="checkmark" size={18} color={theme.primary} />
+                      ) : (
+                        <Icon name="bank" size={20} color={theme.textSecondary} />
+                      )}
+                    </View>
+                    <Text
+                      style={[
+                        styles.dropdownItemText,
+                        { color: accountFilter === 'all' ? theme.primary : theme.text },
+                      ]}
+                    >
+                      All accounts
+                    </Text>
+                  </TouchableOpacity>
+                  {bankAccounts.map((acct) => {
+                    const isSelected =
+                      accountFilter !== 'all' && accountFilter.kind === 'bank' && accountFilter.id === acct.id;
+                    return (
+                      <React.Fragment key={acct.id}>
+                        <View style={[styles.dropdownDivider, { backgroundColor: theme.cardBorder }]} />
+                        <TouchableOpacity
+                          style={styles.dropdownItem}
+                          onPress={() => {
+                            setAccountFilter({ kind: 'bank', id: acct.id });
+                            closeAccountFilterMenu();
+                          }}
+                          activeOpacity={0.6}
+                        >
+                          <View style={styles.menuLeading}>
+                            {isSelected ? (
+                              <Icon name="checkmark" size={18} color={theme.primary} />
+                            ) : (
+                              <BankAvatar name={acct.name} size={22} />
+                            )}
+                          </View>
+                          <Text
+                            style={[styles.dropdownItemText, { color: isSelected ? theme.primary : theme.text }]}
+                            numberOfLines={1}
+                          >
+                            {acct.name}
+                          </Text>
+                        </TouchableOpacity>
+                      </React.Fragment>
+                    );
+                  })}
+                  {userCards.map((card) => {
+                    const isSelected =
+                      accountFilter !== 'all' && accountFilter.kind === 'card' && accountFilter.id === card.id;
+                    return (
+                      <React.Fragment key={card.id}>
+                        <View style={[styles.dropdownDivider, { backgroundColor: theme.cardBorder }]} />
+                        <TouchableOpacity
+                          style={styles.dropdownItem}
+                          onPress={() => {
+                            setAccountFilter({ kind: 'card', id: card.id });
+                            closeAccountFilterMenu();
+                          }}
+                          activeOpacity={0.6}
+                        >
+                          <View style={styles.menuLeading}>
+                            {isSelected ? (
+                              <Icon name="checkmark" size={18} color={theme.primary} />
+                            ) : (
+                              <Icon name="card-outline" size={20} color={theme.textSecondary} />
+                            )}
+                          </View>
+                          <Text
+                            style={[styles.dropdownItemText, { color: isSelected ? theme.primary : theme.text }]}
+                            numberOfLines={1}
+                          >
+                            {card.name}
+                          </Text>
+                        </TouchableOpacity>
+                      </React.Fragment>
+                    );
+                  })}
+                </ScrollView>
+              </GlassCard>
+            )}
+          </View>
+        </Modal>
+      )}
 
       <TransactionForm
         visible={formVisible}
@@ -330,7 +746,87 @@ const styles = StyleSheet.create({
   },
   periodSelector: {
     paddingHorizontal: Spacing.xl,
-    paddingVertical: Spacing.lg,
+    paddingTop: Spacing.lg,
+    paddingBottom: Spacing.md,
+  },
+  filterRow: {
+    flexDirection: 'row',
+    paddingHorizontal: Spacing.xl,
+    gap: Spacing.md,
+    marginTop: Spacing['2xl'],
+    marginBottom: Spacing.md,
+  },
+  filterPillWrap: {
+    flex: 1,
+    minWidth: 0,
+    height: FILTER_TRACK_HEIGHT,
+  },
+  filterPill: {
+    flex: 1,
+    height: FILTER_TRACK_HEIGHT,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 0,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    gap: Spacing.md,
+  },
+  filterPillTextWrap: {
+    flex: 1,
+    minWidth: 0,
+    marginRight: Spacing.xs,
+    justifyContent: 'center',
+  },
+  filterPillMain: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    minWidth: 0,
+    marginRight: Spacing.xs,
+  },
+  filterPillLabelSlot: {
+    flex: 1,
+    minWidth: 0,
+    justifyContent: 'center',
+  },
+  filterPillText: {
+    fontSize: 15,
+    fontWeight: '600',
+    flexShrink: 1,
+  },
+  filterMenuOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.22)',
+  },
+  filterMenuPopover: {
+    paddingVertical: Spacing.md,
+    zIndex: 2,
+    overflow: 'hidden',
+  },
+  menuLeading: {
+    width: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    paddingVertical: 14,
+    paddingHorizontal: Spacing.lg,
+  },
+  dropdownItemText: {
+    fontSize: 16,
+    fontWeight: '500',
+    flex: 1,
+    minWidth: 0,
+  },
+  dropdownDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginHorizontal: Spacing.lg,
   },
   summaryWrapper: {
     paddingHorizontal: Spacing.xl,

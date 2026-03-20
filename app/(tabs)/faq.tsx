@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 import { useTheme } from '@/context/ThemeContext';
 import { GlassHeader } from '@/components/ui/GlassHeader';
 import { Spacing, Radius } from '@/constants/design';
@@ -64,7 +64,7 @@ export default function FAQScreen() {
       <GlassHeader style={styles.header}>
         <View style={styles.headerInner}>
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()} activeOpacity={0.7}>
-            <Ionicons name="arrow-back" size={24} color={theme.text} />
+            <Icon name="arrow-back" size={24} color={theme.text} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: theme.text }]}>FAQ</Text>
           <View style={styles.placeholder} />
@@ -89,7 +89,7 @@ export default function FAQScreen() {
                 activeOpacity={0.7}
               >
                 <Text style={[styles.question, { color: theme.text }]}>{item.question}</Text>
-                <Ionicons
+                <Icon
                   name={isOpen ? 'chevron-up' : 'chevron-down'}
                   size={20}
                   color={theme.textSecondary}

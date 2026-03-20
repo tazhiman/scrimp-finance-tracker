@@ -2,8 +2,8 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { TimePeriod } from '@/types';
 import { useTheme } from '@/context/ThemeContext';
-import { Ionicons } from '@expo/vector-icons';
-import { Spacing, Radius } from '@/constants/design';
+import { Icon } from '@/components/ui/Icon';
+import { Spacing, Radius, FILTER_TRACK_HEIGHT } from '@/constants/design';
 
 interface TimePeriodSelectorProps {
   selectedPeriod: TimePeriod;
@@ -64,7 +64,7 @@ export const TimePeriodSelector: React.FC<TimePeriodSelectorProps> = ({
           onPress={onCalendarPress}
           activeOpacity={0.7}
         >
-          <Ionicons
+          <Icon
             name={isCalendarActive ? 'calendar' : 'calendar-outline'}
             size={18}
             color={isCalendarActive ? activeTextColor : theme.textSecondary}
@@ -75,25 +75,29 @@ export const TimePeriodSelector: React.FC<TimePeriodSelectorProps> = ({
   );
 };
 
+const INNER_H = FILTER_TRACK_HEIGHT - Spacing.xs * 2;
+
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
+    height: FILTER_TRACK_HEIGHT,
     borderRadius: Radius.md,
     padding: Spacing.xs,
+    alignItems: 'stretch',
   },
   button: {
     flex: 1,
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.xl,
-    borderRadius: Radius.sm,
+    justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: Spacing.md,
+    borderRadius: Radius.sm,
   },
   buttonText: {
     fontSize: 14,
     fontWeight: '600',
   },
   iconButton: {
-    width: 44,
+    width: INNER_H,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: Radius.sm,

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { Tabs } from 'expo-router';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 import { AppState, Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { useTheme } from '@/context/ThemeContext';
@@ -111,7 +111,7 @@ export default function TabLayout() {
         options={{
           title: 'Dashboard',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home" size={size} color={color} />
+            <Icon name="home" size={size} color={color} />
           ),
         }}
       />
@@ -120,7 +120,7 @@ export default function TabLayout() {
         options={{
           title: 'Goals',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="flag" size={size} color={color} />
+            <Icon name="flag" size={size} color={color} />
           ),
         }}
       />
@@ -138,7 +138,7 @@ export default function TabLayout() {
               style={styles.addButtonWrapper}
             >
               <View style={[styles.addButton, { backgroundColor: theme.primary }]}>
-                <Ionicons name="add" size={30} color="#000505" />
+                <Icon name="add" size={30} color="#000505" />
               </View>
             </TouchableOpacity>
           ),
@@ -149,7 +149,7 @@ export default function TabLayout() {
         options={{
           title: 'Transactions',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="list" size={size} color={color} />
+            <Icon name="list" size={size} color={color} />
           ),
         }}
       />
@@ -158,7 +158,7 @@ export default function TabLayout() {
         options={{
           title: 'Profile',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person" size={size} color={color} />
+            <Icon name="person" size={size} color={color} />
           ),
         }}
       />

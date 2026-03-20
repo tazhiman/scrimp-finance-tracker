@@ -14,6 +14,9 @@ export const Spacing = {
   '6xl': 48,
 } as const;
 
+/** Same height for segmented period control + filter dropdown pills (e.g. Transactions). */
+export const FILTER_TRACK_HEIGHT = 48;
+
 export const Radius = {
   xs: 6,
   sm: 8,

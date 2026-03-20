@@ -10,7 +10,7 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 import { useTheme } from '@/context/ThemeContext';
 import { BankAccount } from '@/types';
 
@@ -19,9 +19,10 @@ const { width } = Dimensions.get('window');
 interface BankAccountStepProps {
   onNext: (accounts: BankAccount[]) => void;
   onSkip: () => void;
+  onBack?: () => void;
 }
 
-export function BankAccountStep({ onNext, onSkip }: BankAccountStepProps) {
+export function BankAccountStep({ onNext, onSkip, onBack }: BankAccountStepProps) {
   const { theme, themeMode } = useTheme();
   const [accounts, setAccounts] = useState<{ id: string; name: string; balance: string }[]>([
     { id: `acct-${Date.now()}`, name: '', balance: '' },
@@ -59,6 +60,13 @@ export function BankAccountStep({ onNext, onSkip }: BankAccountStepProps) {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={styles.header}>
+        {onBack ? (
+          <TouchableOpacity onPress={onBack} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+            <Icon name="arrow-back" size={24} color={theme.text} />
+          </TouchableOpacity>
+        ) : (
+          <View style={{ width: 24 }} />
+        )}
         <TouchableOpacity onPress={onSkip} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           <Text style={[styles.skipText, { color: theme.primary }]}>Skip for Now</Text>
         </TouchableOpacity>
@@ -71,7 +79,7 @@ export function BankAccountStep({ onNext, onSkip }: BankAccountStepProps) {
         keyboardShouldPersistTaps="handled"
       >
         <View style={[styles.iconCircle, { backgroundColor: theme.primary + '20' }]}>
-          <Ionicons name="wallet" size={36} color={theme.primary} />
+          <Icon name="wallet" size={36} color={theme.primary} />
         </View>
 
         <Text style={[styles.title, { color: theme.text }]}>Bank Accounts</Text>
@@ -85,7 +93,7 @@ export function BankAccountStep({ onNext, onSkip }: BankAccountStepProps) {
               <Text style={[styles.accountLabel, { color: theme.textSecondary }]}>Account {index + 1}</Text>
               {accounts.length > 1 && (
                 <TouchableOpacity onPress={() => removeAccount(account.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                  <Ionicons name="close-circle" size={22} color={theme.textTertiary} />
+                  <Icon name="close-circle" size={22} color={theme.textTertiary} />
                 </TouchableOpacity>
               )}
             </View>
@@ -117,7 +125,7 @@ export function BankAccountStep({ onNext, onSkip }: BankAccountStepProps) {
           onPress={addAccount}
           activeOpacity={0.7}
         >
-          <Ionicons name="add" size={22} color={theme.primary} />
+          <Icon name="add" size={22} color={theme.primary} />
           <Text style={[styles.addButtonText, { color: theme.primary }]}>Add Another Account</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -140,11 +148,12 @@ export function BankAccountStep({ onNext, onSkip }: BankAccountStepProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingBottom: 60,
+    paddingBottom: 16,
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 24,
     paddingTop: 16,
   },

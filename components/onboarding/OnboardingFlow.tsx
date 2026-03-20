@@ -8,11 +8,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@/context/ThemeContext';
+import { useFinance } from '@/context/FinanceContext';
 import { Spacing } from '@/constants/design';
 import { saveUserCards } from '@/utils/storage';
 import { saveBankAccounts, completeOnboarding } from '@/utils/onboarding';
 import { UserCard, BankAccount } from '@/types';
 import { WelcomeStep } from './WelcomeStep';
+import { SavingsGoalStep, GoalFormData } from './SavingsGoalStep';
+import { LinkAccountStep, LinkAccountResult } from './LinkAccountStep';
 import { CardSelectionStep, AccountType } from './CardSelectionStep';
 import { CreditCardSetupStep } from './CreditCardSetupStep';
 import { BankAccountStep } from './BankAccountStep';
@@ -20,6 +23,8 @@ import { ShortcutsGuideStep } from './ShortcutsGuideStep';
 
 type Step =
   | 'welcome'
+  | 'savings_goal'
+  | 'link_account'
   | 'account_type'
   | 'credit_card_setup'
   | 'bank_account_setup'
@@ -31,13 +36,18 @@ interface OnboardingFlowProps {
 
 export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const { theme } = useTheme();
+  const { addGoal } = useFinance();
   const [currentStep, setCurrentStep] = useState<Step>('welcome');
   const [firstChoice, setFirstChoice] = useState<AccountType | null>(null);
   const [didCreditCards, setDidCreditCards] = useState(false);
   const [didBankAccounts, setDidBankAccounts] = useState(false);
+  const [goalData, setGoalData] = useState<GoalFormData | null>(null);
+  const [linkedAccount, setLinkedAccount] = useState<BankAccount | null>(null);
+  const [history, setHistory] = useState<Step[]>([]);
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
   const transitionTo = useCallback((nextStep: Step) => {
+    setHistory(prev => [...prev, currentStep]);
     Animated.timing(fadeAnim, {
       toValue: 0,
       duration: 150,
@@ -50,16 +60,55 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         useNativeDriver: true,
       }).start();
     });
-  }, [fadeAnim]);
+  }, [fadeAnim, currentStep]);
+
+  const goBack = useCallback(() => {
+    if (history.length === 0) return;
+    const prev = history[history.length - 1];
+    setHistory(h => h.slice(0, -1));
+    Animated.timing(fadeAnim, {
+      toValue: 0,
+      duration: 150,
+      useNativeDriver: true,
+    }).start(() => {
+      setCurrentStep(prev);
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+    });
+  }, [fadeAnim, history]);
 
   const finish = async () => {
     await completeOnboarding();
     onComplete();
   };
 
-  const getNextAfterFirst = (): Step => {
-    if (firstChoice === 'credit_card') return 'bank_account_setup';
-    return 'credit_card_setup';
+  const handleGoalCreated = (data: GoalFormData) => {
+    setGoalData(data);
+    transitionTo('link_account');
+  };
+
+  const handleAccountLinked = async (result: LinkAccountResult) => {
+    if (!goalData) return;
+
+    setLinkedAccount(result.account);
+
+    addGoal({
+      name: goalData.name,
+      targetAmount: goalData.targetAmount,
+      currentAmount: result.existingSavings,
+      contributionAmount: goalData.contributionAmount,
+      frequency: goalData.frequency,
+      startDate: new Date().toISOString().split('T')[0],
+      contributions: result.existingSavings > 0
+        ? [{ date: new Date().toISOString().split('T')[0], amount: result.existingSavings }]
+        : [],
+    });
+
+    await saveBankAccounts([result.account]);
+    transitionTo('account_type');
   };
 
   const handleAccountTypeSelected = (type: AccountType) => {
@@ -84,8 +133,10 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   };
 
   const handleBankAccountsDone = async (accounts: BankAccount[]) => {
-    if (accounts.length > 0) {
-      await saveBankAccounts(accounts);
+    const existingAccounts = linkedAccount ? [linkedAccount] : [];
+    const merged = [...existingAccounts, ...accounts];
+    if (merged.length > 0) {
+      await saveBankAccounts(merged);
     }
     setDidBankAccounts(true);
     if (!didCreditCards && firstChoice === 'bank_account') {
@@ -117,7 +168,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     }
   };
 
-  const stepOrder: Step[] = ['welcome', 'account_type'];
+  const stepOrder: Step[] = ['welcome', 'savings_goal', 'link_account', 'account_type'];
   if (firstChoice === 'credit_card') {
     stepOrder.push('credit_card_setup', 'bank_account_setup');
   } else if (firstChoice === 'bank_account') {
@@ -128,15 +179,33 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const currentIndex = stepOrder.indexOf(currentStep);
   const totalDots = stepOrder.length;
 
+  const canGoBack = history.length > 0;
+
   const renderStep = () => {
     switch (currentStep) {
       case 'welcome':
-        return <WelcomeStep onNext={() => transitionTo('account_type')} />;
+        return <WelcomeStep onNext={() => transitionTo('savings_goal')} />;
+      case 'savings_goal':
+        return (
+          <SavingsGoalStep
+            onNext={handleGoalCreated}
+            onBack={canGoBack ? goBack : undefined}
+          />
+        );
+      case 'link_account':
+        return (
+          <LinkAccountStep
+            goalName={goalData?.name ?? ''}
+            onNext={handleAccountLinked}
+            onBack={canGoBack ? goBack : undefined}
+          />
+        );
       case 'account_type':
         return (
           <CardSelectionStep
             onNext={handleAccountTypeSelected}
             onSkip={handleSkipAccountType}
+            onBack={canGoBack ? goBack : undefined}
           />
         );
       case 'credit_card_setup':
@@ -144,6 +213,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
           <CreditCardSetupStep
             onNext={handleCreditCardsDone}
             onSkip={handleSkipCreditCards}
+            onBack={canGoBack ? goBack : undefined}
           />
         );
       case 'bank_account_setup':
@@ -151,6 +221,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
           <BankAccountStep
             onNext={handleBankAccountsDone}
             onSkip={handleSkipBankAccounts}
+            onBack={canGoBack ? goBack : undefined}
           />
         );
       case 'shortcuts_guide':
@@ -158,6 +229,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
           <ShortcutsGuideStep
             onDone={finish}
             onSkip={finish}
+            onBack={canGoBack ? goBack : undefined}
           />
         );
     }
@@ -205,7 +277,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     gap: Spacing.sm,
-    paddingBottom: Platform.OS === 'ios' ? Spacing.md : Spacing['2xl'],
+    paddingTop: Spacing.xl,
+    paddingBottom: Platform.OS === 'ios' ? Spacing.lg : Spacing['3xl'],
   },
   dot: {
     height: 6,

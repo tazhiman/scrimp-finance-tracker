@@ -13,7 +13,7 @@ import {
   ScrollView,
 } from 'react-native';
 
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 import { useTheme } from '@/context/ThemeContext';
 import { Spacing, Radius } from '@/constants/design';
 import { getAllCards } from '@/utils/cardEngine';
@@ -57,8 +57,8 @@ export function CardManagementModal({ visible, onClose }: CardManagementModalPro
     
     // Load all card images in parallel
     await Promise.all(
-      availableCards.map(async (card) => {
-        if ((card as any).imageUrl) {
+      availableCards.map(async (card: { id: string; imageUrl?: string | null }) => {
+        if (card.imageUrl) {
           const cachedImage = await getCachedCardImage(card.id);
           images[card.id] = cachedImage;
         }
@@ -138,13 +138,13 @@ export function CardManagementModal({ visible, onClose }: CardManagementModalPro
           <View style={[styles.header, { borderBottomColor: theme.cardBorder }]}>
             <Text style={[styles.title, { color: theme.text }]}>Manage Credit Cards</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Ionicons name="close" size={24} color={theme.text} />
+              <Icon name="close" size={24} color={theme.text} />
             </TouchableOpacity>
           </View>
 
           {/* Disclaimer */}
           <View style={[styles.disclaimer, { backgroundColor: theme.backgroundSecondary }]}>
-            <Ionicons name="information-circle-outline" size={16} color={theme.textSecondary} />
+            <Icon name="information-circle-outline" size={16} color={theme.textSecondary} />
             <Text style={[styles.disclaimerText, { color: theme.textSecondary }]}>
               Select the cards you own. No actual card details needed.
             </Text>
@@ -202,7 +202,7 @@ export function CardManagementModal({ visible, onClose }: CardManagementModalPro
                         styles.cardVisual,
                         { backgroundColor: theme.accent }
                       ]}>
-                        <Ionicons name="card" size={16} color="#FFF" />
+                        <Icon name="card" size={16} color="#FFF" />
                       </View>
                       <View style={styles.cardInfo}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -230,7 +230,7 @@ export function CardManagementModal({ visible, onClose }: CardManagementModalPro
                     </View>
                     {isSelected && (
                       <View style={[styles.checkmark, { backgroundColor: theme.primary }]}>
-                        <Ionicons name="checkmark" size={16} color="#000" />
+                        <Icon name="checkmark" size={16} color="#000" />
                       </View>
                     )}
                   </TouchableOpacity>
@@ -241,7 +241,15 @@ export function CardManagementModal({ visible, onClose }: CardManagementModalPro
             {availableCards.length === 0 && userCards.filter((c: any) => c.isCustom).length === 0 && (
               <Text style={{ color: theme.text, padding: 16 }}>No cards available</Text>
             )}
-            {availableCards.map((card) => {
+            {availableCards.map((card: {
+              id: string;
+              name: string;
+              issuer?: string;
+              rewardType?: string;
+              minSpend?: number;
+              imageUrl?: string | null;
+              brandColor?: string;
+            }) => {
               const isSelected = isCardSelected(card.id);
               
               return (
@@ -272,7 +280,7 @@ export function CardManagementModal({ visible, onClose }: CardManagementModalPro
                         styles.cardVisual,
                         { backgroundColor: (card as any).brandColor || '#666' }
                       ]}>
-                        <Ionicons name="card" size={16} color="#FFF" />
+                        <Icon name="card" size={16} color="#FFF" />
                       </View>
                     )}
                     <View style={styles.cardInfo}>
@@ -287,11 +295,11 @@ export function CardManagementModal({ visible, onClose }: CardManagementModalPro
                         <Text style={[styles.cardType, { color: theme.textSecondary }]}>
                           {card.rewardType === 'miles' ? '✈️ Miles' : '💰 Cashback'}
                         </Text>
-                        {card.minSpend > 0 && (
+                        {(card.minSpend ?? 0) > 0 && (
                           <>
                             <Text style={[styles.cardDot, { color: theme.textSecondary }]}>•</Text>
                             <Text style={[styles.cardMinSpend, { color: theme.textSecondary }]}>
-                              Min ${card.minSpend}
+                              Min ${card.minSpend ?? 0}
                             </Text>
                           </>
                         )}
@@ -300,7 +308,7 @@ export function CardManagementModal({ visible, onClose }: CardManagementModalPro
                   </View>
                   {isSelected && (
                     <View style={[styles.checkmark, { backgroundColor: theme.primary }]}>
-                      <Ionicons name="checkmark" size={16} color="#000" />
+                      <Icon name="checkmark" size={16} color="#000" />
                     </View>
                   )}
                 </TouchableOpacity>
@@ -319,7 +327,7 @@ export function CardManagementModal({ visible, onClose }: CardManagementModalPro
                   onPress={() => setShowCustomCardForm(true)}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="add-circle" size={20} color={theme.primary} />
+                  <Icon name="add-circle" size={20} color={theme.primary} />
                   <Text style={[styles.addCustomCardText, { color: theme.primary }]}>
                     Add Custom Card
                   </Text>
@@ -328,7 +336,7 @@ export function CardManagementModal({ visible, onClose }: CardManagementModalPro
                 <View style={[styles.customCardForm, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
                   {/* Info disclaimer */}
                   <View style={[styles.formDisclaimer, { backgroundColor: theme.backgroundSecondary }]}>
-                    <Ionicons name="alert-circle-outline" size={16} color={theme.accent} />
+                    <Icon name="alert-circle-outline" size={16} color={theme.accent} />
                     <Text style={[styles.formDisclaimerText, { color: theme.textSecondary }]}>
                       Custom cards won't receive automatic reward updates.
                     </Text>

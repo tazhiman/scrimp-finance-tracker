@@ -7,7 +7,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { ProgressRing } from './ProgressRing';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { Spacing, Radius, Shadow } from '@/constants/design';
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 
 interface GoalCardProps {
   goal: SavingsGoal;
@@ -45,7 +45,7 @@ export const GoalCard: React.FC<GoalCardProps> = ({ goal, onPress, onContribute 
           <View style={styles.header}>
             <Text style={[styles.name, { color: theme.text }]}>{goal.name}</Text>
             <View style={[styles.statusBadge, { backgroundColor: statusConfig.color + '18' }]}>
-              <Ionicons name={statusConfig.icon} size={14} color={statusConfig.color} />
+              <Icon name={statusConfig.icon} size={14} color={statusConfig.color} />
               <Text style={[styles.statusText, { color: statusConfig.color }]}>{statusConfig.text}</Text>
             </View>
           </View>

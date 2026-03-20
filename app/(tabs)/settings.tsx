@@ -14,13 +14,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useTheme } from '@/context/ThemeContext';
 import { useFinance } from '@/context/FinanceContext';
 import { Spacing, Radius } from '@/constants/design';
 import { generateTestData } from '@/utils/generateTestData';
-import { seedTestData, loadNotificationSettings, saveNotificationSettings, loadUserCards, loadCardPreference, saveCardPreference } from '@/utils/storage';
+import { seedTestData, loadNotificationSettings, saveNotificationSettings, loadUserCards } from '@/utils/storage';
 import { ShortcutsGuideStep } from '@/components/onboarding/ShortcutsGuideStep';
 import {
   scheduleGoalNotifications,
@@ -42,7 +42,6 @@ export default function SettingsScreen() {
   const [loading, setLoading] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [userCards, setUserCards] = useState<UserCard[]>([]);
-  const [preferMiles, setPreferMiles] = useState(false);
 
   const [showSetupGuide, setShowSetupGuide] = useState(false);
 
@@ -58,11 +57,9 @@ export default function SettingsScreen() {
     const loadSettings = async () => {
       const enabled = await loadNotificationSettings();
       const cards = await loadUserCards();
-      const pref = await loadCardPreference();
       
       setNotificationsEnabled(enabled);
       setUserCards(cards);
-      setPreferMiles(pref);
     };
     loadSettings();
   }, []);
@@ -86,17 +83,6 @@ export default function SettingsScreen() {
       console.error('Error toggling notifications:', error);
       Alert.alert('Error', 'Failed to update notification settings');
       setNotificationsEnabled(!value); // Revert on error
-    }
-  };
-
-  const handleTogglePreference = async (value: boolean) => {
-    try {
-      setPreferMiles(value);
-      await saveCardPreference(value);
-    } catch (error) {
-      console.error('Error toggling preference:', error);
-      Alert.alert('Error', 'Failed to update preference');
-      setPreferMiles(!value);
     }
   };
 
@@ -228,7 +214,7 @@ export default function SettingsScreen() {
             style={styles.backButton}
             onPress={() => router.back()}
           >
-            <Ionicons name="arrow-back" size={24} color={theme.text} />
+            <Icon name="arrow-back" size={24} color={theme.text} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: theme.text }]}>Settings</Text>
           <View style={styles.placeholder} />
@@ -245,7 +231,7 @@ export default function SettingsScreen() {
               onPress={() => setThemeMode('dark')}
             >
               <View style={styles.optionLeft}>
-                <Ionicons 
+                <Icon 
                   name="moon" 
                   size={24} 
                   color={themeMode === 'dark' ? theme.primary : theme.textSecondary} 
@@ -253,7 +239,7 @@ export default function SettingsScreen() {
                 <Text style={[styles.optionText, { color: theme.text }]}>Dark Mode</Text>
               </View>
               {themeMode === 'dark' && (
-                <Ionicons name="checkmark-circle" size={24} color={theme.primary} />
+                <Icon name="checkmark-circle" size={24} color={theme.primary} />
               )}
             </TouchableOpacity>
 
@@ -264,7 +250,7 @@ export default function SettingsScreen() {
               onPress={() => setThemeMode('light')}
             >
               <View style={styles.optionLeft}>
-                <Ionicons 
+                <Icon 
                   name="sunny" 
                   size={24} 
                   color={themeMode === 'light' ? theme.primary : theme.textSecondary} 
@@ -272,7 +258,7 @@ export default function SettingsScreen() {
                 <Text style={[styles.optionText, { color: theme.text }]}>Light Mode</Text>
               </View>
               {themeMode === 'light' && (
-                <Ionicons name="checkmark-circle" size={24} color={theme.primary} />
+                <Icon name="checkmark-circle" size={24} color={theme.primary} />
               )}
             </TouchableOpacity>
           </View>
@@ -288,7 +274,7 @@ export default function SettingsScreen() {
               activeOpacity={0.7}
             >
               <View style={styles.optionLeft}>
-                <Ionicons name="card" size={24} color={theme.primary} />
+                <Icon name="card" size={24} color={theme.primary} />
                 <View>
                   <Text style={[styles.optionText, { color: theme.text }]}>My Cards</Text>
                   <Text style={[styles.optionSubtext, { color: theme.textSecondary }]}>
@@ -296,37 +282,9 @@ export default function SettingsScreen() {
                   </Text>
                 </View>
               </View>
-              <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
+              <Icon name="chevron-forward" size={20} color={theme.textSecondary} />
             </TouchableOpacity>
 
-            <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />
-
-            <View style={styles.optionRow}>
-              <View style={styles.optionLeftGrow}>
-                <Ionicons 
-                  name={preferMiles ? "airplane" : "cash"} 
-                  size={24} 
-                  color={theme.primary} 
-                />
-                <View style={styles.optionTextBlock}>
-                  <Text style={[styles.optionText, { color: theme.text }]}>
-                    {preferMiles ? 'Prefer Miles' : 'Prefer Cashback'}
-                  </Text>
-                  <Text style={[styles.optionSubtext, { color: theme.textSecondary }]}>
-                    Recommendation preference
-                  </Text>
-                </View>
-              </View>
-              <View style={styles.switchWrapper}>
-                <Switch
-                  value={preferMiles}
-                  onValueChange={handleTogglePreference}
-                  trackColor={{ false: theme.textTertiary, true: theme.primary }}
-                  thumbColor={preferMiles ? '#FFFFFF' : '#f4f3f4'}
-                  ios_backgroundColor={theme.textTertiary}
-                />
-              </View>
-            </View>
           </View>
         </View>
 
@@ -336,7 +294,7 @@ export default function SettingsScreen() {
           <View style={[styles.card, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
             <View style={styles.optionRow}>
               <View style={styles.optionLeftGrow}>
-                <Ionicons 
+                <Icon 
                   name="notifications" 
                   size={24} 
                   color={notificationsEnabled ? theme.primary : theme.textSecondary} 
@@ -367,7 +325,7 @@ export default function SettingsScreen() {
           <View style={[styles.card, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
             <View style={styles.exportContainer}>
               <View style={styles.exportHeader}>
-                <Ionicons name="document-text" size={24} color={theme.primary} />
+                <Icon name="document-text" size={24} color={theme.primary} />
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.optionText, { color: theme.text }]}>Export to Excel</Text>
                   <Text style={[styles.optionSubtext, { color: theme.textSecondary }]}>
@@ -387,7 +345,7 @@ export default function SettingsScreen() {
                     <Text style={[styles.dateButtonText, { color: theme.text }]}>
                       {formatDateDisplay(exportStartDate)}
                     </Text>
-                    <Ionicons name="calendar-outline" size={18} color={theme.textSecondary} />
+                    <Icon name="calendar-outline" size={18} color={theme.textSecondary} />
                   </TouchableOpacity>
                 </View>
 
@@ -401,7 +359,7 @@ export default function SettingsScreen() {
                     <Text style={[styles.dateButtonText, { color: theme.text }]}>
                       {formatDateDisplay(exportEndDate)}
                     </Text>
-                    <Ionicons name="calendar-outline" size={18} color={theme.textSecondary} />
+                    <Icon name="calendar-outline" size={18} color={theme.textSecondary} />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -416,7 +374,7 @@ export default function SettingsScreen() {
                   <ActivityIndicator size="small" color={buttonTextColor} />
                 ) : (
                   <>
-                    <Ionicons name="download" size={20} color={buttonTextColor} />
+                    <Icon name="download" size={20} color={buttonTextColor} />
                     <Text style={[styles.exportButtonText, { color: buttonTextColor }]}>Export to Excel</Text>
                   </>
                 )}
@@ -458,7 +416,7 @@ export default function SettingsScreen() {
               activeOpacity={0.7}
             >
               <View style={styles.optionLeft}>
-                <Ionicons name="rocket" size={24} color={theme.primary} />
+                <Icon name="rocket" size={24} color={theme.primary} />
                 <View>
                   <Text style={[styles.optionText, { color: theme.text }]}>Tap-to-Pay Setup</Text>
                   <Text style={[styles.optionSubtext, { color: theme.textSecondary }]}>
@@ -466,7 +424,7 @@ export default function SettingsScreen() {
                   </Text>
                 </View>
               </View>
-              <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
+              <Icon name="chevron-forward" size={20} color={theme.textSecondary} />
             </TouchableOpacity>
 
             <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />
@@ -477,7 +435,7 @@ export default function SettingsScreen() {
               activeOpacity={0.7}
             >
               <View style={styles.optionLeft}>
-                <Ionicons name="help-circle" size={24} color={theme.primary} />
+                <Icon name="help-circle" size={24} color={theme.primary} />
                 <View>
                   <Text style={[styles.optionText, { color: theme.text }]}>FAQ</Text>
                   <Text style={[styles.optionSubtext, { color: theme.textSecondary }]}>
@@ -485,7 +443,7 @@ export default function SettingsScreen() {
                   </Text>
                 </View>
               </View>
-              <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
+              <Icon name="chevron-forward" size={20} color={theme.textSecondary} />
             </TouchableOpacity>
           </View>
         </View>
@@ -505,7 +463,7 @@ export default function SettingsScreen() {
                   {loading ? (
                     <ActivityIndicator size="small" color={theme.primary} />
                   ) : (
-                    <Ionicons 
+                    <Icon 
                       name="cloud-download" 
                       size={24} 
                       color={theme.primary} 
@@ -518,7 +476,7 @@ export default function SettingsScreen() {
                     </Text>
                   </View>
                 </View>
-                <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
+                <Icon name="chevron-forward" size={20} color={theme.textSecondary} />
               </TouchableOpacity>
 
               <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />
@@ -532,7 +490,7 @@ export default function SettingsScreen() {
                   {loading ? (
                     <ActivityIndicator size="small" color={theme.primary} />
                   ) : (
-                    <Ionicons 
+                    <Icon 
                       name="refresh" 
                       size={24} 
                       color={theme.primary} 
@@ -545,7 +503,7 @@ export default function SettingsScreen() {
                     </Text>
                   </View>
                 </View>
-                <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
+                <Icon name="chevron-forward" size={20} color={theme.textSecondary} />
               </TouchableOpacity>
             </View>
           </View>

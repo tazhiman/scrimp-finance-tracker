@@ -336,10 +336,11 @@ const STEPS: GuideStep[] = [
 interface ShortcutsGuideStepProps {
   onDone: () => void;
   onSkip?: () => void;
+  onBack?: () => void;
   standalone?: boolean;
 }
 
-export function ShortcutsGuideStep({ onDone, onSkip, standalone = false }: ShortcutsGuideStepProps) {
+export function ShortcutsGuideStep({ onDone, onSkip, onBack, standalone = false }: ShortcutsGuideStepProps) {
   const { theme, themeMode } = useTheme();
   const [currentStep, setCurrentStep] = useState(0);
   const slideAnim = useRef(new Animated.Value(0)).current;
@@ -385,8 +386,15 @@ export function ShortcutsGuideStep({ onDone, onSkip, standalone = false }: Short
 
   return (
     <View style={[styles.container, { width: standalone ? undefined : SCREEN_WIDTH }]}>
-      {(onSkip || standalone) && (
-        <View style={styles.header}>
+      <View style={styles.header}>
+        {onBack && currentStep === 0 && !standalone ? (
+          <TouchableOpacity onPress={onBack} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+            <Ionicons name="arrow-back" size={24} color={theme.text} />
+          </TouchableOpacity>
+        ) : (
+          <View style={{ width: 24 }} />
+        )}
+        {(onSkip || standalone) && (
           <TouchableOpacity
             onPress={onSkip || onDone}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
@@ -395,8 +403,8 @@ export function ShortcutsGuideStep({ onDone, onSkip, standalone = false }: Short
               {standalone ? 'Close' : "I'll set this up later"}
             </Text>
           </TouchableOpacity>
-        </View>
-      )}
+        )}
+      </View>
 
       <View style={styles.stepHeader}>
         <View style={styles.progressDots}>
@@ -475,11 +483,12 @@ export function ShortcutsGuideStep({ onDone, onSkip, standalone = false }: Short
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingBottom: 60,
+    paddingBottom: 16,
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 24,
     paddingTop: 16,
   },
