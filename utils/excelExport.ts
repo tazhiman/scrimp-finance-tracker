@@ -10,6 +10,7 @@ import * as Sharing from 'expo-sharing';
 import { Platform } from 'react-native';
 import { Transaction, Category } from '@/types';
 import { getCategoryById } from '@/constants/categories';
+import { formatDetailTransactionTime } from '@/utils/dateHelpers';
 
 interface ExportOptions {
   startDate: Date;
@@ -52,6 +53,8 @@ export async function exportTransactionsToExcel(options: ExportOptions): Promise
       'Type': tx.type === 'income' ? 'Income' : 'Expense',
       'Category': category?.name || tx.category,
       'Amount': tx.amount,
+      'Merchant': tx.merchant || '',
+      'Time': formatDetailTransactionTime(tx.time, tx.createdAt),
       'Description': tx.description || '',
       'Card ID': tx.cardId || '',
       'Added to App': formatDateTime(tx.createdAt),
@@ -67,6 +70,8 @@ export async function exportTransactionsToExcel(options: ExportOptions): Promise
     { wch: 10 },  // Type
     { wch: 20 },  // Category
     { wch: 12 },  // Amount
+    { wch: 22 },  // Merchant
+    { wch: 10 },  // Time
     { wch: 30 },  // Description
     { wch: 20 },  // Card ID
     { wch: 20 },  // Added to App

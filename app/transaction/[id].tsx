@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -12,30 +13,66 @@ import {
 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Icon } from '@/components/ui/Icon';
+import { BankAvatar } from '@/components/ui/BankAvatar';
+import { GlassCard } from '@/components/ui/GlassCard';
 import { useFinance } from '@/context/FinanceContext';
 import { useTheme } from '@/context/ThemeContext';
 import { CategorySelector } from '@/components/CategorySelector';
-import { Transaction, TransactionType } from '@/types';
+import { Spacing, Radius } from '@/constants/design';
+import { Transaction, TransactionType, BankAccount, UserCard } from '@/types';
+import { loadBankAccounts } from '@/utils/onboarding';
+import { loadUserCards } from '@/utils/storage';
 import {
   getRecurringIdFromGeneratedTransactionId,
   isGeneratedRecurringTransactionId,
 } from '@/utils/recurring';
-import { formatCurrency } from '@/utils/dateHelpers';
+import {
+  formatCurrency,
+  buildTransactionDateTime,
+  formatDetailTransactionDate,
+  formatDetailTransactionTime,
+} from '@/utils/dateHelpers';
 import { getCategoryById } from '@/constants/categories';
 
-const formatDateTime = (iso: string) => {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(d);
-};
+type SelectedAccount =
+  | { kind: 'bank'; id: string }
+  | { kind: 'card'; id: string }
+  | undefined;
+
+function accountFromTransaction(tx: Transaction | null): SelectedAccount {
+  if (!tx) return undefined;
+  if (tx.cardId) return { kind: 'card', id: tx.cardId };
+  if (tx.accountId) return { kind: 'bank', id: tx.accountId };
+  return undefined;
+}
+
+function resolveAccountLabel(
+  tx: Transaction,
+  banks: BankAccount[],
+  cards: UserCard[]
+): string {
+  if (tx.cardId) {
+    const c = cards.find((x) => x.id === tx.cardId);
+    return c?.name ?? 'Card (removed)';
+  }
+  if (tx.accountId) {
+    const a = banks.find((x) => x.id === tx.accountId);
+    return a?.name ?? 'Account (removed)';
+  }
+  return '—';
+}
+
+function labelForSelection(sel: SelectedAccount, banks: BankAccount[], cards: UserCard[]): string {
+  if (!sel) return 'No account';
+  if (sel.kind === 'bank') {
+    const a = banks.find((x) => x.id === sel.id);
+    return a?.name ?? 'Account';
+  }
+  const c = cards.find((x) => x.id === sel.id);
+  return c?.name ?? 'Card';
+}
 
 export default function TransactionDetailScreen() {
   const router = useRouter();
@@ -89,10 +126,35 @@ export default function TransactionDetailScreen() {
   const [type, setType] = useState<TransactionType>(transaction?.type ?? 'expense');
   const [amount, setAmount] = useState(transaction ? String(transaction.amount) : '');
   const [category, setCategory] = useState(transaction?.category ?? '');
+  const [merchant, setMerchant] = useState(transaction?.merchant ?? '');
   const [description, setDescription] = useState(transaction?.description ?? '');
-  const [date, setDate] = useState<Date>(() => {
-    return transaction?.date ? new Date(transaction.date) : new Date();
-  });
+  const [date, setDate] = useState<Date>(() =>
+    transaction ? buildTransactionDateTime(transaction) : new Date()
+  );
+
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+  const [userCards, setUserCards] = useState<UserCard[]>([]);
+  const [selectedAccount, setSelectedAccount] = useState<SelectedAccount>(() =>
+    accountFromTransaction(transaction ?? null)
+  );
+  const [showAccountPicker, setShowAccountPicker] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      (async () => {
+        const [accounts, cards] = await Promise.all([loadBankAccounts(), loadUserCards()]);
+        setBankAccounts(accounts);
+        setUserCards(cards);
+      })();
+    }, [])
+  );
+
+  const accountDisplayLabel = useMemo(() => {
+    if (!transaction) return '—';
+    return resolveAccountLabel(transaction, bankAccounts, userCards);
+  }, [transaction, bankAccounts, userCards]);
+
+  const hasAccountsOrCards = bankAccounts.length > 0 || userCards.length > 0;
 
   const startEdit = () => {
     if (!transaction) return;
@@ -106,8 +168,10 @@ export default function TransactionDetailScreen() {
     setType(transaction.type);
     setAmount(String(transaction.amount));
     setCategory(transaction.category);
+    setMerchant(transaction.merchant ?? '');
     setDescription(transaction.description ?? '');
-    setDate(new Date(transaction.date));
+    setDate(buildTransactionDateTime(transaction));
+    setSelectedAccount(accountFromTransaction(transaction));
     setIsEditing(true);
   };
 
@@ -119,7 +183,29 @@ export default function TransactionDetailScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shouldStartInEdit, transaction?.id]);
 
+  useEffect(() => {
+    if (!transaction || isEditing) return;
+    setMerchant(transaction.merchant ?? '');
+    setDescription(transaction.description ?? '');
+    setSelectedAccount(accountFromTransaction(transaction));
+    setDate(buildTransactionDateTime(transaction));
+  }, [
+    transaction?.id,
+    transaction?.merchant,
+    transaction?.description,
+    transaction?.accountId,
+    transaction?.cardId,
+    transaction?.date,
+    transaction?.time,
+    transaction?.createdAt,
+    isEditing,
+  ]);
+
   const cancelEdit = () => {
+    if (transaction) {
+      setSelectedAccount(accountFromTransaction(transaction));
+      setDate(buildTransactionDateTime(transaction));
+    }
     setIsEditing(false);
   };
 
@@ -135,12 +221,22 @@ export default function TransactionDetailScreen() {
       return;
     }
 
+    const y = date.getFullYear();
+    const mo = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hh = String(date.getHours()).padStart(2, '0');
+    const min = String(date.getMinutes()).padStart(2, '0');
+
     updateTransaction(transaction.id, {
       type,
       amount: amountNum,
       category,
+      merchant: merchant.trim() || undefined,
       description,
-      date: date.toISOString().split('T')[0],
+      date: `${y}-${mo}-${day}`,
+      time: `${hh}:${min}`,
+      cardId: selectedAccount?.kind === 'card' ? selectedAccount.id : undefined,
+      accountId: selectedAccount?.kind === 'bank' ? selectedAccount.id : undefined,
     });
     setIsEditing(false);
   };
@@ -217,14 +313,26 @@ export default function TransactionDetailScreen() {
         automaticallyAdjustKeyboardInsets={true}
       >
           <View style={[styles.card, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
-          <View style={styles.row}>
-            <Text style={[styles.label, { color: theme.textSecondary }]}>Added to app</Text>
-            <Text style={[styles.value, { color: theme.text }]}>{formatDateTime(transaction.createdAt)}</Text>
-          </View>
-          <View style={styles.row}>
-            <Text style={[styles.label, { color: theme.textSecondary }]}>Transaction date</Text>
-            <Text style={[styles.value, { color: theme.text }]}>{transaction.date}</Text>
-          </View>
+            <View style={styles.row}>
+              <Text style={[styles.label, { color: theme.textSecondary }]}>Transaction date</Text>
+              <Text style={[styles.value, { color: theme.text }]}>
+                {isEditing
+                  ? formatDetailTransactionDate(
+                      `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+                    )
+                  : formatDetailTransactionDate(transaction.date)}
+              </Text>
+            </View>
+            <View style={styles.row}>
+              <Text style={[styles.label, { color: theme.textSecondary }]}>Transaction time</Text>
+              <Text style={[styles.value, { color: theme.text }]}>
+                {isEditing
+                  ? formatDetailTransactionTime(
+                      `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+                    )
+                  : formatDetailTransactionTime(transaction.time, transaction.createdAt)}
+              </Text>
+            </View>
           </View>
 
           <View style={[styles.card, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
@@ -294,6 +402,60 @@ export default function TransactionDetailScreen() {
             )}
           </View>
 
+          {/* Account */}
+          <View style={styles.field}>
+            <Text style={[styles.label, { color: theme.textSecondary }]}>Account</Text>
+            {isEditing ? (
+              <>
+                <TouchableOpacity
+                  style={[
+                    styles.input,
+                    styles.accountSelector,
+                    { backgroundColor: theme.inputBackground, borderColor: theme.inputBorder },
+                    !hasAccountsOrCards && { opacity: 0.55 },
+                  ]}
+                  onPress={() => hasAccountsOrCards && setShowAccountPicker(true)}
+                  activeOpacity={hasAccountsOrCards ? 0.7 : 1}
+                  disabled={!hasAccountsOrCards}
+                >
+                  <Text style={[styles.value, { color: theme.text, flex: 1 }]} numberOfLines={1}>
+                    {labelForSelection(selectedAccount, bankAccounts, userCards)}
+                  </Text>
+                  <Icon name="chevron-down" size={18} color={theme.textTertiary} />
+                </TouchableOpacity>
+                {!hasAccountsOrCards ? (
+                  <Text style={[styles.accountHint, { color: theme.textTertiary }]}>
+                    Add accounts or cards in Profile to link this transaction.
+                  </Text>
+                ) : null}
+              </>
+            ) : (
+              <Text style={[styles.value, { color: theme.text }]}>{accountDisplayLabel}</Text>
+            )}
+          </View>
+
+          {/* Merchant */}
+          <View style={styles.field}>
+            <Text style={[styles.label, { color: theme.textSecondary }]}>Merchant</Text>
+            {isEditing ? (
+              <TextInput
+                style={[
+                  styles.input,
+                  { backgroundColor: theme.inputBackground, borderColor: theme.inputBorder, color: theme.text },
+                ]}
+                value={merchant}
+                onChangeText={setMerchant}
+                placeholder="e.g. Shopee, FairPrice"
+                placeholderTextColor={theme.textTertiary}
+                autoCapitalize="words"
+              />
+            ) : (
+              <Text style={[styles.value, { color: theme.text }]}>
+                {transaction.merchant ? transaction.merchant : '—'}
+              </Text>
+            )}
+          </View>
+
           {/* Description */}
           <View style={styles.field}>
             <Text style={[styles.label, { color: theme.textSecondary }]}>Description</Text>
@@ -318,44 +480,96 @@ export default function TransactionDetailScreen() {
             )}
           </View>
 
-          {/* Date */}
-          <View style={styles.field}>
-            <Text style={[styles.label, { color: theme.textSecondary }]}>Date</Text>
-            {isEditing ? (
-              Platform.OS === 'web' ? (
-                <View style={[styles.webDateContainer, { backgroundColor: theme.inputBackground, borderColor: theme.inputBorder }]}>
-                  <input
-                    type="date"
-                    value={date.toISOString().split('T')[0]}
-                    onChange={(e) => setDate(new Date(e.target.value))}
-                    style={{
-                      backgroundColor: 'transparent',
-                      border: 'none',
-                      color: theme.text,
-                      fontSize: 16,
-                      fontFamily: 'inherit',
-                      width: '100%',
-                      outline: 'none',
-                      cursor: 'pointer',
-                    }}
-                  />
-                </View>
-              ) : (
-                <View style={[styles.datePickerContainer, { backgroundColor: theme.inputBackground, borderColor: theme.inputBorder }]}>
-                  <DateTimePicker
-                    value={date}
-                    mode="date"
-                    display="default"
-                    onChange={(_, selected) => selected && setDate(selected)}
-                    maximumDate={new Date()}
-                    themeVariant={themeMode === 'dark' ? 'dark' : 'light'}
-                  />
-                </View>
-              )
-            ) : (
-              <Text style={[styles.value, { color: theme.text }]}>{transaction.date}</Text>
-            )}
-          </View>
+          {/* Transaction date & time (edit only — summary is in the card above) */}
+          {isEditing && (
+            <>
+              <View style={styles.field}>
+                <Text style={[styles.label, { color: theme.textSecondary }]}>Transaction date</Text>
+                {Platform.OS === 'web' ? (
+                  <View style={[styles.webDateContainer, { backgroundColor: theme.inputBackground, borderColor: theme.inputBorder }]}>
+                    <input
+                      type="date"
+                      value={date.toISOString().split('T')[0]}
+                      onChange={(e) => {
+                        const next = new Date(e.target.value);
+                        next.setHours(date.getHours(), date.getMinutes(), 0, 0);
+                        setDate(next);
+                      }}
+                      style={{
+                        backgroundColor: 'transparent',
+                        border: 'none',
+                        color: theme.text,
+                        fontSize: 16,
+                        fontFamily: 'inherit',
+                        width: '100%',
+                        outline: 'none',
+                        cursor: 'pointer',
+                      }}
+                    />
+                  </View>
+                ) : (
+                  <View style={[styles.datePickerContainer, { backgroundColor: theme.inputBackground, borderColor: theme.inputBorder }]}>
+                    <DateTimePicker
+                      value={date}
+                      mode="date"
+                      display="default"
+                      onChange={(_, selected) => {
+                        if (!selected) return;
+                        const next = new Date(selected);
+                        next.setHours(date.getHours(), date.getMinutes(), 0, 0);
+                        setDate(next);
+                      }}
+                      maximumDate={new Date()}
+                      themeVariant={themeMode === 'dark' ? 'dark' : 'light'}
+                    />
+                  </View>
+                )}
+              </View>
+              <View style={styles.field}>
+                <Text style={[styles.label, { color: theme.textSecondary }]}>Transaction time</Text>
+                {Platform.OS === 'web' ? (
+                  <View style={[styles.webDateContainer, { backgroundColor: theme.inputBackground, borderColor: theme.inputBorder }]}>
+                    <input
+                      type="time"
+                      value={`${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`}
+                      onChange={(e) => {
+                        const [h, m] = e.target.value.split(':').map((x) => parseInt(x, 10));
+                        if (!Number.isFinite(h) || !Number.isFinite(m)) return;
+                        const next = new Date(date);
+                        next.setHours(h, m, 0, 0);
+                        setDate(next);
+                      }}
+                      style={{
+                        backgroundColor: 'transparent',
+                        border: 'none',
+                        color: theme.text,
+                        fontSize: 16,
+                        fontFamily: 'inherit',
+                        width: '100%',
+                        outline: 'none',
+                        cursor: 'pointer',
+                      }}
+                    />
+                  </View>
+                ) : (
+                  <View style={[styles.datePickerContainer, { backgroundColor: theme.inputBackground, borderColor: theme.inputBorder }]}>
+                    <DateTimePicker
+                      value={date}
+                      mode="time"
+                      display="default"
+                      onChange={(_, selected) => {
+                        if (!selected) return;
+                        const next = new Date(date);
+                        next.setHours(selected.getHours(), selected.getMinutes(), 0, 0);
+                        setDate(next);
+                      }}
+                      themeVariant={themeMode === 'dark' ? 'dark' : 'light'}
+                    />
+                  </View>
+                )}
+              </View>
+            </>
+          )}
           </View>
 
           <View style={styles.actions}>
@@ -393,6 +607,91 @@ export default function TransactionDetailScreen() {
           </TouchableOpacity>
           </View>
       </ScrollView>
+
+      {showAccountPicker && (
+        <Modal transparent animationType="fade" visible onRequestClose={() => setShowAccountPicker(false)}>
+          <View style={styles.accountModalOverlay}>
+            <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setShowAccountPicker(false)} />
+            <GlassCard style={styles.accountModalCard} intensity="strong" borderRadius={Radius.lg}>
+              <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+                <TouchableOpacity
+                  style={styles.accountModalRow}
+                  onPress={() => {
+                    setSelectedAccount(undefined);
+                    setShowAccountPicker(false);
+                  }}
+                  activeOpacity={0.65}
+                >
+                  <Icon
+                    name="close-circle-outline"
+                    size={20}
+                    color={!selectedAccount ? theme.primary : theme.textSecondary}
+                  />
+                  <Text
+                    style={[
+                      styles.accountModalRowText,
+                      { color: !selectedAccount ? theme.primary : theme.text },
+                    ]}
+                  >
+                    No account
+                  </Text>
+                  {!selectedAccount ? <Icon name="checkmark" size={18} color={theme.primary} /> : <View style={{ width: 18 }} />}
+                </TouchableOpacity>
+                {bankAccounts.map((acct) => {
+                  const isSel = selectedAccount?.kind === 'bank' && selectedAccount.id === acct.id;
+                  return (
+                    <React.Fragment key={acct.id}>
+                      <View style={[styles.accountModalDivider, { backgroundColor: theme.cardBorder }]} />
+                      <TouchableOpacity
+                        style={styles.accountModalRow}
+                        onPress={() => {
+                          setSelectedAccount({ kind: 'bank', id: acct.id });
+                          setShowAccountPicker(false);
+                        }}
+                        activeOpacity={0.65}
+                      >
+                        <BankAvatar name={acct.name} size={22} />
+                        <Text
+                          style={[styles.accountModalRowText, { color: isSel ? theme.primary : theme.text }]}
+                          numberOfLines={1}
+                        >
+                          {acct.name}
+                        </Text>
+                        {isSel ? <Icon name="checkmark" size={18} color={theme.primary} /> : <View style={{ width: 18 }} />}
+                      </TouchableOpacity>
+                    </React.Fragment>
+                  );
+                })}
+                {userCards.map((card) => {
+                  const isSel = selectedAccount?.kind === 'card' && selectedAccount.id === card.id;
+                  return (
+                    <React.Fragment key={card.id}>
+                      <View style={[styles.accountModalDivider, { backgroundColor: theme.cardBorder }]} />
+                      <TouchableOpacity
+                        style={styles.accountModalRow}
+                        onPress={() => {
+                          setSelectedAccount({ kind: 'card', id: card.id });
+                          setShowAccountPicker(false);
+                        }}
+                        activeOpacity={0.65}
+                      >
+                        <Icon name="card-outline" size={20} color={isSel ? theme.primary : theme.textSecondary} />
+                        <Text
+                          style={[styles.accountModalRowText, { color: isSel ? theme.primary : theme.text }]}
+                          numberOfLines={1}
+                        >
+                          {card.name}
+                        </Text>
+                        {isSel ? <Icon name="checkmark" size={18} color={theme.primary} /> : <View style={{ width: 18 }} />}
+                      </TouchableOpacity>
+                    </React.Fragment>
+                  );
+                })}
+              </ScrollView>
+            </GlassCard>
+          </View>
+        </Modal>
+      )}
     </SafeAreaView>
   );
 }
@@ -459,6 +758,47 @@ const styles = StyleSheet.create({
     padding: 14,
     fontSize: 16,
     borderWidth: 1,
+  },
+  accountSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+  },
+  accountHint: {
+    fontSize: 12,
+    marginTop: 6,
+    lineHeight: 16,
+  },
+  accountModalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    paddingHorizontal: Spacing.xl,
+  },
+  accountModalCard: {
+    width: '100%',
+    maxWidth: 320,
+    maxHeight: '70%',
+    paddingVertical: Spacing.sm,
+    zIndex: 2,
+  },
+  accountModalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.lg,
+    paddingVertical: 14,
+    paddingHorizontal: Spacing.xl,
+  },
+  accountModalRowText: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '600',
+    minWidth: 0,
+  },
+  accountModalDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginHorizontal: Spacing.xl,
   },
   textArea: {
     minHeight: 80,

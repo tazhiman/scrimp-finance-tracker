@@ -15,8 +15,11 @@ export interface Transaction {
   amount: number;
   type: TransactionType;
   category: string;
-  date: string; // ISO date string
+  date: string; // ISO date (yyyy-mm-dd) for the transaction day
+  /** Local time of transaction, 24h "HH:mm". If omitted, UI may fall back to createdAt for display. */
+  time?: string;
   createdAt: string; // ISO date-time string - when added to this app
+  merchant?: string; // Store / payee name (optional)
   description?: string;
   cardId?: string; // Optional credit card used for this transaction
   accountId?: string; // Optional bank account linked to this transaction

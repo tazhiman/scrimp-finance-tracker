@@ -25,6 +25,7 @@ import { loadUserCards } from '@/utils/storage';
 import { loadBankAccounts } from '@/utils/onboarding';
 import { getAllCards } from '@/utils/cardEngine';
 import { getCachedCardImage } from '@/utils/remoteRewardsData';
+import { buildTransactionDateTime } from '@/utils/dateHelpers';
 import { GlassCard } from './ui/GlassCard';
 import { BankAvatar } from './ui/BankAvatar';
 
@@ -70,12 +71,13 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
   const [type, setType] = useState<TransactionType>(initialTransaction?.type || 'expense');
   const [amount, setAmount] = useState(initialTransaction?.amount.toString() || '');
   const [category, setCategory] = useState(initialTransaction?.category || '');
+  const [merchant, setMerchant] = useState(initialTransaction?.merchant || '');
   const [description, setDescription] = useState(initialTransaction?.description || '');
   const [customCategoryName, setCustomCategoryName] = useState('');
   const [customCategoryEmoji, setCustomCategoryEmoji] = useState('');
   const [showCustomInput, setShowCustomInput] = useState(false);
-  const [date, setDate] = useState<Date>(
-    initialTransaction?.date ? new Date(initialTransaction.date) : new Date()
+  const [date, setDate] = useState<Date>(() =>
+    initialTransaction ? buildTransactionDateTime(initialTransaction) : new Date()
   );
 
   const [selectedAccount, setSelectedAccount] = useState<SelectedAccount>(
@@ -130,6 +132,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
   const resetForm = () => {
     setAmount('');
     setCategory('');
+    setMerchant('');
     setDescription('');
     setCustomCategoryName('');
     setCustomCategoryEmoji('');
@@ -266,12 +269,17 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
       return;
     }
 
+    const hh = String(date.getHours()).padStart(2, '0');
+    const min = String(date.getMinutes()).padStart(2, '0');
+
     onSubmit({
       type,
       amount: amountNum,
       category: resolvedCategory,
+      merchant: merchant.trim() || undefined,
       description,
       date: date.toISOString().split('T')[0],
+      time: `${hh}:${min}`,
       cardId: selectedAccount?.kind === 'card' ? selectedAccount.id : undefined,
       accountId: selectedAccount?.kind === 'bank' ? selectedAccount.id : undefined,
     });
@@ -574,6 +582,19 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
             )}
 
             <View style={styles.section}>
+              <Text style={[styles.label, { color: theme.textSecondary }]}>Merchant (Optional)</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: theme.inputBackground, borderColor: theme.inputBorder, color: theme.text }]}
+                value={merchant}
+                onChangeText={setMerchant}
+                placeholder="e.g. Shopee, FairPrice"
+                placeholderTextColor={theme.textTertiary}
+                autoCapitalize="words"
+                returnKeyType="next"
+              />
+            </View>
+
+            <View style={styles.section}>
               <Text style={[styles.label, { color: theme.textSecondary }]}>Description (Optional)</Text>
               <TextInput
                 style={[styles.input, styles.textArea, { backgroundColor: theme.inputBackground, borderColor: theme.inputBorder, color: theme.text }]}
@@ -593,14 +614,65 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
                   <input
                     type="date"
                     value={date.toISOString().split('T')[0]}
-                    onChange={(e) => setDate(new Date(e.target.value))}
+                    onChange={(e) => {
+                      const next = new Date(e.target.value);
+                      next.setHours(date.getHours(), date.getMinutes(), 0, 0);
+                      setDate(next);
+                    }}
                     max={new Date().toISOString().split('T')[0]}
                     style={{ backgroundColor: 'transparent', border: 'none', color: theme.text, fontSize: 16, fontFamily: 'inherit', width: '100%', outline: 'none', cursor: 'pointer' }}
                   />
                 </View>
               ) : (
                 <View style={[styles.datePickerContainer, { backgroundColor: theme.inputBackground, borderColor: theme.inputBorder }]}>
-                  <DateTimePicker value={date} mode="date" display="default" onChange={(_, d) => d && setDate(d)} maximumDate={new Date()} themeVariant={themeMode === 'dark' ? 'dark' : 'light'} />
+                  <DateTimePicker
+                    value={date}
+                    mode="date"
+                    display="default"
+                    onChange={(_, d) => {
+                      if (!d) return;
+                      const next = new Date(d);
+                      next.setHours(date.getHours(), date.getMinutes(), 0, 0);
+                      setDate(next);
+                    }}
+                    maximumDate={new Date()}
+                    themeVariant={themeMode === 'dark' ? 'dark' : 'light'}
+                  />
+                </View>
+              )}
+            </View>
+
+            <View style={styles.section}>
+              <Text style={[styles.label, { color: theme.textSecondary }]}>Time</Text>
+              {Platform.OS === 'web' ? (
+                <View style={[styles.webDateContainer, { backgroundColor: theme.inputBackground, borderColor: theme.inputBorder }]}>
+                  <input
+                    type="time"
+                    value={`${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`}
+                    onChange={(e) => {
+                      const [h, m] = e.target.value.split(':').map((x) => parseInt(x, 10));
+                      if (!Number.isFinite(h) || !Number.isFinite(m)) return;
+                      const next = new Date(date);
+                      next.setHours(h, m, 0, 0);
+                      setDate(next);
+                    }}
+                    style={{ backgroundColor: 'transparent', border: 'none', color: theme.text, fontSize: 16, fontFamily: 'inherit', width: '100%', outline: 'none', cursor: 'pointer' }}
+                  />
+                </View>
+              ) : (
+                <View style={[styles.datePickerContainer, { backgroundColor: theme.inputBackground, borderColor: theme.inputBorder }]}>
+                  <DateTimePicker
+                    value={date}
+                    mode="time"
+                    display="default"
+                    onChange={(_, selected) => {
+                      if (!selected) return;
+                      const next = new Date(date);
+                      next.setHours(selected.getHours(), selected.getMinutes(), 0, 0);
+                      setDate(next);
+                    }}
+                    themeVariant={themeMode === 'dark' ? 'dark' : 'light'}
+                  />
                 </View>
               )}
             </View>

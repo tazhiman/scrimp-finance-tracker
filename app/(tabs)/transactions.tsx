@@ -25,6 +25,7 @@ import { Transaction, TimePeriod, BankAccount, UserCard } from '@/types';
 import { getCombinedTransactionsByPeriod } from '@/utils/calculations';
 import { formatCurrency, formatDateShort } from '@/utils/dateHelpers';
 import { getCategoryById } from '@/constants/categories';
+import { getTransactionRowLabels } from '@/utils/transactionDisplay';
 import { Icon } from '@/components/ui/Icon';
 import { BankAvatar } from '@/components/ui/BankAvatar';
 import { loadBankAccounts } from '@/utils/onboarding';
@@ -273,6 +274,8 @@ export default function TransactionsScreen() {
   const renderTransaction = ({ item }: { item: Transaction }) => {
     const category = getCategoryById(item.category, customCategories);
     const isIncome = item.type === 'income';
+    const categoryLabel = category?.name || item.category;
+    const { primary, subtitle } = getTransactionRowLabels(item, categoryLabel);
 
     return (
       <TouchableOpacity
@@ -290,12 +293,10 @@ export default function TransactionsScreen() {
             <Text style={styles.categoryEmoji}>{category?.icon || '💰'}</Text>
           </View>
           <View style={styles.transactionInfo}>
-            <Text style={[styles.transactionCategory, { color: theme.text }]}>
-              {category?.name || item.category}
-            </Text>
-            {item.description ? (
+            <Text style={[styles.transactionCategory, { color: theme.text }]}>{primary}</Text>
+            {subtitle ? (
               <Text style={[styles.transactionDescription, { color: theme.textSecondary }]} numberOfLines={1}>
-                {item.description}
+                {subtitle}
               </Text>
             ) : null}
             <Text style={[styles.transactionDate, { color: theme.textTertiary }]}>{formatDateShort(item.date)}</Text>

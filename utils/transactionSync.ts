@@ -1,5 +1,7 @@
 import { Platform, NativeModules } from 'react-native';
 
+import type { Transaction } from '@/types';
+
 const TransactionSyncModule = Platform.OS === 'ios'
   ? NativeModules.TransactionSyncModule ?? null
   : null;
@@ -17,9 +19,49 @@ export interface PendingTransaction {
   amount: number;
   type: 'income' | 'expense';
   category: string;
+  merchant?: string;
+  /** Local time HH:mm if provided by Shortcuts */
+  time?: string;
   description?: string;
   date: string;
   createdAt: string;
+}
+
+/**
+ * Maps a row from the Shortcuts / App Group queue into a stored {@link Transaction}.
+ * - If `merchant` is set, it is used and `description` is kept as notes.
+ * - If only `description` is set (legacy shortcuts), treat it as the payee / merchant name.
+ */
+export function pendingTransactionToTransaction(p: PendingTransaction): Transaction {
+  const merchantTrimmed = (p.merchant ?? '').trim();
+  const descTrimmed = (p.description ?? '').trim();
+  const hasMerchantField = merchantTrimmed.length > 0;
+
+  let merchant: string | undefined;
+  let description: string;
+
+  if (hasMerchantField) {
+    merchant = merchantTrimmed;
+    description = descTrimmed;
+  } else if (descTrimmed) {
+    merchant = descTrimmed;
+    description = '';
+  } else {
+    merchant = undefined;
+    description = '';
+  }
+
+  return {
+    id: p.id,
+    amount: p.amount,
+    type: p.type,
+    category: p.category,
+    date: p.date,
+    createdAt: p.createdAt,
+    description,
+    ...(merchant ? { merchant } : {}),
+    ...(p.time ? { time: p.time } : {}),
+  };
 }
 
 export async function getPendingTransactions(): Promise<PendingTransaction[]> {
@@ -44,6 +86,8 @@ export async function getPendingTransactions(): Promise<PendingTransaction[]> {
           amount,
           type: item.type,
           category: typeof item?.category === 'string' ? item.category : 'other',
+          merchant: typeof item?.merchant === 'string' ? item.merchant : undefined,
+          time: typeof item?.time === 'string' && /^\d{1,2}:\d{2}$/.test(item.time.trim()) ? item.time.trim() : undefined,
           description: typeof item?.description === 'string' ? item.description : '',
           date: item.date,
           createdAt: typeof item?.createdAt === 'string' ? item.createdAt : new Date().toISOString(),

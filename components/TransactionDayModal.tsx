@@ -16,6 +16,7 @@ import { Spacing, Radius } from '@/constants/design';
 import { Transaction } from '@/types';
 import { formatCurrency, formatDateShort } from '@/utils/dateHelpers';
 import { getCategoryById } from '@/constants/categories';
+import { getTransactionRowLabels } from '@/utils/transactionDisplay';
 
 type Props = {
   visible: boolean;
@@ -45,6 +46,8 @@ export function TransactionDayModal({
   const renderItem = ({ item }: { item: Transaction }) => {
     const category = getCategoryById(item.category, customCategories);
     const isIncome = item.type === 'income';
+    const categoryLabel = category?.name || item.category;
+    const { primary, subtitle } = getTransactionRowLabels(item, categoryLabel);
 
     return (
       <TouchableOpacity
@@ -65,12 +68,10 @@ export function TransactionDayModal({
             <Text style={styles.categoryEmoji}>{category?.icon || '💰'}</Text>
           </View>
           <View style={styles.transactionInfo}>
-            <Text style={[styles.transactionCategory, { color: theme.text }]}>
-              {category?.name || item.category}
-            </Text>
-            {item.description ? (
+            <Text style={[styles.transactionCategory, { color: theme.text }]}>{primary}</Text>
+            {subtitle ? (
               <Text style={[styles.transactionDescription, { color: theme.textSecondary }]} numberOfLines={1}>
-                {item.description}
+                {subtitle}
               </Text>
             ) : null}
             <Text style={[styles.transactionDate, { color: theme.textTertiary }]}>

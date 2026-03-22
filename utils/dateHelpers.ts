@@ -1,5 +1,5 @@
 import { startOfDay, startOfWeek, startOfMonth, endOfDay, endOfWeek, endOfMonth, isWithinInterval, parseISO } from 'date-fns';
-import { TimePeriod } from '@/types';
+import { TimePeriod, Transaction } from '@/types';
 
 export const getPeriodDates = (period: TimePeriod, date: Date = new Date()) => {
   switch (period) {
@@ -114,4 +114,57 @@ export const formatDateShort = (date: string | Date): string => {
     day: 'numeric',
   }).format(dateObj);
 };
+
+/** Combine stored date + optional time + createdAt fallback for editors. */
+export function buildTransactionDateTime(
+  tx: Pick<Transaction, 'date' | 'time' | 'createdAt'>
+): Date {
+  const raw = tx.date.length <= 10 ? `${tx.date}T12:00:00` : tx.date;
+  let d = parseISO(raw);
+  if (Number.isNaN(d.getTime())) d = new Date();
+
+  const t = tx.time?.trim();
+  if (t && /^\d{1,2}:\d{2}$/.test(t)) {
+    const [h, m] = t.split(':').map((x) => parseInt(x, 10));
+    if (Number.isFinite(h) && Number.isFinite(m)) {
+      d.setHours(h, m, 0, 0);
+    }
+  } else if (tx.createdAt) {
+    const c = new Date(tx.createdAt);
+    if (!Number.isNaN(c.getTime())) {
+      d.setHours(c.getHours(), c.getMinutes(), c.getSeconds(), 0);
+    }
+  }
+  return d;
+}
+
+/** e.g. Mar 22, 2026 — from yyyy-mm-dd or ISO date string. */
+export function formatDetailTransactionDate(dateStr: string): string {
+  const base = dateStr.length <= 10 ? `${dateStr}T12:00:00` : dateStr;
+  const d = parseISO(base);
+  if (Number.isNaN(d.getTime())) return dateStr;
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(d);
+}
+
+/** 12h locale time from stored HH:mm or createdAt fallback. */
+export function formatDetailTransactionTime(timeHm?: string, createdAtFallback?: string): string {
+  const t = timeHm?.trim();
+  if (t && /^\d{1,2}:\d{2}$/.test(t)) {
+    const [h, m] = t.split(':').map((x) => parseInt(x, 10));
+    const d = new Date();
+    d.setHours(h, m, 0, 0);
+    return new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(d);
+  }
+  if (createdAtFallback) {
+    const c = new Date(createdAtFallback);
+    if (!Number.isNaN(c.getTime())) {
+      return new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(c);
+    }
+  }
+  return '—';
+}
 

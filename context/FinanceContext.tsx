@@ -18,7 +18,11 @@ import {
 import { UserCard } from '@/types';
 import { scheduleGoalNotifications } from '@/utils/notifications';
 import { updateWidgetData, reloadWidgets } from '@/utils/widgetData';
-import { getPendingTransactions, clearPendingTransactions } from '@/utils/transactionSync';
+import {
+  getPendingTransactions,
+  clearPendingTransactions,
+  pendingTransactionToTransaction,
+} from '@/utils/transactionSync';
 
 interface FinanceContextType {
   transactions: Transaction[];
@@ -97,15 +101,7 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
           const existingIds = new Set(prev.map(t => t.id));
           const newTxs: Transaction[] = pending
             .filter(p => !existingIds.has(p.id))
-            .map(p => ({
-              id: p.id,
-              amount: p.amount,
-              type: p.type,
-              category: p.category,
-              description: p.description ?? '',
-              date: p.date,
-              createdAt: p.createdAt,
-            }));
+            .map(pendingTransactionToTransaction);
           return newTxs.length > 0 ? [...prev, ...newTxs] : prev;
         });
 
@@ -222,8 +218,9 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
     setTransactions(prev => [...prev, newTransaction]);
 
     const DEFAULT_CATEGORIES = new Set(['other', 'uncategorized']);
-    if (newTransaction.description && !DEFAULT_CATEGORIES.has(newTransaction.category)) {
-      setMerchantCategory(newTransaction.description, newTransaction.category).catch(console.error);
+    const merchantKey = (newTransaction.merchant || newTransaction.description || '').trim();
+    if (merchantKey && !DEFAULT_CATEGORIES.has(newTransaction.category)) {
+      setMerchantCategory(merchantKey, newTransaction.category).catch(console.error);
     }
 
     // Update card spending if transaction is linked to a card
@@ -262,9 +259,11 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
     const DEFAULT_CATEGORIES = new Set(['other', 'uncategorized']);
     if (updates.category && !DEFAULT_CATEGORIES.has(updates.category)) {
       const existing = transactions.find(t => t.id === id);
-      const merchant = updates.description || existing?.description;
-      if (merchant) {
-        setMerchantCategory(merchant, updates.category).catch(console.error);
+      const nextMerchant = updates.merchant !== undefined ? updates.merchant : existing?.merchant;
+      const nextDescription = updates.description !== undefined ? updates.description : existing?.description;
+      const learnKey = (nextMerchant || nextDescription || '').trim();
+      if (learnKey) {
+        setMerchantCategory(learnKey, updates.category).catch(console.error);
       }
     }
 

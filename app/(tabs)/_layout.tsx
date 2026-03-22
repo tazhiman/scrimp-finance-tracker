@@ -27,19 +27,22 @@ function useSyncPendingTransactions() {
 
       for (const tx of pending) {
         let category = tx.category || 'other';
-        if (DEFAULT_CATEGORIES.has(category) && tx.description) {
-          const learned = merchantMap[tx.description.trim().toLowerCase()];
+        const syncMerchantKey = (tx.merchant || tx.description || '').trim();
+        if (DEFAULT_CATEGORIES.has(category) && syncMerchantKey) {
+          const learned = merchantMap[syncMerchantKey.toLowerCase()];
           if (learned) {
-            console.log(`[TransactionSync] Auto-categorized "${tx.description}" as "${learned}"`);
+            console.log(`[TransactionSync] Auto-categorized "${syncMerchantKey}" as "${learned}"`);
             category = learned;
           }
         }
 
-        console.log(`[TransactionSync] Adding: $${tx.amount} - ${tx.description} (${tx.type}) [${category}]`);
+        console.log(`[TransactionSync] Adding: $${tx.amount} - ${syncMerchantKey || tx.description} (${tx.type}) [${category}]`);
         addTransaction({
           type: tx.type,
           amount: tx.amount,
           category,
+          merchant: tx.merchant?.trim() || undefined,
+          time: tx.time,
           description: tx.description || '',
           date: tx.date,
         });
