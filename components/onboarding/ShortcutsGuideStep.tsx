@@ -13,6 +13,10 @@ import {
 import * as Linking from 'expo-linking';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/context/ThemeContext';
+import {
+  getScrimpWalletShortcutInstallUrl,
+  SCRIMP_WALLET_AUTOMATION_SHORTCUT_NAME,
+} from '@/config/shortcutsWallet';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -162,15 +166,59 @@ function MockCardSelection({ theme, pulseAnim }: { theme: any; pulseAnim: Animat
   );
 }
 
-function MockSearchScrimp({ theme, pulseAnim }: { theme: any; pulseAnim: Animated.Value }) {
+function MockGetShortcut({ theme, pulseAnim }: { theme: any; pulseAnim: Animated.Value }) {
+  return (
+    <View style={[mockStyles.phone, { borderColor: theme.cardBorder }]}>
+      <View style={[mockStyles.phoneScreen, { backgroundColor: '#1C1C1E', minHeight: 200 }]}>
+        <Text style={[mockStyles.phoneTitle, { fontSize: 16 }]}>Shortcuts</Text>
+        <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
+          <Animated.View style={[
+            {
+              backgroundColor: '#2C2C2E',
+              borderRadius: 14,
+              padding: 16,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 12,
+              transform: [{ scale: pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.02] }) }],
+            },
+          ]}>
+            <View style={[mockStyles.appIconSmall, { backgroundColor: theme.primary + '35', width: 44, height: 44, borderRadius: 10 }]}>
+              <Ionicons name="wallet" size={22} color={theme.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[mockStyles.listText, { color: '#FFF', fontWeight: '700' }]} numberOfLines={2}>
+                {SCRIMP_WALLET_AUTOMATION_SHORTCUT_NAME}
+              </Text>
+              <Text style={[mockStyles.listSubtext, { marginTop: 4 }]}>From Scrimp</Text>
+            </View>
+          </Animated.View>
+          <View style={{ marginTop: 20, alignItems: 'center' }}>
+            <View style={{ backgroundColor: '#007AFF', paddingVertical: 10, paddingHorizontal: 28, borderRadius: 12 }}>
+              <Text style={{ color: '#FFF', fontSize: 16, fontWeight: '700' }}>Add Shortcut</Text>
+            </View>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function MockRunShortcut({ theme, pulseAnim }: { theme: any; pulseAnim: Animated.Value }) {
   return (
     <View style={[mockStyles.phone, { borderColor: theme.cardBorder }]}>
       <View style={[mockStyles.phoneScreen, { backgroundColor: '#1C1C1E' }]}>
         <Text style={[mockStyles.phoneTitle, { fontSize: 14 }]}>New Automation</Text>
-        <View style={{ paddingHorizontal: 12, marginBottom: 10 }}>
+        <View style={{ paddingHorizontal: 12, marginBottom: 8 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+            <Ionicons name="flash" size={14} color="#FFCC00" />
+            <Text style={{ color: '#8E8E93', fontSize: 11 }}>When I tap to pay…</Text>
+          </View>
+        </View>
+        <View style={{ paddingHorizontal: 12, marginBottom: 6 }}>
           <View style={[mockStyles.searchBar, { backgroundColor: '#2C2C2E', marginHorizontal: 0 }]}>
             <Ionicons name="search" size={16} color="#8E8E93" />
-            <Text style={{ color: '#FFF', fontSize: 14, marginLeft: 6 }}>Scrimp</Text>
+            <Text style={{ color: '#FFF', fontSize: 14, marginLeft: 6 }}>Run Shortcut</Text>
           </View>
         </View>
         <Text style={{ color: '#8E8E93', fontSize: 11, paddingHorizontal: 14, marginBottom: 6 }}>Actions</Text>
@@ -183,65 +231,15 @@ function MockSearchScrimp({ theme, pulseAnim }: { theme: any; pulseAnim: Animate
             transform: [{ scale: pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.03] }) }],
           },
         ]}>
-          <View style={[mockStyles.appIconSmall, { backgroundColor: theme.primary + '30' }]}>
-            <Ionicons name="wallet" size={16} color={theme.primary} />
-          </View>
+          <Ionicons name="play-circle" size={22} color="#007AFF" />
           <View style={{ flex: 1 }}>
-            <Text style={[mockStyles.listText, { color: '#FFF', fontWeight: '600' }]}>Log Transaction</Text>
-            <Text style={[mockStyles.listSubtext]}>Scrimp</Text>
+            <Text style={[mockStyles.listText, { color: '#FFF', fontWeight: '600' }]}>Run Shortcut</Text>
+            <Text style={[mockStyles.listSubtext, { color: '#5AC8FA' }]} numberOfLines={1}>
+              {SCRIMP_WALLET_AUTOMATION_SHORTCUT_NAME}
+            </Text>
           </View>
-          <Ionicons name="add-circle" size={22} color="#007AFF" />
+          <Ionicons name="chevron-forward" size={18} color="#8E8E93" />
         </Animated.View>
-      </View>
-    </View>
-  );
-}
-
-function MockConfigureParams({ theme, pulseAnim }: { theme: any; pulseAnim: Animated.Value }) {
-  return (
-    <View style={{ alignItems: 'center', width: '100%', gap: 12 }}>
-      <View style={[mockStyles.phone, { borderColor: theme.cardBorder, width: SCREEN_WIDTH * 0.78 }]}>
-        <View style={{ backgroundColor: '#1C1C1E', paddingVertical: 12, paddingHorizontal: 14 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-            <Ionicons name="flash" size={14} color="#FFCC00" />
-            <Text style={{ color: '#8E8E93', fontSize: 11 }}>Receive transaction as input</Text>
-          </View>
-
-          <View style={{ backgroundColor: '#2C2C2E', borderRadius: 12, padding: 14 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-              <View style={[mockStyles.appIconSmall, { backgroundColor: theme.primary + '30', width: 24, height: 24, borderRadius: 6 }]}>
-                <Ionicons name="wallet" size={12} color={theme.primary} />
-              </View>
-              <Text style={{ color: '#FFF', fontSize: 13, fontWeight: '600' }}>Import</Text>
-              <Animated.View style={[
-                { backgroundColor: '#007AFF', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 5, flexDirection: 'row', alignItems: 'center', gap: 3 },
-                { transform: [{ scale: pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.06] }) }] },
-              ]}>
-                <Ionicons name="pricetag" size={10} color="#FFF" />
-                <Text style={{ color: '#FFF', fontSize: 12, fontWeight: '700' }}>Amount</Text>
-              </Animated.View>
-              <Text style={{ color: '#FFF', fontSize: 13 }}>from</Text>
-            </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: 30 }}>
-              <Animated.View style={[
-                { backgroundColor: '#007AFF', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 5, flexDirection: 'row', alignItems: 'center', gap: 3 },
-                { transform: [{ scale: pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.06] }) }] },
-              ]}>
-                <Ionicons name="pricetag" size={10} color="#FFF" />
-                <Text style={{ color: '#FFF', fontSize: 12, fontWeight: '700' }}>Merchant</Text>
-              </Animated.View>
-              <Ionicons name="chevron-forward-circle" size={16} color="#8E8E93" />
-            </View>
-          </View>
-        </View>
-      </View>
-
-      <View style={{ backgroundColor: '#2C2C2E20', borderRadius: 12, padding: 14, width: SCREEN_WIDTH * 0.78 }}>
-        <Text style={{ color: theme.textSecondary, fontSize: 12, lineHeight: 18, textAlign: 'center' }}>
-          Tap each blue field to choose the matching variable from the Shortcut Input list.{'\n\n'}
-          <Text style={{ fontWeight: '700', color: theme.text }}>Amount</Text> field  {'->'}  select <Text style={{ fontWeight: '700', color: '#007AFF' }}>Amount</Text>{'\n'}
-          <Text style={{ fontWeight: '700', color: theme.text }}>Merchant</Text> field  {'->'}  select <Text style={{ fontWeight: '700', color: '#007AFF' }}>Merchant</Text>
-        </Text>
       </View>
     </View>
   );
@@ -292,6 +290,12 @@ function MockSaveAutomation({ theme, pulseAnim }: { theme: any; pulseAnim: Anima
 
 const STEPS: GuideStep[] = [
   {
+    title: 'Add the Scrimp shortcut',
+    description:
+      'Tap Get shortcut below to install our shortcut from iCloud (one-time). It already connects payment amount and merchant to Scrimp — you won’t map fields in the automation.',
+    mockUI: (theme, pulse) => <MockGetShortcut theme={theme} pulseAnim={pulse} />,
+  },
+  {
     title: 'Open the Shortcuts App',
     description: 'Find the Shortcuts app on your iPhone. It comes pre-installed with iOS.',
     mockUI: (theme) => <MockShortcutsIcon theme={theme} />,
@@ -317,14 +321,9 @@ const STEPS: GuideStep[] = [
     mockUI: (theme, pulse) => <MockCardSelection theme={theme} pulseAnim={pulse} />,
   },
   {
-    title: 'Add "Log Transaction" Action',
-    description: 'Tap "New Blank Automation", then search for "Scrimp" in the search bar and select "Log Transaction".',
-    mockUI: (theme, pulse) => <MockSearchScrimp theme={theme} pulseAnim={pulse} />,
-  },
-  {
-    title: 'Map Amount & Merchant',
-    description: 'Tap the Amount field and pick "Amount" from the variable list. Then tap the Merchant field and pick "Merchant". This links your payment details to Scrimp automatically.',
-    mockUI: (theme, pulse) => <MockConfigureParams theme={theme} pulseAnim={pulse} />,
+    title: 'Add "Run Shortcut"',
+    description: `Choose "New Blank Automation" if asked, then Add Action. Search for Run Shortcut and select it. Pick "${SCRIMP_WALLET_AUTOMATION_SHORTCUT_NAME}" — no need to wire Amount or Merchant in this screen.`,
+    mockUI: (theme, pulse) => <MockRunShortcut theme={theme} pulseAnim={pulse} />,
   },
   {
     title: 'Save Automation',
@@ -380,6 +379,26 @@ export function ShortcutsGuideStep({ onDone, onSkip, onBack, standalone = false 
     Linking.openURL('shortcuts://').catch(() => {
       Alert.alert('Cannot Open', 'Shortcuts app could not be opened. Make sure it is installed.');
     });
+  };
+
+  const handleGetShortcut = async () => {
+    const url = getScrimpWalletShortcutInstallUrl();
+    const target = url ?? 'shortcuts://';
+    try {
+      const supported = await Linking.canOpenURL(target);
+      if (supported) {
+        await Linking.openURL(target);
+      } else {
+        await Linking.openURL('shortcuts://');
+      }
+    } catch {
+      Alert.alert(
+        'Could not open link',
+        url
+          ? 'Try copying the shortcut link from scrimp.app or our support page.'
+          : 'Set EXPO_PUBLIC_SCRIMP_WALLET_SHORTCUT_URL for a one-tap install, or open Shortcuts and add the shortcut manually. See docs/shortcuts-wallet.md.'
+      );
+    }
   };
 
   const step = STEPS[currentStep];
@@ -442,7 +461,17 @@ export function ShortcutsGuideStep({ onDone, onSkip, onBack, standalone = false 
 
       <View style={styles.actions}>
         <View style={styles.utilButtons}>
-          {Platform.OS === 'ios' && (
+          {Platform.OS === 'ios' && currentStep === 0 && (
+            <TouchableOpacity
+              style={[styles.utilButton, { backgroundColor: theme.primary, borderColor: theme.primary }]}
+              onPress={handleGetShortcut}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="download-outline" size={16} color={buttonTextColor} />
+              <Text style={[styles.utilButtonText, { color: buttonTextColor }]}>Get shortcut</Text>
+            </TouchableOpacity>
+          )}
+          {Platform.OS === 'ios' && currentStep > 0 && (
             <TouchableOpacity
               style={[styles.utilButton, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}
               onPress={handleOpenShortcuts}
