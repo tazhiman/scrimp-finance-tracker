@@ -185,14 +185,7 @@ function MockGetShortcut({ theme, pulseAnim }: { theme: any; pulseAnim: Animated
         </Text>
         <Text style={mockStyles.installSubtitle}>Shared from iCloud</Text>
 
-        <Animated.View
-          style={[
-            mockStyles.installShortcutTile,
-            {
-              transform: [{ scale: pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.015] }) }],
-            },
-          ]}
-        >
+        <View style={mockStyles.installShortcutTile}>
           <View style={mockStyles.installTileHeader}>
             <View style={mockStyles.installTileAppIcon}>
               <Ionicons name="wallet" size={20} color={theme.primary} />
@@ -202,7 +195,7 @@ function MockGetShortcut({ theme, pulseAnim }: { theme: any; pulseAnim: Animated
           <Text style={mockStyles.installTileTitle} numberOfLines={2}>
             {SCRIMP_WALLET_AUTOMATION_SHORTCUT_NAME}
           </Text>
-        </Animated.View>
+        </View>
 
         <Text style={mockStyles.installAboutLabel}>ABOUT THIS SHORTCUT</Text>
         <View style={mockStyles.installAboutRow}>
@@ -210,10 +203,20 @@ function MockGetShortcut({ theme, pulseAnim }: { theme: any; pulseAnim: Animated
           <Text style={mockStyles.installAboutText}>Appears on Apple Watch</Text>
         </View>
 
-        <View style={mockStyles.installFakeCta}>
+        <Animated.View
+          style={[
+            mockStyles.installFakeCta,
+            {
+              transform: [
+                { scale: pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.07] }) },
+              ],
+              opacity: pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [0.88, 1] }),
+            },
+          ]}
+        >
           <Ionicons name="add-circle" size={22} color="#FFF" />
           <Text style={mockStyles.installFakeCtaText}>Add Shortcut</Text>
-        </View>
+        </Animated.View>
         <Text style={mockStyles.installPreviewHint}>You’ll see this after tapping Get shortcut</Text>
       </View>
     </View>
