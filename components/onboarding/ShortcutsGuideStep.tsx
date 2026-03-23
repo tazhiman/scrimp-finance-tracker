@@ -166,39 +166,55 @@ function MockCardSelection({ theme, pulseAnim }: { theme: any; pulseAnim: Animat
   );
 }
 
+/** Preview of Apple’s Shortcuts “add shortcut” sheet (light iOS style). */
 function MockGetShortcut({ theme, pulseAnim }: { theme: any; pulseAnim: Animated.Value }) {
+  const IOS_BLUE = '#007AFF';
   return (
-    <View style={[mockStyles.phone, { borderColor: theme.cardBorder }]}>
-      <View style={[mockStyles.phoneScreen, { backgroundColor: '#1C1C1E', minHeight: 200 }]}>
-        <Text style={[mockStyles.phoneTitle, { fontSize: 16 }]}>Shortcuts</Text>
-        <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
-          <Animated.View style={[
-            {
-              backgroundColor: '#2C2C2E',
-              borderRadius: 14,
-              padding: 16,
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 12,
-              transform: [{ scale: pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.02] }) }],
-            },
-          ]}>
-            <View style={[mockStyles.appIconSmall, { backgroundColor: theme.primary + '35', width: 44, height: 44, borderRadius: 10 }]}>
-              <Ionicons name="wallet" size={22} color={theme.primary} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[mockStyles.listText, { color: '#FFF', fontWeight: '700' }]} numberOfLines={2}>
-                {SCRIMP_WALLET_AUTOMATION_SHORTCUT_NAME}
-              </Text>
-              <Text style={[mockStyles.listSubtext, { marginTop: 4 }]}>From Scrimp</Text>
-            </View>
-          </Animated.View>
-          <View style={{ marginTop: 20, alignItems: 'center' }}>
-            <View style={{ backgroundColor: '#007AFF', paddingVertical: 10, paddingHorizontal: 28, borderRadius: 12 }}>
-              <Text style={{ color: '#FFF', fontSize: 16, fontWeight: '700' }}>Add Shortcut</Text>
-            </View>
+    <View style={[mockStyles.phone, { borderColor: theme.cardBorder, width: SCREEN_WIDTH * 0.88, maxWidth: 360 }]}>
+      <View style={[mockStyles.phoneScreen, mockStyles.installSheetRoot]}>
+        <View style={mockStyles.installSheetNav}>
+          <View style={mockStyles.installNavIcon}>
+            <Ionicons name="close" size={18} color="#8E8E93" />
           </View>
+          <View style={{ width: 28 }} />
+          <Ionicons name="share-outline" size={22} color={IOS_BLUE} />
         </View>
+
+        <Text style={mockStyles.installTitle} numberOfLines={2}>
+          {SCRIMP_WALLET_AUTOMATION_SHORTCUT_NAME}
+        </Text>
+        <Text style={mockStyles.installSubtitle}>Shared from iCloud</Text>
+
+        <Animated.View
+          style={[
+            mockStyles.installShortcutTile,
+            {
+              transform: [{ scale: pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.015] }) }],
+            },
+          ]}
+        >
+          <View style={mockStyles.installTileHeader}>
+            <View style={mockStyles.installTileAppIcon}>
+              <Ionicons name="wallet" size={20} color={theme.primary} />
+            </View>
+            <Ionicons name="ellipsis-horizontal" size={18} color="rgba(255,255,255,0.9)" />
+          </View>
+          <Text style={mockStyles.installTileTitle} numberOfLines={2}>
+            {SCRIMP_WALLET_AUTOMATION_SHORTCUT_NAME}
+          </Text>
+        </Animated.View>
+
+        <Text style={mockStyles.installAboutLabel}>ABOUT THIS SHORTCUT</Text>
+        <View style={mockStyles.installAboutRow}>
+          <Ionicons name="watch-outline" size={20} color="#000" />
+          <Text style={mockStyles.installAboutText}>Appears on Apple Watch</Text>
+        </View>
+
+        <View style={mockStyles.installFakeCta}>
+          <Ionicons name="add-circle" size={22} color="#FFF" />
+          <Text style={mockStyles.installFakeCtaText}>Add Shortcut</Text>
+        </View>
+        <Text style={mockStyles.installPreviewHint}>You’ll see this after tapping Get shortcut</Text>
       </View>
     </View>
   );
@@ -291,8 +307,7 @@ function MockSaveAutomation({ theme, pulseAnim }: { theme: any; pulseAnim: Anima
 const STEPS: GuideStep[] = [
   {
     title: 'Add the Scrimp shortcut',
-    description:
-      'Tap Get shortcut below to install our shortcut from iCloud (one-time). It already connects payment amount and merchant to Scrimp — you won’t map fields in the automation.',
+    description: 'Tap the get shortcut button below to add it to your device.',
     mockUI: (theme, pulse) => <MockGetShortcut theme={theme} pulseAnim={pulse} />,
   },
   {
@@ -450,27 +465,34 @@ export function ShortcutsGuideStep({ onDone, onSkip, onBack, standalone = false 
         },
       ]}>
         <Text style={[styles.stepTitle, { color: theme.text }]}>{step.title}</Text>
-        <Text style={[styles.stepDescription, { color: theme.textSecondary }]}>
+        <Text
+          style={[
+            styles.stepDescription,
+            { color: theme.textSecondary },
+            currentStep === 0 && styles.stepDescriptionTightBottom,
+          ]}
+        >
           {step.description}
         </Text>
 
-        <View style={styles.mockContainer}>
+        {Platform.OS === 'ios' && currentStep === 0 && (
+          <TouchableOpacity
+            style={styles.getShortcutPrimary}
+            onPress={handleGetShortcut}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="add-circle-outline" size={22} color="#FFFFFF" />
+            <Text style={styles.getShortcutPrimaryText}>Get shortcut</Text>
+          </TouchableOpacity>
+        )}
+
+        <View style={[styles.mockContainer, currentStep === 0 && styles.mockContainerAfterCta]}>
           {step.mockUI(theme, pulseAnim)}
         </View>
       </Animated.View>
 
       <View style={styles.actions}>
         <View style={styles.utilButtons}>
-          {Platform.OS === 'ios' && currentStep === 0 && (
-            <TouchableOpacity
-              style={[styles.utilButton, { backgroundColor: theme.primary, borderColor: theme.primary }]}
-              onPress={handleGetShortcut}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="download-outline" size={16} color={buttonTextColor} />
-              <Text style={[styles.utilButtonText, { color: buttonTextColor }]}>Get shortcut</Text>
-            </TouchableOpacity>
-          )}
           {Platform.OS === 'ios' && currentStep > 0 && (
             <TouchableOpacity
               style={[styles.utilButton, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}
@@ -558,11 +580,34 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     paddingHorizontal: 8,
   },
+  stepDescriptionTightBottom: {
+    marginBottom: 14,
+  },
+  getShortcutPrimary: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: '#007AFF',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 14,
+    marginBottom: 18,
+  },
+  getShortcutPrimaryText: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: '700',
+  },
   mockContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     width: '100%',
+  },
+  mockContainerAfterCta: {
+    marginTop: 4,
   },
   actions: {
     paddingHorizontal: 24,
@@ -769,5 +814,111 @@ const mockStyles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 10,
     alignItems: 'center',
+  },
+  installSheetRoot: {
+    backgroundColor: '#F2F2F7',
+    minHeight: 380,
+    paddingBottom: 12,
+  },
+  installSheetNav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 8,
+    paddingBottom: 8,
+  },
+  installNavIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#E5E5EA',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  installTitle: {
+    color: '#000000',
+    fontSize: 20,
+    fontWeight: '700',
+    textAlign: 'center',
+    paddingHorizontal: 12,
+    marginBottom: 6,
+  },
+  installSubtitle: {
+    color: '#8E8E93',
+    fontSize: 13,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  installShortcutTile: {
+    backgroundColor: '#007AFF',
+    borderRadius: 22,
+    marginHorizontal: 16,
+    padding: 14,
+    minHeight: 100,
+    justifyContent: 'space-between',
+  },
+  installTileHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  installTileAppIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: '#000000',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  installTileTitle: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '600',
+    marginTop: 12,
+    textAlign: 'center',
+  },
+  installAboutLabel: {
+    color: '#8E8E93',
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.3,
+    marginTop: 22,
+    marginBottom: 8,
+    paddingHorizontal: 20,
+  },
+  installAboutRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  installAboutText: {
+    color: '#000000',
+    fontSize: 16,
+  },
+  installFakeCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#007AFF',
+    marginHorizontal: 16,
+    marginTop: 12,
+    paddingVertical: 14,
+    borderRadius: 14,
+  },
+  installFakeCtaText: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: '600',
+  },
+  installPreviewHint: {
+    color: '#8E8E93',
+    fontSize: 11,
+    textAlign: 'center',
+    marginTop: 10,
+    paddingHorizontal: 16,
+    fontStyle: 'italic',
   },
 });
