@@ -84,6 +84,13 @@ export default function RootLayout() {
         <GamificationProvider>
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="(tabs)" />
+            <Stack.Screen
+              name="monthly-spending"
+              options={{
+                headerShown: false,
+                animation: 'slide_from_right',
+              }}
+            />
           </Stack>
           {showOnboarding && (
             <OnboardingFlow onComplete={() => setShowOnboarding(false)} />

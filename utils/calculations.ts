@@ -42,6 +42,11 @@ export const calculateNetSavings = (transactions: Transaction[]): number => {
   return calculateTotalIncome(transactions) - calculateTotalExpenses(transactions);
 };
 
+/** Sum of each goal's current balance — total amount saved across all goals. */
+export const calculateTotalSavedInGoals = (goals: SavingsGoal[]): number => {
+  return goals.reduce((sum, g) => sum + safeAmount(g.currentAmount), 0);
+};
+
 export const calculateSavingsByPeriod = (
   transactions: Transaction[],
   period: TimePeriod,

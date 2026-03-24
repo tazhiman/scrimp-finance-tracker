@@ -19,7 +19,11 @@ import { Spacing, Radius, Shadow } from '@/constants/design';
 import { formatCurrency } from '@/utils/dateHelpers';
 import { Icon } from '@/components/ui/Icon';
 import { BankAvatar } from '@/components/ui/BankAvatar';
-import { calculateTotalIncome, calculateTotalExpenses, calculateNetSavings } from '@/utils/calculations';
+import {
+  calculateTotalIncome,
+  calculateTotalExpenses,
+  calculateTotalSavedInGoals,
+} from '@/utils/calculations';
 import { BankAccount } from '@/types';
 import { loadBankAccounts, saveBankAccounts } from '@/utils/onboarding';
 
@@ -116,7 +120,7 @@ export default function ProfileScreen() {
 
   const totalIncome = calculateTotalIncome(transactions);
   const totalExpenses = calculateTotalExpenses(transactions);
-  const totalSaved = calculateNetSavings(transactions);
+  const totalSaved = calculateTotalSavedInGoals(goals);
   const completedGoals = goals.filter(g => g.currentAmount >= g.targetAmount).length;
 
   const stats = [

@@ -25,7 +25,7 @@ const FAQ_ITEMS: FAQItem[] = [
     id: 'how_budget',
     question: 'How is my budget calculated?',
     answer:
-      'The app uses a monthly budget model:\n\nBudget base = 80% of your monthly income.\nBudget remaining = (income × 0.8) − (goal contributions) − (spending).\n\nThis shows how much you can still spend after accounting for goal contributions and expenses.',
+      'The app uses your calendar month income and activity.\n\nBudget remaining = (monthly income) − (sum of your goals’ monthly contribution amounts) − (spending that month).\n\nThe ring on the Dashboard shows how much of your income is already committed to goals plus expenses. Totals use the same month as your transactions.',
   },
   {
     id: 'goals_vs_transactions',

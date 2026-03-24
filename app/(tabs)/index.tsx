@@ -15,7 +15,6 @@ import { useGamification } from '@/context/GamificationContext';
 import { useTheme } from '@/context/ThemeContext';
 import { ProgressRing } from '@/components/ProgressRing';
 import { PieChart, PieSlice } from '@/components/PieChart';
-import { CreditCardStats } from '@/components/CreditCardStats';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { Spacing, Radius, Shadow } from '@/constants/design';
 import {
@@ -24,10 +23,17 @@ import {
   calculateTotalExpenses,
   calculateNetSavings,
   getContributionStatus,
-  getExpensesByCategory,
 } from '@/utils/calculations';
-import { formatCurrency, isDateInPeriod } from '@/utils/dateHelpers';
-import { getCategoryById } from '@/constants/categories';
+import {
+  buildMonthlyStatsSlices,
+  computeMonthlyBudgetMetrics,
+} from '@/utils/monthlyStatsSlices';
+import {
+  getDaysLeftInMonth,
+  getBudgetPaceHeadline,
+  getBudgetRingColor,
+} from '@/utils/budgetPace';
+import { formatCurrency } from '@/utils/dateHelpers';
 import { Icon } from '@/components/ui/Icon';
 
 export default function DashboardScreen() {
@@ -47,52 +53,55 @@ export default function DashboardScreen() {
   const savings = calculateNetSavings(monthlyTransactions);
 
   const hasGoals = goals.length > 0;
-  const monthlyGoalContributions = goals.reduce((sum, goal) => sum + goal.contributionAmount, 0);
-
   const savingsTarget = income * 0.2;
   const savingsProgress = savingsTarget > 0 ? Math.min((savings / savingsTarget) * 100, 100) : 0;
-  
-  const baseExpenseLimit = income * 0.8;
-  const availableBudget = baseExpenseLimit - monthlyGoalContributions - expenses;
-  const totalCommitted = monthlyGoalContributions + expenses;
-  const expenseProgress = baseExpenseLimit > 0 ? Math.min((totalCommitted / baseExpenseLimit) * 100, 100) : 0;
 
-  const statsSlices: PieSlice[] = useMemo(() => {
-    const byCategory = getExpensesByCategory(monthlyTransactions);
-    const slices: PieSlice[] = Object.entries(byCategory)
-      .filter(([, amount]) => amount > 0)
-      .map(([categoryId, amount]) => {
-        const category = getCategoryById(categoryId, customCategories);
-        return {
-          id: categoryId,
-          label: category?.name ?? 'Other',
-          value: amount,
-          color: category?.color ?? theme.accent,
-        };
-      });
-
-    const goalColors = [theme.primary, theme.accent, theme.secondary, theme.ringOrange];
-    goals.forEach((goal, idx) => {
-      if (goal.contributionAmount <= 0) return;
-      if (!goal.lastContributionDate || !isDateInPeriod(goal.lastContributionDate, 'month')) return;
-      slices.push({
-        id: `goal_contrib_${goal.id}`,
-        label: `${goal.name} Contribution`,
-        value: goal.contributionAmount,
-        color: goalColors[idx % goalColors.length],
-      });
-    });
-
-    slices.sort((a, b) => b.value - a.value);
-    return slices;
-  }, [
+  const { availableBudget, expenseProgress } = computeMonthlyBudgetMetrics(
+    transactions,
+    recurringExpenses,
     goals,
-    monthlyTransactions,
-    theme.accent,
-    theme.primary,
-    theme.ringOrange,
-    theme.secondary,
-  ]);
+    new Date()
+  );
+
+  const budgetPace = useMemo(() => {
+    const now = new Date();
+    const daysLeft = getDaysLeftInMonth(now);
+    const dailyHeadroom = availableBudget / daysLeft;
+    const headline = getBudgetPaceHeadline(availableBudget, income, daysLeft);
+    const ringColor = getBudgetRingColor({
+      availableBudget,
+      income,
+      dailyHeadroom,
+      referenceDate: now,
+      theme: {
+        error: theme.error,
+        warningOrange: theme.warningOrange,
+        ringGreen: theme.ringGreen,
+        ringOrange: theme.ringOrange,
+      },
+    });
+    return { daysLeft, dailyHeadroom, headline, ringColor };
+  }, [availableBudget, income, theme.error, theme.warningOrange, theme.ringGreen, theme.ringOrange]);
+
+  const statsSlices: PieSlice[] = useMemo(
+    () =>
+      buildMonthlyStatsSlices(transactions, recurringExpenses, goals, customCategories, {
+        primary: theme.primary,
+        accent: theme.accent,
+        secondary: theme.secondary,
+        ringOrange: theme.ringOrange,
+      }),
+    [
+      transactions,
+      recurringExpenses,
+      goals,
+      customCategories,
+      theme.primary,
+      theme.accent,
+      theme.secondary,
+      theme.ringOrange,
+    ]
+  );
 
   useEffect(() => {
     if (!selectedSliceId && statsSlices.length > 0) {
@@ -139,14 +148,16 @@ export default function DashboardScreen() {
         activeOpacity={0.7}
       >
         <GlassCard style={styles.ringCard} intensity="subtle">
+          <Text style={[styles.goalCardTitle, { color: theme.text }]} numberOfLines={2}>
+            {goal.name}
+          </Text>
           <View style={styles.ringCardInner}>
             <ProgressRing
               progress={goalProgressPercent}
               size={96}
               strokeWidth={10}
               color={theme.ringGreen}
-              label={goal.name}
-              value={`${Math.round(goalProgressPercent)}%`}
+              showPercentage
             />
             <View style={styles.ringDetails}>
               <Text style={[styles.ringDetailLabel, { color: theme.textSecondary }]}>Progress</Text>
@@ -162,33 +173,43 @@ export default function DashboardScreen() {
     );
   };
 
-  const renderBudgetCard = (subtitle: string) => (
-    <GlassCard style={styles.ringCard} intensity="subtle">
-      <View style={styles.ringCardInner}>
-        <ProgressRing
-          progress={expenseProgress}
-          size={96}
-          strokeWidth={10}
-          color={availableBudget < 0 ? theme.error : theme.ringOrange}
-          label="Budget"
-          value={`${Math.round(expenseProgress)}%`}
-        />
-        <View style={styles.ringDetails}>
-          <Text style={[styles.ringDetailLabel, { color: theme.textSecondary }]}>
-            {availableBudget >= 0 ? 'Available' : 'Over Budget'}
-          </Text>
-          <Text style={[
-            styles.ringDetailValue,
-            { color: availableBudget < 0 ? theme.error : theme.text },
-          ]}>
-            {formatCurrency(Math.abs(availableBudget))}
-          </Text>
-          <Text style={[styles.ringDetailLabel, { color: theme.textSecondary }]}>
-            {subtitle}
-          </Text>
+  const budgetCardA11yLabel = `${budgetPace.headline}. ${
+    availableBudget >= 0 ? 'Available' : 'Over budget'
+  } ${formatCurrency(Math.abs(availableBudget))}. Opens monthly spending details.`;
+
+  const renderBudgetCard = () => (
+    <TouchableOpacity
+      onPress={() => router.push('/monthly-spending')}
+      activeOpacity={0.75}
+      accessibilityRole="button"
+      accessibilityLabel={budgetCardA11yLabel}
+    >
+      <GlassCard style={styles.ringCard} intensity="subtle">
+        <View style={styles.ringCardInner}>
+          <ProgressRing
+            progress={expenseProgress}
+            size={96}
+            strokeWidth={10}
+            color={budgetPace.ringColor}
+            label="Budget"
+            value={`${Math.round(expenseProgress)}%`}
+          />
+          <View style={styles.ringDetails}>
+            <Text style={[styles.ringDetailLabel, { color: theme.textSecondary }]}>
+              {availableBudget >= 0 ? 'Available' : 'Over Budget'}
+            </Text>
+            <Text
+              style={[
+                styles.budgetAvailableHero,
+                { color: availableBudget < 0 ? theme.error : theme.primary },
+              ]}
+            >
+              {formatCurrency(Math.abs(availableBudget))}
+            </Text>
+          </View>
         </View>
-      </View>
-    </GlassCard>
+      </GlassCard>
+    </TouchableOpacity>
   );
 
   return (
@@ -216,27 +237,27 @@ export default function DashboardScreen() {
           </TouchableOpacity>
         </View>
 
-        <CreditCardStats onManagePress={() => router.push('/(tabs)/manage-cards')} />
-
         {hasGoals ? (
           <>
+            <Text style={[styles.budgetPaceSupporting, { color: theme.textSecondary }]} numberOfLines={2}>
+              {budgetPace.headline}
+            </Text>
+            {renderBudgetCard()}
+
             <Text style={[styles.sectionTitle, { color: theme.text }]}>Active Goals</Text>
             {goals.slice(0, 2).map(renderGoalCard)}
             {goals.length > 2 && (
               <TouchableOpacity
-                style={[styles.viewAllButton, { borderColor: theme.cardBorder }]}
+                style={[styles.viewAllButton, { backgroundColor: theme.primary }, Shadow.small]}
                 onPress={() => router.push('/(tabs)/goals')}
-                activeOpacity={0.7}
+                activeOpacity={0.85}
               >
-                <Text style={[styles.viewAllText, { color: theme.primary }]}>
+                <Text style={[styles.viewAllText, { color: buttonTextColor }]}>
                   View All {goals.length} Goals
                 </Text>
-                <Icon name="chevron-forward" size={18} color={theme.primary} />
+                <Icon name="chevron-forward" size={20} color={buttonTextColor} />
               </TouchableOpacity>
             )}
-
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Budget Remaining</Text>
-            {renderBudgetCard(`Goals: ${formatCurrency(monthlyGoalContributions)} • Spending: ${formatCurrency(expenses)}`)}
           </>
         ) : (
           <>
@@ -259,26 +280,39 @@ export default function DashboardScreen() {
               </View>
             </GlassCard>
 
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Budget Remaining</Text>
-            {renderBudgetCard(`Monthly spending: ${formatCurrency(expenses)}`)}
+            <Text style={[styles.budgetPaceSupporting, { color: theme.textSecondary }]} numberOfLines={2}>
+              {budgetPace.headline}
+            </Text>
+            {renderBudgetCard()}
           </>
         )}
 
-        <TouchableOpacity
-          style={[styles.addTransactionButton, { backgroundColor: theme.primary }, Shadow.medium]}
-          onPress={() => router.push('/(tabs)/transactions?openForm=true')}
-          activeOpacity={0.8}
-        >
-          <Icon name="add-circle" size={20} color={buttonTextColor} />
-          <Text style={[styles.addTransactionText, { color: buttonTextColor }]}>Add Transaction</Text>
-        </TouchableOpacity>
+        {!(hasGoals && goals.length > 2) && (
+          <TouchableOpacity
+            style={[styles.addTransactionButton, { backgroundColor: theme.primary }, Shadow.medium]}
+            onPress={() => router.push('/(tabs)/transactions?openForm=true')}
+            activeOpacity={0.8}
+          >
+            <Icon name="add-circle" size={20} color={buttonTextColor} />
+            <Text style={[styles.addTransactionText, { color: buttonTextColor }]}>Add Transaction</Text>
+          </TouchableOpacity>
+        )}
 
         <GlassCard style={styles.statsCard} intensity="subtle" borderRadius={Radius.lg}>
           <View style={styles.statsInner}>
-            <View style={styles.statsHeader}>
+            <TouchableOpacity
+              onPress={() => router.push('/monthly-spending')}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Statistics, open monthly spending details"
+              style={styles.statsHeader}
+            >
               <Text style={[styles.statsTitle, { color: theme.text }]}>Statistics</Text>
-              <Text style={[styles.statsSubtitle, { color: theme.textSecondary }]}>This month</Text>
-            </View>
+              <View style={styles.statsHeaderRight}>
+                <Text style={[styles.statsSubtitle, { color: theme.textSecondary }]}>This month</Text>
+                <Icon name="chevron-forward" size={18} color={theme.textTertiary} />
+              </View>
+            </TouchableOpacity>
 
             {statsSlices.length === 0 ? (
               <Text style={[styles.statsEmpty, { color: theme.textSecondary }]}>
@@ -295,7 +329,12 @@ export default function DashboardScreen() {
                   />
                 </View>
 
-                <View style={[styles.statsSelectedCard, { backgroundColor: theme.backgroundSecondary + '80', borderColor: theme.cardBorder }]}>
+                <View
+                  style={[
+                    styles.statsSelectedCard,
+                    { backgroundColor: theme.backgroundSecondary + '80', borderColor: theme.cardBorder },
+                  ]}
+                >
                   <Text style={[styles.statsSelectedLabel, { color: theme.textSecondary }]}>Selected</Text>
                   <Text style={[styles.statsSelectedValue, { color: theme.text }]}>
                     {(selectedSlice?.label ?? '—') + ': ' + (selectedSlice ? formatCurrency(selectedSlice.value) : '—')}
@@ -308,7 +347,10 @@ export default function DashboardScreen() {
                       key={slice.id}
                       style={[
                         styles.statsRow,
-                        selectedSliceId === slice.id && { backgroundColor: theme.backgroundSecondary + '60', borderRadius: Radius.sm },
+                        selectedSliceId === slice.id && {
+                          backgroundColor: theme.backgroundSecondary + '60',
+                          borderRadius: Radius.sm,
+                        },
                       ]}
                       onPress={() => setSelectedSliceId(slice.id)}
                       activeOpacity={0.75}
@@ -362,10 +404,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   greeting: {
-    fontSize: 34,
+    fontSize: 28,
     fontWeight: '700',
+    lineHeight: 34,
     marginBottom: Spacing.xs,
-    letterSpacing: -0.5,
+    letterSpacing: -0.4,
   },
   subtitle: {
     fontSize: 15,
@@ -377,9 +420,23 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
     marginTop: Spacing.xl,
   },
+  budgetPaceSupporting: {
+    fontSize: 18,
+    fontWeight: '600',
+    lineHeight: 24,
+    marginBottom: Spacing.sm,
+    marginTop: Spacing.lg,
+    letterSpacing: -0.2,
+  },
   ringCard: {
     marginBottom: Spacing.lg,
     padding: Spacing.xl,
+  },
+  goalCardTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+    marginBottom: Spacing.lg,
   },
   ringCardInner: {
     flexDirection: 'row',
@@ -400,6 +457,11 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xs,
     letterSpacing: -0.3,
   },
+  budgetAvailableHero: {
+    fontSize: 32,
+    fontWeight: '800',
+    letterSpacing: -0.8,
+  },
   statusPill: {
     alignSelf: 'flex-start',
     paddingHorizontal: Spacing.md,
@@ -415,16 +477,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: Radius.md,
-    padding: Spacing.lg,
-    marginBottom: Spacing.lg,
-    borderWidth: 1,
-    borderStyle: 'dashed',
+    borderRadius: Radius.lg,
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.xl,
+    marginBottom: Spacing['3xl'],
   },
   viewAllText: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginRight: Spacing.md,
+    fontSize: 16,
+    fontWeight: '700',
+    marginRight: Spacing.sm,
   },
   addTransactionButton: {
     flexDirection: 'row',
@@ -448,9 +509,14 @@ const styles = StyleSheet.create({
   },
   statsHeader: {
     flexDirection: 'row',
-    alignItems: 'baseline',
+    alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: Spacing.xl,
+  },
+  statsHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
   },
   statsTitle: {
     fontSize: 20,

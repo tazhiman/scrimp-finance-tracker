@@ -4,6 +4,7 @@ import {
   Text,
   StyleSheet,
   FlatList,
+  SectionList,
   TouchableOpacity,
   RefreshControl,
   Dimensions,
@@ -23,7 +24,7 @@ import { GlassCard } from '@/components/ui/GlassCard';
 import { Spacing, Radius, Shadow, FILTER_TRACK_HEIGHT } from '@/constants/design';
 import { Transaction, TimePeriod, BankAccount, UserCard } from '@/types';
 import { getCombinedTransactionsByPeriod } from '@/utils/calculations';
-import { formatCurrency, formatDateShort } from '@/utils/dateHelpers';
+import { formatCurrency, formatDate, formatDateShort } from '@/utils/dateHelpers';
 import { getCategoryById } from '@/constants/categories';
 import { getTransactionRowLabels } from '@/utils/transactionDisplay';
 import { Icon } from '@/components/ui/Icon';
@@ -36,6 +37,14 @@ type AccountFilter =
   | 'all'
   | { kind: 'bank'; id: string }
   | { kind: 'card'; id: string };
+
+/** Week/month list: one section per calendar day (newest day first). */
+type TransactionDateSection = {
+  key: string;
+  title: string;
+  data: Transaction[];
+  sectionIndex: number;
+};
 
 const WINDOW_W = Dimensions.get('window').width;
 const WINDOW_H = Dimensions.get('window').height;
@@ -166,6 +175,13 @@ export default function TransactionsScreen() {
     }
   }, [params.openForm]);
 
+  useEffect(() => {
+    if (showCalendar) {
+      closeTypeFilterMenu();
+      closeAccountFilterMenu();
+    }
+  }, [showCalendar, closeTypeFilterMenu, closeAccountFilterMenu]);
+
   useFocusEffect(
     useCallback(() => {
       if (savedDayModalState?.shouldReopen) {
@@ -207,6 +223,24 @@ export default function TransactionsScreen() {
     () => applyTransactionFilters(sortedPeriodTransactions, typeFilter, accountFilter),
     [sortedPeriodTransactions, typeFilter, accountFilter]
   );
+
+  const transactionSectionsByDate = useMemo((): TransactionDateSection[] => {
+    if (selectedPeriod === 'day') return [];
+    const buckets: Omit<TransactionDateSection, 'sectionIndex'>[] = [];
+    for (const t of filteredTransactions) {
+      const last = buckets[buckets.length - 1];
+      if (last && last.key === t.date) {
+        last.data.push(t);
+      } else {
+        buckets.push({
+          key: t.date,
+          title: formatDate(t.date),
+          data: [t],
+        });
+      }
+    }
+    return buckets.map((s, i) => ({ ...s, sectionIndex: i }));
+  }, [filteredTransactions, selectedPeriod]);
 
   const filteredDayModalTransactions = useMemo(
     () => applyTransactionFilters(dayModalTransactions, typeFilter, accountFilter),
@@ -271,7 +305,7 @@ export default function TransactionsScreen() {
     setEditingTransaction(null);
   };
 
-  const renderTransaction = ({ item }: { item: Transaction }) => {
+  const renderTransactionItem = (item: Transaction, showDateInRow: boolean) => {
     const category = getCategoryById(item.category, customCategories);
     const isIncome = item.type === 'income';
     const categoryLabel = category?.name || item.category;
@@ -299,7 +333,9 @@ export default function TransactionsScreen() {
                 {subtitle}
               </Text>
             ) : null}
-            <Text style={[styles.transactionDate, { color: theme.textTertiary }]}>{formatDateShort(item.date)}</Text>
+            {showDateInRow ? (
+              <Text style={[styles.transactionDate, { color: theme.textTertiary }]}>{formatDateShort(item.date)}</Text>
+            ) : null}
           </View>
         </View>
         <Text
@@ -390,66 +426,68 @@ export default function TransactionsScreen() {
         />
       </View>
 
-      <View style={styles.filterRow}>
-        <View ref={typePillRef} collapsable={false} style={styles.filterPillWrap}>
-        <TouchableOpacity
-          style={[styles.filterPill, { backgroundColor: theme.backgroundSecondary, borderColor: theme.cardBorder }]}
-          onPress={openTypeFilterMenu}
-          activeOpacity={0.7}
-        >
-          <View style={styles.filterPillTextWrap}>
-            <Text style={[styles.filterPillText, { color: theme.text }]} numberOfLines={1}>
-              {typeFilterLabel}
-            </Text>
+      {!showCalendar && (
+        <View style={styles.filterRow}>
+          <View ref={typePillRef} collapsable={false} style={styles.filterPillWrap}>
+            <TouchableOpacity
+              style={[styles.filterPill, { backgroundColor: theme.backgroundSecondary, borderColor: theme.cardBorder }]}
+              onPress={openTypeFilterMenu}
+              activeOpacity={0.7}
+            >
+              <View style={styles.filterPillTextWrap}>
+                <Text style={[styles.filterPillText, { color: theme.text }]} numberOfLines={1}>
+                  {typeFilterLabel}
+                </Text>
+              </View>
+              <Icon name="chevron-down" size={16} color={theme.textTertiary} />
+            </TouchableOpacity>
           </View>
-          <Icon name="chevron-down" size={16} color={theme.textTertiary} />
-        </TouchableOpacity>
-        </View>
-        <View ref={accountPillRef} collapsable={false} style={styles.filterPillWrap}>
-        <TouchableOpacity
-          style={[
-            styles.filterPill,
-            { backgroundColor: theme.backgroundSecondary, borderColor: theme.cardBorder },
-            !hasAccountsOrCards && { opacity: 0.55 },
-          ]}
-          onPress={() => hasAccountsOrCards && openAccountFilterMenu()}
-          activeOpacity={hasAccountsOrCards ? 0.7 : 1}
-          disabled={!hasAccountsOrCards}
-        >
-          <View style={styles.filterPillMain}>
-            {accountFilter === 'all' ? (
-              <>
-                <Icon name="bank" size={20} color={theme.text} />
-                <View style={styles.filterPillLabelSlot}>
-                  <Text style={[styles.filterPillText, { color: theme.text }]} numberOfLines={1}>
-                    All
-                  </Text>
-                </View>
-              </>
-            ) : accountFilter.kind === 'bank' ? (
-              <>
-                <BankAvatar name={accountFilterLabel} size={20} />
-                <View style={styles.filterPillLabelSlot}>
-                  <Text style={[styles.filterPillText, { color: theme.text }]} numberOfLines={1}>
-                    {accountFilterLabel}
-                  </Text>
-                </View>
-              </>
-            ) : (
-              <>
-                <Icon name="card-outline" size={20} color={theme.textSecondary} />
-                <View style={styles.filterPillLabelSlot}>
-                  <Text style={[styles.filterPillText, { color: theme.text }]} numberOfLines={1}>
-                    {accountFilterLabel}
-                  </Text>
-                </View>
-              </>
-            )}
+          <View ref={accountPillRef} collapsable={false} style={styles.filterPillWrap}>
+            <TouchableOpacity
+              style={[
+                styles.filterPill,
+                { backgroundColor: theme.backgroundSecondary, borderColor: theme.cardBorder },
+                !hasAccountsOrCards && { opacity: 0.55 },
+              ]}
+              onPress={() => hasAccountsOrCards && openAccountFilterMenu()}
+              activeOpacity={hasAccountsOrCards ? 0.7 : 1}
+              disabled={!hasAccountsOrCards}
+            >
+              <View style={styles.filterPillMain}>
+                {accountFilter === 'all' ? (
+                  <>
+                    <Icon name="bank" size={20} color={theme.text} />
+                    <View style={styles.filterPillLabelSlot}>
+                      <Text style={[styles.filterPillText, { color: theme.text }]} numberOfLines={1}>
+                        All
+                      </Text>
+                    </View>
+                  </>
+                ) : accountFilter.kind === 'bank' ? (
+                  <>
+                    <BankAvatar name={accountFilterLabel} size={20} />
+                    <View style={styles.filterPillLabelSlot}>
+                      <Text style={[styles.filterPillText, { color: theme.text }]} numberOfLines={1}>
+                        {accountFilterLabel}
+                      </Text>
+                    </View>
+                  </>
+                ) : (
+                  <>
+                    <Icon name="card-outline" size={20} color={theme.textSecondary} />
+                    <View style={styles.filterPillLabelSlot}>
+                      <Text style={[styles.filterPillText, { color: theme.text }]} numberOfLines={1}>
+                        {accountFilterLabel}
+                      </Text>
+                    </View>
+                  </>
+                )}
+              </View>
+              <Icon name="chevron-down" size={16} color={theme.textTertiary} />
+            </TouchableOpacity>
           </View>
-          <Icon name="chevron-down" size={16} color={theme.textTertiary} />
-        </TouchableOpacity>
         </View>
-      </View>
+      )}
 
       {selectedPeriod === 'month' && showCalendar && (
         <TransactionCalendarMonth
@@ -464,7 +502,7 @@ export default function TransactionsScreen() {
         />
       )}
 
-      {periodTransactions.length > 0 && (
+      {periodTransactions.length > 0 && !showCalendar && (
         <View style={styles.summaryWrapper}>
           <GlassCard style={styles.summary} intensity="subtle" borderRadius={Radius.md}>
             <View style={styles.summaryInner}>
@@ -498,21 +536,43 @@ export default function TransactionsScreen() {
         </View>
       )}
 
-      {!showCalendar && (
-        <FlatList
-          data={filteredTransactions}
-          renderItem={renderTransaction}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={[
-            filteredTransactions.length === 0 ? styles.emptyContainer : styles.listContent,
-            { paddingBottom: tabBarHeight + Spacing['3xl'] },
-          ]}
-          ListEmptyComponent={renderEmptyState}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
-        />
-      )}
+      {!showCalendar &&
+        (selectedPeriod === 'day' ? (
+          <FlatList
+            data={filteredTransactions}
+            renderItem={({ item }) => renderTransactionItem(item, true)}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={[
+              filteredTransactions.length === 0 ? styles.emptyContainer : styles.listContent,
+              { paddingBottom: tabBarHeight + Spacing['3xl'] },
+            ]}
+            ListEmptyComponent={renderEmptyState}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          />
+        ) : (
+          <SectionList
+            sections={transactionSectionsByDate}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => renderTransactionItem(item, false)}
+            renderSectionHeader={({ section }) => (
+              <View
+                style={[
+                  styles.dateSectionHeader,
+                  section.sectionIndex === 0 ? styles.dateSectionHeaderFirst : null,
+                ]}
+              >
+                <Text style={[styles.dateSectionLabel, { color: theme.textTertiary }]}>{section.title}</Text>
+              </View>
+            )}
+            contentContainerStyle={[
+              filteredTransactions.length === 0 ? styles.emptyContainer : styles.listContent,
+              { paddingBottom: tabBarHeight + Spacing['3xl'] },
+            ]}
+            ListEmptyComponent={renderEmptyState}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+            stickySectionHeadersEnabled={false}
+          />
+        ))}
 
       <TransactionDayModal
         visible={dayModalVisible}
@@ -864,6 +924,19 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: Spacing.xl,
+  },
+  dateSectionHeader: {
+    paddingTop: Spacing.lg,
+    paddingBottom: Spacing.sm,
+  },
+  dateSectionHeaderFirst: {
+    paddingTop: Spacing.xs,
+  },
+  dateSectionLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
   emptyContainer: {
     flex: 1,

@@ -39,128 +39,250 @@ function MockShortcutsIcon({ theme }: { theme: any }) {
   );
 }
 
-function MockTabBar({ theme, pulseAnim, activeTab }: { theme: any; pulseAnim: Animated.Value; activeTab: number }) {
-  const tabs = ['Shortcuts', 'Automation', 'Gallery'];
+/** Automation tab + empty state + New Automation (matches iOS Shortcuts light UI). */
+function MockAutomationHome({ theme, pulseAnim }: { theme: any; pulseAnim: Animated.Value }) {
+  const IOS_BLUE = '#007AFF';
   return (
-    <View style={[mockStyles.phone, { borderColor: theme.cardBorder }]}>
-      <View style={[mockStyles.phoneScreen, { backgroundColor: '#1C1C1E' }]}>
-        <Text style={mockStyles.phoneTitle}>Shortcuts</Text>
-        <View style={mockStyles.phoneContent}>
-          <View style={[mockStyles.placeholderRow, { backgroundColor: '#2C2C2E' }]} />
-          <View style={[mockStyles.placeholderRow, { backgroundColor: '#2C2C2E' }]} />
-        </View>
-        <View style={[mockStyles.tabBar, { borderTopColor: '#3A3A3C' }]}>
-          {tabs.map((tab, i) => (
-            <Animated.View
-              key={tab}
-              style={[
-                mockStyles.tab,
-                i === activeTab && {
-                  transform: [{ scale: pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] }) }],
-                },
-              ]}
-            >
-              <Ionicons
-                name={i === 0 ? 'apps' : i === 1 ? 'flash' : 'compass'}
-                size={20}
-                color={i === activeTab ? '#007AFF' : '#8E8E93'}
-              />
-              <Text style={[mockStyles.tabLabel, { color: i === activeTab ? '#007AFF' : '#8E8E93' }]}>
-                {tab}
-              </Text>
-            </Animated.View>
-          ))}
-        </View>
-      </View>
-    </View>
-  );
-}
+    <View style={[mockStyles.phone, mockStyles.automationPhoneFrame, { borderColor: theme.cardBorder }]}>
+      {/* No phoneScreen + flex:1 here — parent has no height, so flex children collapse to ~0 (thin line). */}
+      <View style={mockStyles.automationLightRoot}>
+        <Text style={mockStyles.automationLargeTitle}>Automation</Text>
 
-function MockPlusButton({ theme, pulseAnim }: { theme: any; pulseAnim: Animated.Value }) {
-  return (
-    <View style={[mockStyles.phone, { borderColor: theme.cardBorder }]}>
-      <View style={[mockStyles.phoneScreen, { backgroundColor: '#1C1C1E' }]}>
-        <View style={mockStyles.navBar}>
-          <Text style={[mockStyles.navTitle, { color: '#FFF' }]}>Automation</Text>
-          <Animated.View style={{
-            transform: [{ scale: pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.15] }) }],
-          }}>
-            <View style={[mockStyles.plusCircle, { backgroundColor: '#007AFF' }]}>
-              <Ionicons name="add" size={22} color="#FFF" />
+        <View style={mockStyles.automationEmptyCenter}>
+          <Ionicons name="sparkles" size={44} color="#AEAEB2" />
+          <Text style={mockStyles.automationEmptyTitle}>No Automations</Text>
+          <Text style={mockStyles.automationEmptySubtitle}>Make shortcuts run automatically.</Text>
+          <Animated.View
+            style={{
+              marginTop: 20,
+              transform: [
+                { scale: pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.05] }) },
+              ],
+            }}
+          >
+            <View style={mockStyles.automationNewButton}>
+              <Text style={mockStyles.automationNewButtonText}>New Automation</Text>
             </View>
           </Animated.View>
         </View>
-        <View style={mockStyles.phoneContent}>
-          <Text style={mockStyles.emptyText}>No Automations Yet</Text>
+
+        <View style={mockStyles.automationFloatingTabs}>
+          <View style={mockStyles.automationTabItem}>
+            <Ionicons name="albums-outline" size={22} color="#8E8E93" />
+            <Text style={mockStyles.automationTabLabelInactive}>Library</Text>
+          </View>
+          <View style={mockStyles.automationTabItemActive}>
+            <Ionicons name="checkmark-circle" size={22} color={IOS_BLUE} />
+            <Text style={[mockStyles.automationTabLabelActive, { color: IOS_BLUE }]}>Automation</Text>
+          </View>
+          <View style={mockStyles.automationTabItem}>
+            <Ionicons name="compass-outline" size={22} color="#8E8E93" />
+            <Text style={mockStyles.automationTabLabelInactive}>Gallery</Text>
+          </View>
         </View>
       </View>
     </View>
   );
 }
 
+type TriggerPickerRow = {
+  icon: React.ComponentProps<typeof Ionicons>['name'];
+  iconColor: string;
+  title: string;
+  subtitle: string;
+  wallet?: boolean;
+};
+
+/** iOS Shortcuts “New Automation” trigger list: grouped white cards on system gray + floating search. */
 function MockTriggerList({ theme, pulseAnim }: { theme: any; pulseAnim: Animated.Value }) {
-  const items = ['Arrive', 'Leave', 'Time of Day', 'Wallet', 'Wi-Fi'];
+  const groups: TriggerPickerRow[][] = [
+    [
+      {
+        icon: 'airplane',
+        iconColor: '#FF9500',
+        title: 'Airplane Mode',
+        subtitle: 'When Airplane Mode is turned on',
+      },
+      {
+        icon: 'wifi',
+        iconColor: '#007AFF',
+        title: 'Wi-Fi',
+        subtitle: 'When my iPhone joins the Home network',
+      },
+      {
+        icon: 'bluetooth',
+        iconColor: '#007AFF',
+        title: 'Bluetooth',
+        subtitle: 'When my iPhone connects to AirPods',
+      },
+    ],
+    [
+      {
+        icon: 'open-outline',
+        iconColor: '#8E8E93',
+        title: 'App',
+        subtitle: 'When Weather is opened or closed',
+      },
+      {
+        icon: 'wallet',
+        iconColor: '#007AFF',
+        title: 'Wallet',
+        subtitle: 'When I tap a Wallet Card or Pass',
+        wallet: true,
+      },
+    ],
+    [
+      {
+        icon: 'battery-half-outline',
+        iconColor: '#8E8E93',
+        title: 'Battery Level',
+        subtitle: 'When battery level rises above 50%',
+      },
+    ],
+  ];
+
   return (
-    <View style={[mockStyles.phone, { borderColor: theme.cardBorder }]}>
-      <View style={[mockStyles.phoneScreen, { backgroundColor: '#1C1C1E' }]}>
-        <Text style={[mockStyles.phoneTitle, { fontSize: 15 }]}>New Automation</Text>
-        {items.map((item, i) => (
-          <Animated.View
-            key={item}
-            style={[
-              mockStyles.listRow,
-              { borderBottomColor: '#2C2C2E' },
-              item === 'Wallet' && {
-                backgroundColor: '#007AFF20',
-                borderRadius: 8,
-                transform: [{ scale: pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.03] }) }],
-              },
-            ]}
-          >
-            <Ionicons
-              name={i === 0 ? 'location' : i === 1 ? 'exit' : i === 2 ? 'time' : i === 3 ? 'wallet' : 'wifi'}
-              size={18}
-              color={item === 'Wallet' ? '#007AFF' : '#8E8E93'}
-            />
-            <Text style={[
-              mockStyles.listText,
-              { color: item === 'Wallet' ? '#007AFF' : '#FFF' },
-              item === 'Wallet' && { fontWeight: '700' },
-            ]}>
-              {item}
-            </Text>
-            {item === 'Wallet' && (
-              <Ionicons name="chevron-forward" size={16} color="#007AFF" style={{ marginLeft: 'auto' }} />
-            )}
-          </Animated.View>
+    <View style={[mockStyles.phone, mockStyles.automationPhoneFrame, { borderColor: theme.cardBorder }]}>
+      <View style={mockStyles.triggerPickerRoot}>
+        <View style={mockStyles.triggerPickerNav}>
+          <View style={mockStyles.triggerCloseCircle}>
+            <Ionicons name="close" size={20} color="#000000" />
+          </View>
+        </View>
+
+        {groups.map((rows, gi) => (
+          <View key={gi} style={mockStyles.triggerCard}>
+            {rows.map((row, ri) => {
+              const isLast = ri === rows.length - 1;
+              const RowWrapper = row.wallet ? Animated.View : View;
+              const rowWrapperProps = row.wallet
+                ? {
+                    style: [
+                      mockStyles.triggerRow,
+                      !isLast && mockStyles.triggerRowDivider,
+                      mockStyles.triggerRowWallet,
+                      {
+                        transform: [
+                          {
+                            scale: pulseAnim.interpolate({
+                              inputRange: [0, 1],
+                              outputRange: [1, 1.02],
+                            }),
+                          },
+                        ],
+                      },
+                    ],
+                  }
+                : {
+                    style: [mockStyles.triggerRow, !isLast && mockStyles.triggerRowDivider],
+                  };
+
+              return (
+                <RowWrapper key={row.title} {...rowWrapperProps}>
+                  <View style={mockStyles.triggerIconSlot}>
+                    <Ionicons name={row.icon} size={22} color={row.iconColor} />
+                  </View>
+                  <View style={mockStyles.triggerTextCol}>
+                    <Text
+                      style={[
+                        mockStyles.triggerRowTitle,
+                        row.wallet && mockStyles.triggerRowTitleWallet,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {row.title}
+                    </Text>
+                    <Text style={mockStyles.triggerRowSubtitle} numberOfLines={2}>
+                      {row.subtitle}
+                    </Text>
+                  </View>
+                  <Ionicons
+                    name="chevron-forward"
+                    size={18}
+                    color={row.wallet ? '#007AFF' : '#C7C7CC'}
+                  />
+                </RowWrapper>
+              );
+            })}
+          </View>
         ))}
+
+        <View style={mockStyles.triggerSearchPill}>
+          <Ionicons name="search" size={18} color="#8E8E93" />
+          <Text style={mockStyles.triggerSearchLabel}>Search</Text>
+          <View style={mockStyles.triggerSearchFlexFill} />
+          <Ionicons name="mic" size={20} color="#8E8E93" />
+        </View>
       </View>
     </View>
   );
 }
 
+/** Wallet pass picker + Run Immediately + Notify When Run (iOS Shortcuts light UI). */
 function MockCardSelection({ theme, pulseAnim }: { theme: any; pulseAnim: Animated.Value }) {
+  const passes = ['Visa ••4532', 'Mastercard ••8821'];
   return (
-    <View style={[mockStyles.phone, { borderColor: theme.cardBorder }]}>
-      <View style={[mockStyles.phoneScreen, { backgroundColor: '#1C1C1E' }]}>
-        <Text style={[mockStyles.phoneTitle, { fontSize: 15 }]}>Select Cards</Text>
-        <Text style={[mockStyles.helperText]}>When I tap any of these:</Text>
-        {['Visa ••4532', 'Mastercard ••8821'].map((card) => (
+    <View style={[mockStyles.phone, mockStyles.automationPhoneFrame, { borderColor: theme.cardBorder }]}>
+      <View style={mockStyles.walletConfigRoot}>
+        <View style={mockStyles.walletConfigNav}>
+          <View style={mockStyles.triggerCloseCircle}>
+            <Ionicons name="chevron-back" size={22} color="#000000" />
+          </View>
+          <View style={mockStyles.walletNextPill}>
+            <Text style={mockStyles.walletNextPillText}>Next</Text>
+          </View>
+        </View>
+
+        <Text style={mockStyles.walletSectionCaption}>WHEN I TAP</Text>
+        <View style={mockStyles.triggerCard}>
+          {passes.map((card, i) => (
+            <View
+              key={card}
+              style={[mockStyles.walletPassRow, i < passes.length - 1 && mockStyles.triggerRowDivider]}
+            >
+              <Ionicons name="card" size={22} color="#007AFF" />
+              <Text style={mockStyles.walletPassTitle}>{card}</Text>
+              <Ionicons name="checkmark-circle" size={22} color="#007AFF" />
+            </View>
+          ))}
+        </View>
+
+        <Text style={[mockStyles.walletSectionCaption, mockStyles.walletSectionCaptionSpaced]}>RUN</Text>
+        <View style={mockStyles.triggerCard}>
+          <View style={[mockStyles.walletRunChoiceRow, mockStyles.triggerRowDivider]}>
+            <Text style={mockStyles.walletRunLabel}>Run After Confirmation</Text>
+            <View style={mockStyles.walletRadioEmpty} />
+          </View>
           <Animated.View
-            key={card}
             style={[
-              mockStyles.listRow,
-              { borderBottomColor: '#2C2C2E' },
+              mockStyles.walletRunChoiceRow,
+              mockStyles.walletRunChoiceRowSelected,
               {
-                transform: [{ scale: pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.02] }) }],
+                transform: [
+                  {
+                    scale: pulseAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [1, 1.02],
+                    }),
+                  },
+                ],
               },
             ]}
           >
-            <Ionicons name="card" size={18} color="#007AFF" />
-            <Text style={[mockStyles.listText, { color: '#FFF' }]}>{card}</Text>
-            <Ionicons name="checkmark-circle" size={18} color="#30D158" style={{ marginLeft: 'auto' }} />
+            <Text style={mockStyles.walletRunLabelSelected}>Run Immediately</Text>
+            <Ionicons name="checkmark-circle" size={22} color="#007AFF" />
           </Animated.View>
-        ))}
+        </View>
+
+        <Text style={[mockStyles.walletSectionCaption, mockStyles.walletSectionCaptionSpaced]}>NOTIFY</Text>
+        <View style={[mockStyles.triggerCard, mockStyles.walletNotifyCard]}>
+          <View style={mockStyles.walletNotifyRow}>
+            <Text style={mockStyles.walletRunLabel}>Notify When Run</Text>
+            <View style={mockStyles.notifyToggleTrackOff}>
+              <View style={mockStyles.notifyToggleThumb} />
+            </View>
+          </View>
+        </View>
       </View>
     </View>
   );
@@ -223,83 +345,148 @@ function MockGetShortcut({ theme, pulseAnim }: { theme: any; pulseAnim: Animated
   );
 }
 
-function MockRunShortcut({ theme, pulseAnim }: { theme: any; pulseAnim: Animated.Value }) {
+/** Compact QWERTY strip (visual only) under the floating search bar. */
+function MockRunShortcutKeyboard() {
+  const r1 = 'QWERTYUIOP'.split('');
+  const r2 = 'ASDFGHJKL'.split('');
+  const r3 = 'ZXCVBNM'.split('');
   return (
-    <View style={[mockStyles.phone, { borderColor: theme.cardBorder }]}>
-      <View style={[mockStyles.phoneScreen, { backgroundColor: '#1C1C1E' }]}>
-        <Text style={[mockStyles.phoneTitle, { fontSize: 14 }]}>New Automation</Text>
-        <View style={{ paddingHorizontal: 12, marginBottom: 8 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 }}>
-            <Ionicons name="flash" size={14} color="#FFCC00" />
-            <Text style={{ color: '#8E8E93', fontSize: 11 }}>When I tap to pay…</Text>
+    <View style={mockStyles.kbRoot}>
+      <View style={mockStyles.kbRow}>
+        {r1.map((k) => (
+          <View key={k} style={mockStyles.kbKey}>
+            <Text style={mockStyles.kbKeyText}>{k}</Text>
           </View>
+        ))}
+      </View>
+      <View style={[mockStyles.kbRow, mockStyles.kbRowPad]}>
+        {r2.map((k) => (
+          <View key={k} style={mockStyles.kbKey}>
+            <Text style={mockStyles.kbKeyText}>{k}</Text>
+          </View>
+        ))}
+      </View>
+      <View style={mockStyles.kbRow}>
+        <View style={mockStyles.kbKeyUtility}>
+          <Ionicons name="arrow-up" size={11} color="#000000" />
         </View>
-        <View style={{ paddingHorizontal: 12, marginBottom: 6 }}>
-          <View style={[mockStyles.searchBar, { backgroundColor: '#2C2C2E', marginHorizontal: 0 }]}>
-            <Ionicons name="search" size={16} color="#8E8E93" />
-            <Text style={{ color: '#FFF', fontSize: 14, marginLeft: 6 }}>Run Shortcut</Text>
+        {r3.map((k) => (
+          <View key={k} style={mockStyles.kbKey}>
+            <Text style={mockStyles.kbKeyText}>{k}</Text>
           </View>
+        ))}
+        <View style={mockStyles.kbKeyUtility}>
+          <Ionicons name="backspace-outline" size={13} color="#000000" />
         </View>
-        <Text style={{ color: '#8E8E93', fontSize: 11, paddingHorizontal: 14, marginBottom: 6 }}>Actions</Text>
-        <Animated.View style={[
-          mockStyles.listRow,
-          {
-            backgroundColor: '#007AFF15',
-            borderRadius: 8,
-            marginHorizontal: 6,
-            transform: [{ scale: pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.03] }) }],
-          },
-        ]}>
-          <Ionicons name="play-circle" size={22} color="#007AFF" />
-          <View style={{ flex: 1 }}>
-            <Text style={[mockStyles.listText, { color: '#FFF', fontWeight: '600' }]}>Run Shortcut</Text>
-            <Text style={[mockStyles.listSubtext, { color: '#5AC8FA' }]} numberOfLines={1}>
-              {SCRIMP_WALLET_AUTOMATION_SHORTCUT_NAME}
-            </Text>
-          </View>
-          <Ionicons name="chevron-forward" size={18} color="#8E8E93" />
-        </Animated.View>
+      </View>
+      <View style={[mockStyles.kbRow, mockStyles.kbRowLast]}>
+        <View style={mockStyles.kbKey123}>
+          <Text style={mockStyles.kbKeyTextSmall}>123</Text>
+        </View>
+        <View style={mockStyles.kbKeySpace}>
+          <Text style={mockStyles.kbKeyTextSmall}>space</Text>
+        </View>
+        <View style={mockStyles.kbKeyGo}>
+          <Ionicons name="search" size={14} color="#FFFFFF" />
+        </View>
       </View>
     </View>
   );
 }
 
+/** Add Action: type shortcut name in search, then tap the blue tile (iOS light UI). */
+function MockRunShortcut({ theme, pulseAnim }: { theme: any; pulseAnim: Animated.Value }) {
+  const shortcutName = SCRIMP_WALLET_AUTOMATION_SHORTCUT_NAME;
+  return (
+    <View style={[mockStyles.phone, mockStyles.automationPhoneFrame, { borderColor: theme.cardBorder }]}>
+      <View style={mockStyles.actionPickerRoot}>
+        <View style={mockStyles.actionPickerNavRow}>
+          <View style={mockStyles.triggerCloseCircle}>
+            <Ionicons name="chevron-back" size={22} color="#000000" />
+          </View>
+        </View>
+        <Text style={mockStyles.actionPickerTitle} numberOfLines={2}>
+          When I tap any of 2 Wallet passes or paym…
+        </Text>
+
+        <View style={mockStyles.actionSectionHeader}>
+          <View style={mockStyles.shortcutsPurpleBadge}>
+            <Ionicons name="grid" size={12} color="#FFFFFF" />
+          </View>
+          <Text style={mockStyles.actionSectionTitle}>My Shortcuts</Text>
+          <Ionicons name="chevron-forward" size={16} color="#C7C7CC" />
+        </View>
+
+        <Animated.View
+          style={[
+            mockStyles.actionShortcutBlueCard,
+            {
+              transform: [
+                {
+                  scale: pulseAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [1, 1.03],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
+          <View style={mockStyles.actionScrimpMiniIcon}>
+            <View style={mockStyles.actionScrimpMiniInner}>
+              <View style={[mockStyles.actionScrimpLogoDot, { backgroundColor: theme.primary }]} />
+            </View>
+          </View>
+          <Text style={mockStyles.actionShortcutBlueTitle} numberOfLines={2}>
+            {shortcutName}
+          </Text>
+        </Animated.View>
+
+        <View style={[mockStyles.triggerSearchPill, mockStyles.actionPickerBottomSearch]}>
+          <Ionicons name="search" size={18} color="#8E8E93" />
+          <Text
+            style={mockStyles.actionBottomSearchQuery}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            {shortcutName}
+          </Text>
+          <View style={mockStyles.triggerSearchFlexFill} />
+          <Ionicons name="mic" size={20} color="#8E8E93" />
+        </View>
+
+        <MockRunShortcutKeyboard />
+      </View>
+    </View>
+  );
+}
+
+/** Final sheet: tap Done (Run / Notify already set on the Wallet screen). */
 function MockSaveAutomation({ theme, pulseAnim }: { theme: any; pulseAnim: Animated.Value }) {
   return (
-    <View style={[mockStyles.phone, { borderColor: theme.cardBorder }]}>
-      <View style={[mockStyles.phoneScreen, { backgroundColor: '#1C1C1E' }]}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 14, marginBottom: 16 }}>
-          <Text style={{ color: '#007AFF', fontSize: 14 }}>Cancel</Text>
-          <Text style={{ color: '#FFF', fontSize: 16, fontWeight: '700' }}>New Automation</Text>
-          <Animated.View style={{
-            transform: [{ scale: pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.1] }) }],
-          }}>
-            <Text style={{ color: '#007AFF', fontSize: 14, fontWeight: '700' }}>Done</Text>
+    <View style={[mockStyles.phone, mockStyles.automationPhoneFrame, { borderColor: theme.cardBorder }]}>
+      <View style={mockStyles.saveAutomationRoot}>
+        <View style={mockStyles.saveAutomationNav}>
+          <Text style={mockStyles.saveAutomationNavSide}>Cancel</Text>
+          <Text style={mockStyles.saveAutomationNavTitle}>New Automation</Text>
+          <Animated.View
+            style={[
+              mockStyles.saveAutomationNavSideRight,
+              {
+                transform: [
+                  { scale: pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] }) },
+                ],
+              },
+            ]}
+          >
+            <Text style={mockStyles.saveAutomationDone}>Done</Text>
           </Animated.View>
         </View>
-
-        <Animated.View style={[
-          mockStyles.listRow,
-          {
-            justifyContent: 'space-between',
-            transform: [{ scale: pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.03] }) }],
-          },
-        ]}>
-          <Text style={[mockStyles.listText, { color: '#FFF' }]}>Run Immediately</Text>
-          <View style={[mockStyles.toggleTrack, { backgroundColor: '#30D158' }]}>
-            <View style={mockStyles.toggleThumb} />
-          </View>
-        </Animated.View>
-        <View style={[mockStyles.listRow, { borderBottomColor: '#2C2C2E' }]}>
-          <Text style={[mockStyles.listText, { color: '#8E8E93', fontSize: 12 }]}>
-            Runs without asking when triggered
+        <View style={mockStyles.saveAutomationHintCard}>
+          <Ionicons name="checkmark-circle" size={22} color="#34C759" />
+          <Text style={mockStyles.saveAutomationHintText}>
+            Wallet trigger and Run Shortcut are set. Tap Done to save.
           </Text>
-        </View>
-
-        <View style={{ flex: 1 }} />
-        <View style={{ alignItems: 'center', paddingVertical: 16 }}>
-          <Ionicons name="checkmark-circle" size={40} color="#30D158" />
-          <Text style={{ color: '#30D158', fontSize: 13, fontWeight: '600', marginTop: 6 }}>You're all set!</Text>
         </View>
       </View>
     </View>
@@ -319,14 +506,10 @@ const STEPS: GuideStep[] = [
     mockUI: (theme) => <MockShortcutsIcon theme={theme} />,
   },
   {
-    title: 'Go to the Automation Tab',
-    description: 'Tap the Automation tab at the bottom of the screen.',
-    mockUI: (theme, pulse) => <MockTabBar theme={theme} pulseAnim={pulse} activeTab={1} />,
-  },
-  {
-    title: 'Create New Automation',
-    description: 'Tap the + button in the top right corner to create a new automation.',
-    mockUI: (theme, pulse) => <MockPlusButton theme={theme} pulseAnim={pulse} />,
+    title: 'Open Automation',
+    description:
+      'Tap the Automation tab in the bottom bar (next to Library), then tap the blue New Automation button.',
+    mockUI: (theme, pulse) => <MockAutomationHome theme={theme} pulseAnim={pulse} />,
   },
   {
     title: 'Choose "Wallet" Trigger',
@@ -335,17 +518,18 @@ const STEPS: GuideStep[] = [
   },
   {
     title: 'Select Your Wallet Cards',
-    description: 'Choose which wallet cards or passes should trigger the automation.',
+    description:
+      'Choose which cards or passes should trigger the automation, select Run Immediately (not Run After Confirmation), and turn Notify When Run off so logging stays silent.',
     mockUI: (theme, pulse) => <MockCardSelection theme={theme} pulseAnim={pulse} />,
   },
   {
     title: 'Add "Run Shortcut"',
-    description: `Choose "New Blank Automation" if asked, then Add Action. Search for Run Shortcut and select it. Pick "${SCRIMP_WALLET_AUTOMATION_SHORTCUT_NAME}" — no need to wire Amount or Merchant in this screen.`,
+    description: `Search ${SCRIMP_WALLET_AUTOMATION_SHORTCUT_NAME} and tap on the shortcut.`,
     mockUI: (theme, pulse) => <MockRunShortcut theme={theme} pulseAnim={pulse} />,
   },
   {
     title: 'Save Automation',
-    description: 'Toggle on "Run Immediately" so transactions are logged silently. Then tap Done — you\'re all set!',
+    description: 'Tap Done in Shortcuts to save. Your automation runs when you pay with Wallet.',
     mockUI: (theme, pulse) => <MockSaveAutomation theme={theme} pulseAnim={pulse} />,
   },
 ];
@@ -923,5 +1107,525 @@ const mockStyles = StyleSheet.create({
     marginTop: 10,
     paddingHorizontal: 16,
     fontStyle: 'italic',
+  },
+  automationPhoneFrame: {
+    width: SCREEN_WIDTH * 0.88,
+    maxWidth: 360,
+  },
+  automationLightRoot: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    minHeight: 460,
+    paddingTop: 8,
+    paddingBottom: 14,
+    justifyContent: 'space-between',
+  },
+  automationLargeTitle: {
+    color: '#000000',
+    fontSize: 32,
+    fontWeight: '800',
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    marginBottom: 8,
+    letterSpacing: -0.5,
+  },
+  automationEmptyCenter: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  automationEmptyTitle: {
+    color: '#000000',
+    fontSize: 20,
+    fontWeight: '700',
+    marginTop: 14,
+  },
+  automationEmptySubtitle: {
+    color: '#8E8E93',
+    fontSize: 15,
+    marginTop: 6,
+    textAlign: 'center',
+    maxWidth: 260,
+    lineHeight: 20,
+  },
+  automationNewButton: {
+    backgroundColor: '#007AFF',
+    paddingVertical: 12,
+    paddingHorizontal: 28,
+    borderRadius: 999,
+  },
+  automationNewButtonText: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: '600',
+  },
+  automationFloatingTabs: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 12,
+    marginTop: 4,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: 28,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  automationTabItem: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 4,
+  },
+  automationTabItemActive: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    backgroundColor: '#E5E5EA',
+    borderRadius: 18,
+    marginHorizontal: 2,
+  },
+  automationTabLabelInactive: {
+    fontSize: 10,
+    color: '#8E8E93',
+    fontWeight: '600',
+  },
+  automationTabLabelActive: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  triggerPickerRoot: {
+    width: '100%',
+    minHeight: 500,
+    backgroundColor: '#F2F2F7',
+    paddingTop: 4,
+    paddingBottom: 12,
+  },
+  triggerPickerNav: {
+    paddingHorizontal: 12,
+    paddingBottom: 6,
+  },
+  triggerCloseCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  triggerCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    marginHorizontal: 10,
+    marginBottom: 9,
+    overflow: 'hidden',
+  },
+  triggerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  triggerRowDivider: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#C6C6C8',
+  },
+  triggerRowWallet: {
+    backgroundColor: 'rgba(0, 122, 255, 0.12)',
+  },
+  triggerIconSlot: {
+    width: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  triggerTextCol: {
+    flex: 1,
+    marginLeft: 8,
+    minWidth: 0,
+  },
+  triggerRowTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#000000',
+  },
+  triggerRowTitleWallet: {
+    color: '#007AFF',
+  },
+  triggerRowSubtitle: {
+    fontSize: 12,
+    color: '#8E8E93',
+    marginTop: 3,
+    lineHeight: 16,
+  },
+  triggerSearchPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 14,
+    marginTop: 2,
+    paddingVertical: 11,
+    paddingHorizontal: 14,
+    borderRadius: 24,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  triggerSearchLabel: {
+    fontSize: 16,
+    color: '#8E8E93',
+    marginLeft: 8,
+    fontWeight: '400',
+  },
+  triggerSearchFlexFill: {
+    flex: 1,
+  },
+  walletConfigRoot: {
+    width: '100%',
+    backgroundColor: '#F2F2F7',
+    paddingTop: 4,
+    paddingBottom: 0,
+  },
+  walletConfigNav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 10,
+    paddingBottom: 6,
+  },
+  walletNextPill: {
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 22,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  walletNextPillText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  walletSectionCaption: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#8E8E93',
+    letterSpacing: 0.6,
+    marginLeft: 20,
+    marginBottom: 6,
+  },
+  walletSectionCaptionSpaced: {
+    marginTop: 12,
+  },
+  walletNotifyCard: {
+    marginBottom: 0,
+  },
+  walletPassRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    gap: 12,
+  },
+  walletPassTitle: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000000',
+  },
+  walletRunChoiceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+  },
+  walletRunChoiceRowSelected: {
+    backgroundColor: 'rgba(0, 122, 255, 0.10)',
+  },
+  walletRunLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#000000',
+  },
+  walletRunLabelSelected: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#007AFF',
+  },
+  walletRadioEmpty: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#C7C7CC',
+  },
+  walletNotifyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
+  notifyToggleTrackOff: {
+    width: 51,
+    height: 31,
+    borderRadius: 16,
+    backgroundColor: '#E9E9EA',
+    padding: 2,
+    justifyContent: 'center',
+  },
+  notifyToggleThumb: {
+    width: 27,
+    height: 27,
+    borderRadius: 13.5,
+    backgroundColor: '#FFFFFF',
+    alignSelf: 'flex-start',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  actionPickerRoot: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    paddingTop: 4,
+    paddingBottom: 0,
+  },
+  actionPickerNavRow: {
+    paddingHorizontal: 10,
+    paddingBottom: 4,
+  },
+  actionPickerTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#000000',
+    paddingHorizontal: 16,
+    marginBottom: 12,
+    lineHeight: 26,
+    letterSpacing: -0.3,
+  },
+  actionBottomSearchQuery: {
+    flex: 1,
+    marginLeft: 8,
+    marginRight: 4,
+    minWidth: 0,
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#000000',
+  },
+  actionSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 10,
+    gap: 8,
+  },
+  shortcutsPurpleBadge: {
+    width: 26,
+    height: 26,
+    borderRadius: 6,
+    backgroundColor: '#5856D6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionSectionTitle: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#000000',
+  },
+  actionShortcutBlueCard: {
+    backgroundColor: '#007AFF',
+    marginHorizontal: 14,
+    borderRadius: 18,
+    padding: 14,
+    minHeight: 96,
+  },
+  actionScrimpMiniIcon: {
+    alignSelf: 'flex-start',
+    marginBottom: 10,
+  },
+  actionScrimpMiniInner: {
+    width: 30,
+    height: 30,
+    borderRadius: 7,
+    backgroundColor: '#000000',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionScrimpLogoDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+  },
+  actionShortcutBlueTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+    lineHeight: 21,
+  },
+  actionPickerBottomSearch: {
+    marginTop: 10,
+    marginBottom: 0,
+  },
+  kbRoot: {
+    backgroundColor: '#D2D4DA',
+    paddingTop: 6,
+    paddingBottom: 0,
+    paddingHorizontal: 4,
+    marginTop: 6,
+    marginBottom: 0,
+    marginHorizontal: 0,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#AEB0B6',
+    borderBottomLeftRadius: 18,
+    borderBottomRightRadius: 18,
+  },
+  kbRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 5,
+    paddingHorizontal: 2,
+  },
+  kbRowLast: {
+    marginBottom: 0,
+  },
+  kbRowPad: {
+    paddingHorizontal: 14,
+  },
+  kbKey: {
+    flex: 1,
+    marginHorizontal: 2,
+    paddingVertical: 5,
+    minHeight: 28,
+    borderRadius: 4,
+    backgroundColor: '#FCFCFE',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.12,
+    shadowRadius: 0,
+    elevation: 1,
+  },
+  kbKeyText: {
+    fontSize: 9,
+    fontWeight: '600',
+    color: '#000000',
+  },
+  kbKeyTextSmall: {
+    fontSize: 8,
+    fontWeight: '500',
+    color: '#000000',
+  },
+  kbKeyUtility: {
+    flex: 1.15,
+    marginHorizontal: 2,
+    paddingVertical: 5,
+    minHeight: 28,
+    borderRadius: 4,
+    backgroundColor: '#ACB0B9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  kbKey123: {
+    flex: 1.35,
+    marginHorizontal: 2,
+    paddingVertical: 5,
+    minHeight: 28,
+    borderRadius: 4,
+    backgroundColor: '#ACB0B9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  kbKeySpace: {
+    flex: 4,
+    marginHorizontal: 2,
+    paddingVertical: 5,
+    minHeight: 28,
+    borderRadius: 4,
+    backgroundColor: '#FCFCFE',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  kbKeyGo: {
+    flex: 1.5,
+    marginHorizontal: 2,
+    paddingVertical: 5,
+    minHeight: 28,
+    borderRadius: 4,
+    backgroundColor: '#007AFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saveAutomationRoot: {
+    width: '100%',
+    minHeight: 260,
+    backgroundColor: '#F2F2F7',
+    paddingTop: 8,
+    paddingBottom: 16,
+  },
+  saveAutomationNav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 10,
+    borderRadius: 12,
+  },
+  saveAutomationNavSide: {
+    width: 64,
+    fontSize: 16,
+    color: '#007AFF',
+    fontWeight: '400',
+  },
+  saveAutomationNavSideRight: {
+    width: 64,
+    alignItems: 'flex-end',
+  },
+  saveAutomationNavTitle: {
+    flex: 1,
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#000000',
+    textAlign: 'center',
+  },
+  saveAutomationDone: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#007AFF',
+  },
+  saveAutomationHintCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 10,
+    marginTop: 12,
+    padding: 16,
+    borderRadius: 12,
+  },
+  saveAutomationHintText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#3C3C43',
+    lineHeight: 20,
+    fontWeight: '500',
   },
 });
