@@ -1,81 +1,14 @@
-import { useEffect, useRef, useCallback } from 'react';
 import { Tabs } from 'expo-router';
 import { useRouter } from 'expo-router';
 import { Icon } from '@/components/ui/Icon';
-import { AppState, Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { useTheme } from '@/context/ThemeContext';
-import { useFinance } from '@/context/FinanceContext';
-import { getPendingTransactions, clearPendingTransactions } from '@/utils/transactionSync';
-import { loadMerchantCategoryMap } from '@/utils/storage';
-
-function useSyncPendingTransactions() {
-  const { addTransaction } = useFinance();
-  const isSyncing = useRef(false);
-
-  const sync = useCallback(async () => {
-    if (Platform.OS !== 'ios' || isSyncing.current) return;
-    isSyncing.current = true;
-    try {
-      console.log('[TransactionSync] Checking for pending transactions...');
-      const pending = await getPendingTransactions();
-      console.log(`[TransactionSync] Found ${pending.length} pending transaction(s)`);
-      if (pending.length === 0) return;
-
-      const merchantMap = await loadMerchantCategoryMap();
-      const DEFAULT_CATEGORIES = new Set(['other', 'uncategorized']);
-
-      for (const tx of pending) {
-        let category = tx.category || 'other';
-        const syncMerchantKey = (tx.merchant || tx.description || '').trim();
-        if (DEFAULT_CATEGORIES.has(category) && syncMerchantKey) {
-          const learned = merchantMap[syncMerchantKey.toLowerCase()];
-          if (learned) {
-            console.log(`[TransactionSync] Auto-categorized "${syncMerchantKey}" as "${learned}"`);
-            category = learned;
-          }
-        }
-
-        console.log(`[TransactionSync] Adding: $${tx.amount} - ${syncMerchantKey || tx.description} (${tx.type}) [${category}]`);
-        addTransaction({
-          type: tx.type,
-          amount: tx.amount,
-          category,
-          merchant: tx.merchant?.trim() || undefined,
-          time: tx.time,
-          description: tx.description || '',
-          date: tx.date,
-        });
-      }
-
-      await clearPendingTransactions();
-      console.log(`[TransactionSync] Synced ${pending.length} pending transaction(s) from Shortcuts`);
-    } catch (error) {
-      console.error('[TransactionSync] Error syncing pending transactions:', error);
-    } finally {
-      isSyncing.current = false;
-    }
-  }, [addTransaction]);
-
-  useEffect(() => {
-    sync();
-
-    const subscription = AppState.addEventListener('change', (nextState) => {
-      if (nextState === 'active') {
-        sync();
-      }
-    });
-
-    return () => subscription.remove();
-  }, [sync]);
-}
 
 export default function TabLayout() {
   const { theme, themeMode } = useTheme();
   const router = useRouter();
 
-  useSyncPendingTransactions();
-  
   return (
     <Tabs
       screenOptions={{

@@ -13,6 +13,7 @@ import {
   saveCustomCategories,
   loadUserCards,
   saveUserCards,
+  loadMerchantCategoryMap,
   setMerchantCategory,
 } from '@/utils/storage';
 import { UserCard } from '@/types';
@@ -97,15 +98,44 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
         const pending = await getPendingTransactions();
         if (pending.length === 0) return;
 
+        const merchantMap = await loadMerchantCategoryMap();
+        const DEFAULT_CATEGORIES = new Set(['other', 'uncategorized']);
+
+        // Resolve merchant-map categorization before merging
+        const resolvedPending = pending.map(p => {
+          let category = p.category || 'other';
+          const merchantKey = (p.merchant || p.description || '').trim();
+          if (DEFAULT_CATEGORIES.has(category) && merchantKey) {
+            const learned = merchantMap[merchantKey.toLowerCase()];
+            if (learned) {
+              console.log(`[TransactionSync] Auto-categorized "${merchantKey}" as "${learned}"`);
+              category = learned;
+            }
+          }
+          return { ...p, category };
+        });
+
+        let newTxs: Transaction[] = [];
         setTransactions(prev => {
           const existingIds = new Set(prev.map(t => t.id));
-          const newTxs: Transaction[] = pending
+          newTxs = resolvedPending
             .filter(p => !existingIds.has(p.id))
             .map(pendingTransactionToTransaction);
           return newTxs.length > 0 ? [...prev, ...newTxs] : prev;
         });
 
+        // Learn merchant → category mapping for newly synced rows
+        for (const tx of newTxs) {
+          const merchantKey = (tx.merchant || tx.description || '').trim();
+          if (merchantKey && !DEFAULT_CATEGORIES.has(tx.category)) {
+            setMerchantCategory(merchantKey, tx.category).catch(console.error);
+          }
+        }
+
         await clearPendingTransactions();
+        console.log(`[TransactionSync] Synced ${newTxs.length} pending transaction(s) from Shortcuts`);
+      } catch (error) {
+        console.error('[TransactionSync] Error syncing pending transactions:', error);
       } finally {
         isSyncingPending.current = false;
       }
