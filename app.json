@@ -18,7 +18,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.scrimp.app",
-      "buildNumber": "3",
+      "buildNumber": "4",
       "entitlements": {
         "com.apple.security.application-groups": [
           "group.com.scrimp.app"
