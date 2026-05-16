@@ -5,6 +5,7 @@ import * as Notifications from 'expo-notifications';
 import { FinanceProvider } from '@/context/FinanceContext';
 import { GamificationProvider } from '@/context/GamificationContext';
 import { ThemeProvider } from '@/context/ThemeContext';
+import { BankAccountsProvider } from '@/context/BankAccountsContext';
 import { loadRewardsData } from '@/utils/cardEngine';
 import { isOnboardingCompleted } from '@/utils/onboarding';
 import { requestNotificationPermissions } from '@/utils/notifications';
@@ -80,6 +81,7 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider>
+      <BankAccountsProvider>
       <FinanceProvider>
         <GamificationProvider>
           <Stack screenOptions={{ headerShown: false }}>
@@ -97,6 +99,7 @@ export default function RootLayout() {
           )}
         </GamificationProvider>
       </FinanceProvider>
+      </BankAccountsProvider>
     </ThemeProvider>
   );
 }

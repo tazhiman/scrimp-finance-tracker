@@ -150,6 +150,29 @@ export function formatDetailTransactionDate(dateStr: string): string {
   }).format(d);
 }
 
+/** Returns the number of whole days elapsed since the given ISO date-time string. */
+export function daysSince(isoString: string): number {
+  const then = new Date(isoString).getTime();
+  const now = Date.now();
+  return Math.floor((now - then) / (1000 * 60 * 60 * 24));
+}
+
+/**
+ * Returns a human-readable string for how long ago an ISO date-time was.
+ * Examples: "Just now", "2h ago", "3d ago", "14d ago".
+ */
+export function formatRelativeTime(isoString: string | undefined): string {
+  if (!isoString) return 'Never confirmed';
+  const diffMs = Date.now() - new Date(isoString).getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  if (diffMins < 2) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  return `${diffDays}d ago`;
+}
+
 /** 12h locale time from stored HH:mm or createdAt fallback. */
 export function formatDetailTransactionTime(timeHm?: string, createdAtFallback?: string): string {
   const t = timeHm?.trim();

@@ -232,6 +232,26 @@ export const setMerchantCategory = async (merchant: string, categoryId: string):
   await saveMerchantCategoryMap(map);
 };
 
+// Balance reconciliation banner dismiss (persisted per calendar day)
+const BALANCE_BANNER_DISMISS_KEY = '@finance_tracker:balance_banner_dismissed_on';
+
+export const setBalanceBannerDismissedToday = async (): Promise<void> => {
+  try {
+    await AsyncStorage.setItem(BALANCE_BANNER_DISMISS_KEY, new Date().toISOString().slice(0, 10));
+  } catch (error) {
+    console.error('Error saving banner dismiss:', error);
+  }
+};
+
+export const wasBalanceBannerDismissedToday = async (): Promise<boolean> => {
+  try {
+    const v = await AsyncStorage.getItem(BALANCE_BANNER_DISMISS_KEY);
+    return v === new Date().toISOString().slice(0, 10);
+  } catch {
+    return false;
+  }
+};
+
 // Seed test data (for development/testing)
 export const seedTestData = async (
   transactions: Transaction[],

@@ -13,6 +13,9 @@ import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useFinance } from '@/context/FinanceContext';
 import { useGamification } from '@/context/GamificationContext';
 import { useTheme } from '@/context/ThemeContext';
+import { useBankAccounts } from '@/context/BankAccountsContext';
+import { StaleBalanceBanner } from '@/components/StaleBalanceBanner';
+import { setBalanceBannerDismissedToday, wasBalanceBannerDismissedToday } from '@/utils/storage';
 import { ProgressRing } from '@/components/ProgressRing';
 import { PieChart, PieSlice } from '@/components/PieChart';
 import { GlassCard } from '@/components/ui/GlassCard';
@@ -42,9 +45,23 @@ export default function DashboardScreen() {
   const { transactions, goals, recurringExpenses, customCategories } = useFinance();
   const { progress } = useGamification();
   const { theme, themeMode } = useTheme();
+  const { getStaleAccounts } = useBankAccounts();
   const [refreshing, setRefreshing] = useState(false);
   const [selectedSliceId, setSelectedSliceId] = useState<string | null>(null);
-  
+  const [bannerDismissed, setBannerDismissed] = useState(true); // start hidden; async check below
+
+  useEffect(() => {
+    wasBalanceBannerDismissedToday().then(dismissed => setBannerDismissed(dismissed));
+  }, []);
+
+  const staleAccounts = getStaleAccounts(14);
+  const showBanner = !bannerDismissed && staleAccounts.length > 0;
+
+  const handleBannerDismiss = async () => {
+    setBannerDismissed(true);
+    await setBalanceBannerDismissedToday();
+  };
+
   const buttonTextColor = themeMode === 'dark' ? '#000505' : theme.text;
 
   const monthlyTransactions = getCombinedTransactionsByPeriod(transactions, recurringExpenses, 'month');
@@ -236,6 +253,17 @@ export default function DashboardScreen() {
             <Icon name="settings-outline" size={22} color={theme.textSecondary} />
           </TouchableOpacity>
         </View>
+
+        {showBanner && (
+          <StaleBalanceBanner
+            staleCount={staleAccounts.length}
+            onReview={() => {
+              handleBannerDismiss();
+              router.push('/(tabs)/profile');
+            }}
+            onDismiss={handleBannerDismiss}
+          />
+        )}
 
         {hasGoals ? (
           <>

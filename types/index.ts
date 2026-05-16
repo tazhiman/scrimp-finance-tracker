@@ -96,4 +96,5 @@ export interface BankAccount {
   id: string;
   name: string;
   balance: number;
+  lastUpdated?: string; // ISO date-time; set only on explicit user confirm/edit
 }

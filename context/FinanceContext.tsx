@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import { Transaction, SavingsGoal, RecurringExpense, Category } from '@/types';
+import { useBankAccounts } from '@/context/BankAccountsContext';
 import {
   loadTransactions,
   saveTransactions,
@@ -46,6 +47,10 @@ interface FinanceContextType {
 
 const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
 
+/** Returns the signed amount a transaction contributes to an account balance. */
+const signedAmount = (t: Pick<Transaction, 'type' | 'amount'>): number =>
+  t.type === 'income' ? t.amount : -t.amount;
+
 export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [goals, setGoals] = useState<SavingsGoal[]>([]);
@@ -54,6 +59,7 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [loading, setLoading] = useState(true);
   const appState = useRef<AppStateStatus>(AppState.currentState);
   const isSyncingPending = useRef(false);
+  const { applyTransactionDelta } = useBankAccounts();
 
   // Load data on mount
   useEffect(() => {
@@ -118,7 +124,10 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
         let newTxs: Transaction[] = [];
         setTransactions(prev => {
           const existingIds = new Set(prev.map(t => t.id));
-          newTxs = resolvedPending
+          // Note: pendingTransactionToTransaction produces no accountId/cardId
+        // (the iOS Shortcut intent payload does not include them), so account
+        // balances are not mutated here. Users must reconcile via Profile.
+        newTxs = resolvedPending
             .filter(p => !existingIds.has(p.id))
             .map(pendingTransactionToTransaction);
           return newTxs.length > 0 ? [...prev, ...newTxs] : prev;
@@ -253,6 +262,11 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
       setMerchantCategory(merchantKey, newTransaction.category).catch(console.error);
     }
 
+    // Update bank account balance if transaction is linked to an account
+    if (newTransaction.accountId) {
+      applyTransactionDelta(newTransaction.accountId, signedAmount(newTransaction)).catch(console.error);
+    }
+
     // Update card spending if transaction is linked to a card
     if (newTransaction.cardId && newTransaction.type === 'expense') {
       try {
@@ -287,13 +301,37 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const updateTransaction = (id: string, updates: Partial<Transaction>) => {
     const DEFAULT_CATEGORIES = new Set(['other', 'uncategorized']);
+    const prev = transactions.find(t => t.id === id);
+
     if (updates.category && !DEFAULT_CATEGORIES.has(updates.category)) {
-      const existing = transactions.find(t => t.id === id);
-      const nextMerchant = updates.merchant !== undefined ? updates.merchant : existing?.merchant;
-      const nextDescription = updates.description !== undefined ? updates.description : existing?.description;
+      const nextMerchant = updates.merchant !== undefined ? updates.merchant : prev?.merchant;
+      const nextDescription = updates.description !== undefined ? updates.description : prev?.description;
       const learnKey = (nextMerchant || nextDescription || '').trim();
       if (learnKey) {
         setMerchantCategory(learnKey, updates.category).catch(console.error);
+      }
+    }
+
+    // Apply bank account balance diff for the old and new states
+    if (prev) {
+      const next = { ...prev, ...updates };
+      const prevAccountId = prev.accountId;
+      const nextAccountId = next.accountId;
+
+      if (prevAccountId && prevAccountId === nextAccountId) {
+        // Same account: apply net delta
+        const delta = signedAmount(next) - signedAmount(prev);
+        if (delta !== 0) {
+          applyTransactionDelta(prevAccountId, delta).catch(console.error);
+        }
+      } else {
+        // Account changed (or was added/removed): reverse old, apply new
+        if (prevAccountId) {
+          applyTransactionDelta(prevAccountId, -signedAmount(prev)).catch(console.error);
+        }
+        if (nextAccountId) {
+          applyTransactionDelta(nextAccountId, signedAmount(next)).catch(console.error);
+        }
       }
     }
 
@@ -303,6 +341,11 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   const deleteTransaction = (id: string) => {
+    const target = transactions.find(t => t.id === id);
+    if (target?.accountId) {
+      // Reverse the transaction's effect on the account balance
+      applyTransactionDelta(target.accountId, -signedAmount(target)).catch(console.error);
+    }
     setTransactions(prev => prev.filter(t => t.id !== id));
   };
 

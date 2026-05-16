@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -11,12 +11,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
-import { useFocusEffect } from 'expo-router';
 import { useFinance } from '@/context/FinanceContext';
 import { useTheme } from '@/context/ThemeContext';
+import { useBankAccounts } from '@/context/BankAccountsContext';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { Spacing, Radius, Shadow } from '@/constants/design';
-import { formatCurrency } from '@/utils/dateHelpers';
+import { formatCurrency, formatRelativeTime, daysSince } from '@/utils/dateHelpers';
 import { Icon } from '@/components/ui/Icon';
 import { BankAvatar } from '@/components/ui/BankAvatar';
 import {
@@ -25,30 +25,22 @@ import {
   calculateTotalSavedInGoals,
 } from '@/utils/calculations';
 import { BankAccount } from '@/types';
-import { loadBankAccounts, saveBankAccounts } from '@/utils/onboarding';
+
+const STALE_THRESHOLD_DAYS = 14;
 
 export default function ProfileScreen() {
   const { transactions, goals } = useFinance();
   const { theme, themeMode } = useTheme();
   const tabBarHeight = useBottomTabBarHeight();
+  const { accounts, addAccount, updateAccount, deleteAccount, confirmBalance } = useBankAccounts();
 
   const buttonTextColor = themeMode === 'dark' ? '#000505' : theme.text;
 
-  const [accounts, setAccounts] = useState<BankAccount[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [accountModalVisible, setAccountModalVisible] = useState(false);
   const [editingAccount, setEditingAccount] = useState<BankAccount | null>(null);
   const [accountName, setAccountName] = useState('');
   const [accountBalance, setAccountBalance] = useState('');
-
-  useFocusEffect(
-    useCallback(() => {
-      (async () => {
-        const loaded = await loadBankAccounts();
-        setAccounts(loaded);
-      })();
-    }, [])
-  );
 
   const totalBalance = accounts.reduce((sum, a) => sum + a.balance, 0);
 
@@ -78,22 +70,12 @@ export default function ProfileScreen() {
       return;
     }
 
-    let updated: BankAccount[];
     if (editingAccount) {
-      updated = accounts.map(a =>
-        a.id === editingAccount.id ? { ...a, name, balance } : a
-      );
+      await updateAccount(editingAccount.id, { name, balance });
     } else {
-      const newAccount: BankAccount = {
-        id: Date.now().toString(),
-        name,
-        balance,
-      };
-      updated = [...accounts, newAccount];
+      await addAccount(name, balance);
     }
 
-    await saveBankAccounts(updated);
-    setAccounts(updated);
     setAccountModalVisible(false);
     setEditingAccount(null);
   };
@@ -108,15 +90,20 @@ export default function ProfileScreen() {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
-            const updated = accounts.filter(a => a.id !== account.id);
-            await saveBankAccounts(updated);
-            setAccounts(updated);
-            if (updated.length === 0) setIsEditing(false);
+            await deleteAccount(account.id);
+            if (accounts.length <= 1) setIsEditing(false);
           },
         },
       ]
     );
   };
+
+  const handleConfirmBalance = async (account: BankAccount) => {
+    await confirmBalance(account.id);
+  };
+
+  const isStale = (account: BankAccount) =>
+    !account.lastUpdated || daysSince(account.lastUpdated) > STALE_THRESHOLD_DAYS;
 
   const totalIncome = calculateTotalIncome(transactions);
   const totalExpenses = calculateTotalExpenses(transactions);
@@ -158,42 +145,71 @@ export default function ProfileScreen() {
             <Text style={[styles.totalValue, { color: theme.text }]}>
               {formatCurrency(totalBalance)}
             </Text>
+            <Text style={[styles.totalHint, { color: theme.textTertiary }]}>
+              Tap a row to edit · tap the checkmark to confirm
+            </Text>
           </View>
 
           {accounts.length > 0 && (
             <View style={[styles.accountList, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
-              {accounts.map((account, idx) => (
-                <React.Fragment key={account.id}>
-                  <TouchableOpacity
-                    style={styles.accountRow}
-                    onPress={() => isEditing ? openEditModal(account) : undefined}
-                    activeOpacity={isEditing ? 0.6 : 1}
-                    disabled={!isEditing}
-                  >
-                    {isEditing && (
+              {accounts.map((account, idx) => {
+                const stale = isStale(account);
+                return (
+                  <React.Fragment key={account.id}>
+                    <View style={styles.accountRow}>
+                      {isEditing && (
+                        <TouchableOpacity
+                          onPress={() => handleDeleteAccount(account)}
+                          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        >
+                          <Icon name="remove-circle" size={22} color={theme.secondary} />
+                        </TouchableOpacity>
+                      )}
+                      <BankAvatar name={account.name} size={34} />
                       <TouchableOpacity
-                        onPress={() => handleDeleteAccount(account)}
-                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        style={styles.accountInfo}
+                        onPress={() => openEditModal(account)}
+                        activeOpacity={0.6}
                       >
-                        <Icon name="remove-circle" size={22} color={theme.secondary} />
+                        <Text style={[styles.accountName, { color: theme.text }]} numberOfLines={1}>
+                          {account.name}
+                        </Text>
+                        <View style={styles.stalenessRow}>
+                          <Text style={[styles.lastUpdatedText, { color: theme.textTertiary }]}>
+                            {formatRelativeTime(account.lastUpdated)}
+                          </Text>
+                          {stale && (
+                            <View style={[styles.stalePill, { backgroundColor: theme.warningOrange + '28' }]}>
+                              <Text style={[styles.stalePillText, { color: theme.warningOrange }]}>Stale</Text>
+                            </View>
+                          )}
+                        </View>
                       </TouchableOpacity>
+                      <Text style={[styles.accountBalance, { color: theme.text }]}>
+                        {formatCurrency(account.balance)}
+                      </Text>
+                      {/* One-tap confirm button */}
+                      <TouchableOpacity
+                        onPress={() => handleConfirmBalance(account)}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        style={[
+                          styles.confirmBtn,
+                          { backgroundColor: stale ? theme.warningOrange + '22' : theme.primary + '18' },
+                        ]}
+                      >
+                        <Icon
+                          name="checkmark-circle"
+                          size={22}
+                          color={stale ? theme.warningOrange : theme.primary}
+                        />
+                      </TouchableOpacity>
+                    </View>
+                    {idx < accounts.length - 1 && (
+                      <View style={[styles.separator, { backgroundColor: theme.cardBorder }]} />
                     )}
-                    <BankAvatar name={account.name} size={34} />
-                    <Text style={[styles.accountName, { color: theme.text }]} numberOfLines={1}>
-                      {account.name}
-                    </Text>
-                    <Text style={[styles.accountBalance, { color: theme.text }]}>
-                      {formatCurrency(account.balance)}
-                    </Text>
-                    {isEditing && (
-                      <Icon name="chevron-forward" size={16} color={theme.textTertiary} />
-                    )}
-                  </TouchableOpacity>
-                  {idx < accounts.length - 1 && (
-                    <View style={[styles.separator, { backgroundColor: theme.cardBorder }]} />
-                  )}
-                </React.Fragment>
-              ))}
+                  </React.Fragment>
+                );
+              })}
             </View>
           )}
 
@@ -276,6 +292,10 @@ export default function ProfileScreen() {
               autoFocus={!!editingAccount}
             />
 
+            <Text style={[styles.balanceHint, { color: theme.textTertiary }]}>
+              Saving a new balance marks it as confirmed and resets the staleness timer.
+            </Text>
+
             <TouchableOpacity
               style={[styles.saveBtn, { backgroundColor: theme.primary }, Shadow.medium]}
               onPress={handleSaveAccount}
@@ -354,6 +374,10 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: -0.5,
   },
+  totalHint: {
+    fontSize: 11,
+    marginTop: Spacing.sm,
+  },
 
   accountList: {
     borderRadius: Radius.lg,
@@ -368,14 +392,40 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.lg,
     gap: Spacing.md,
   },
-  accountName: {
+  accountInfo: {
     flex: 1,
+    minWidth: 0,
+  },
+  accountName: {
     fontSize: 16,
     fontWeight: '500',
+  },
+  stalenessRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginTop: 2,
+  },
+  lastUpdatedText: {
+    fontSize: 11,
+  },
+  stalePill: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: Radius.full,
+  },
+  stalePillText: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
   accountBalance: {
     fontSize: 16,
     fontWeight: '600',
+  },
+  confirmBtn: {
+    borderRadius: Radius.full,
+    padding: 4,
   },
   separator: {
     height: StyleSheet.hairlineWidth,
@@ -478,6 +528,11 @@ const styles = StyleSheet.create({
     padding: Spacing.xl,
     fontSize: 16,
     borderWidth: 1,
+  },
+  balanceHint: {
+    fontSize: 12,
+    marginTop: Spacing.md,
+    lineHeight: 16,
   },
   saveBtn: {
     paddingVertical: Spacing.xl,

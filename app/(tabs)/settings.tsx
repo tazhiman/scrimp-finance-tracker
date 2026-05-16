@@ -26,6 +26,8 @@ import {
   scheduleGoalNotifications,
   cancelAllNotifications,
   sendTestNotification,
+  scheduleBalanceReconciliationNotification,
+  cancelBalanceReconciliationNotification,
 } from '@/utils/notifications';
 import { UserCard } from '@/types';
 import { loadRewardsData } from '@/utils/cardEngine';
@@ -70,14 +72,12 @@ export default function SettingsScreen() {
       await saveNotificationSettings(value);
 
       if (value) {
-        // Schedule notifications for goals
         await scheduleGoalNotifications(goals);
-        // Send test notification
+        await scheduleBalanceReconciliationNotification();
         await sendTestNotification();
       } else {
-        // Cancel all notifications
         await cancelAllNotifications();
-        Alert.alert('Notifications Disabled', 'You will no longer receive goal reminders.');
+        Alert.alert('Notifications Disabled', 'You will no longer receive reminders.');
       }
     } catch (error) {
       console.error('Error toggling notifications:', error);
