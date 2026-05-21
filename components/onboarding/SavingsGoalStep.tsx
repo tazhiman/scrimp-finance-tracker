@@ -26,18 +26,25 @@ export interface GoalFormData {
 }
 
 interface SavingsGoalStepProps {
+  initialValues?: GoalFormData;
   onNext: (data: GoalFormData) => void;
   onBack?: () => void;
 }
 
-export function SavingsGoalStep({ onNext, onBack }: SavingsGoalStepProps) {
+export function SavingsGoalStep({ initialValues, onNext, onBack }: SavingsGoalStepProps) {
   const { theme, themeMode } = useTheme();
   const buttonTextColor = themeMode === 'dark' ? '#000505' : '#FEFCFD';
 
-  const [name, setName] = useState('');
-  const [targetAmount, setTargetAmount] = useState('');
-  const [contributionAmount, setContributionAmount] = useState('');
-  const [frequency, setFrequency] = useState<ContributionFrequency>('monthly');
+  const [name, setName] = useState(initialValues?.name ?? '');
+  const [targetAmount, setTargetAmount] = useState(
+    initialValues ? String(initialValues.targetAmount) : ''
+  );
+  const [contributionAmount, setContributionAmount] = useState(
+    initialValues ? String(initialValues.contributionAmount) : ''
+  );
+  const [frequency, setFrequency] = useState<ContributionFrequency>(
+    initialValues?.frequency ?? 'monthly'
+  );
 
   const handleNext = () => {
     const trimmedName = name.trim();

@@ -25,17 +25,22 @@ export interface LinkAccountResult {
 
 interface LinkAccountStepProps {
   goalName: string;
+  initialValues?: LinkAccountResult;
   onNext: (result: LinkAccountResult) => void;
   onBack?: () => void;
 }
 
-export function LinkAccountStep({ goalName, onNext, onBack }: LinkAccountStepProps) {
+export function LinkAccountStep({ goalName, initialValues, onNext, onBack }: LinkAccountStepProps) {
   const { theme, themeMode } = useTheme();
   const buttonTextColor = themeMode === 'dark' ? '#000505' : '#FEFCFD';
 
-  const [accountName, setAccountName] = useState('');
-  const [balance, setBalance] = useState('');
-  const [existingSavings, setExistingSavings] = useState('0');
+  const [accountName, setAccountName] = useState(initialValues?.account.name ?? '');
+  const [balance, setBalance] = useState(
+    initialValues != null ? String(initialValues.account.balance) : ''
+  );
+  const [existingSavings, setExistingSavings] = useState(
+    initialValues != null ? String(initialValues.existingSavings) : '0'
+  );
 
   const handleNext = () => {
     const trimmedName = accountName.trim();
@@ -56,7 +61,7 @@ export function LinkAccountStep({ goalName, onNext, onBack }: LinkAccountStepPro
 
     onNext({
       account: {
-        id: `acct-${Date.now()}`,
+        id: initialValues?.account.id ?? `acct-${Date.now()}`,
         name: trimmedName,
         balance: bal,
       },

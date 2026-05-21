@@ -20,11 +20,13 @@ import { CardSelectionStep, AccountType } from './CardSelectionStep';
 import { CreditCardSetupStep } from './CreditCardSetupStep';
 import { BankAccountStep } from './BankAccountStep';
 import { ShortcutsGuideStep } from './ShortcutsGuideStep';
+import { SalaryStep, SalaryFormData } from './SalaryStep';
 
 type Step =
   | 'welcome'
   | 'savings_goal'
   | 'link_account'
+  | 'add_salary'
   | 'account_type'
   | 'credit_card_setup'
   | 'bank_account_setup'
@@ -34,17 +36,30 @@ interface OnboardingFlowProps {
   onComplete: () => void;
 }
 
+function dedupeBankAccounts(accounts: BankAccount[]): BankAccount[] {
+  const byId = new Map<string, BankAccount>();
+  for (const account of accounts) {
+    byId.set(account.id, account);
+  }
+  return Array.from(byId.values());
+}
+
 export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const { theme } = useTheme();
-  const { addGoal } = useFinance();
+  const { addGoal, addRecurringExpense } = useFinance();
   const [currentStep, setCurrentStep] = useState<Step>('welcome');
   const [firstChoice, setFirstChoice] = useState<AccountType | null>(null);
   const [didCreditCards, setDidCreditCards] = useState(false);
   const [didBankAccounts, setDidBankAccounts] = useState(false);
   const [goalData, setGoalData] = useState<GoalFormData | null>(null);
-  const [linkedAccount, setLinkedAccount] = useState<BankAccount | null>(null);
+  const [linkAccountResult, setLinkAccountResult] = useState<LinkAccountResult | null>(null);
+  const [salaryData, setSalaryData] = useState<SalaryFormData | null>(null);
+  const [creditCards, setCreditCards] = useState<UserCard[] | null>(null);
+  const [extraBankAccounts, setExtraBankAccounts] = useState<BankAccount[] | null>(null);
   const [history, setHistory] = useState<Step[]>([]);
   const fadeAnim = useRef(new Animated.Value(1)).current;
+
+  const linkedAccount = linkAccountResult?.account ?? null;
 
   const transitionTo = useCallback((nextStep: Step) => {
     setHistory(prev => [...prev, currentStep]);
@@ -80,7 +95,57 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     });
   }, [fadeAnim, history]);
 
+  const commitOnboardingData = async () => {
+    const today = new Date().toISOString().split('T')[0];
+
+    if (goalData && linkAccountResult) {
+      const { existingSavings } = linkAccountResult;
+      addGoal({
+        name: goalData.name,
+        targetAmount: goalData.targetAmount,
+        currentAmount: existingSavings,
+        contributionAmount: goalData.contributionAmount,
+        frequency: goalData.frequency,
+        startDate: today,
+        contributions:
+          existingSavings > 0
+            ? [{ date: today, amount: existingSavings }]
+            : [],
+      });
+    }
+
+    if (salaryData) {
+      addRecurringExpense({
+        kind: 'recurring',
+        title: salaryData.title,
+        amount: salaryData.amount,
+        category: 'salary',
+        transactionType: 'income',
+        startDate: salaryData.startDate,
+        frequency: salaryData.frequency,
+        createdAt: new Date().toISOString(),
+      });
+    }
+
+    const bankAccounts: BankAccount[] = [];
+    if (linkAccountResult) {
+      bankAccounts.push(linkAccountResult.account);
+    }
+    if (extraBankAccounts?.length) {
+      bankAccounts.push(...extraBankAccounts);
+    }
+    const deduped = dedupeBankAccounts(bankAccounts);
+    if (deduped.length > 0) {
+      await saveBankAccounts(deduped);
+    }
+
+    if (creditCards && creditCards.length > 0) {
+      await saveUserCards(creditCards);
+    }
+  };
+
   const finish = async () => {
+    await commitOnboardingData();
     await completeOnboarding();
     onComplete();
   };
@@ -90,24 +155,19 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     transitionTo('link_account');
   };
 
-  const handleAccountLinked = async (result: LinkAccountResult) => {
+  const handleAccountLinked = (result: LinkAccountResult) => {
     if (!goalData) return;
+    setLinkAccountResult(result);
+    transitionTo('add_salary');
+  };
 
-    setLinkedAccount(result.account);
+  const handleSalaryDone = (data: SalaryFormData) => {
+    setSalaryData(data);
+    transitionTo('account_type');
+  };
 
-    addGoal({
-      name: goalData.name,
-      targetAmount: goalData.targetAmount,
-      currentAmount: result.existingSavings,
-      contributionAmount: goalData.contributionAmount,
-      frequency: goalData.frequency,
-      startDate: new Date().toISOString().split('T')[0],
-      contributions: result.existingSavings > 0
-        ? [{ date: new Date().toISOString().split('T')[0], amount: result.existingSavings }]
-        : [],
-    });
-
-    await saveBankAccounts([result.account]);
+  const handleSkipSalary = () => {
+    setSalaryData(null);
     transitionTo('account_type');
   };
 
@@ -120,10 +180,8 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     }
   };
 
-  const handleCreditCardsDone = async (cards: UserCard[]) => {
-    if (cards.length > 0) {
-      await saveUserCards(cards);
-    }
+  const handleCreditCardsDone = (cards: UserCard[]) => {
+    setCreditCards(cards);
     setDidCreditCards(true);
     if (!didBankAccounts && firstChoice === 'credit_card') {
       transitionTo('bank_account_setup');
@@ -132,12 +190,8 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     }
   };
 
-  const handleBankAccountsDone = async (accounts: BankAccount[]) => {
-    const existingAccounts = linkedAccount ? [linkedAccount] : [];
-    const merged = [...existingAccounts, ...accounts];
-    if (merged.length > 0) {
-      await saveBankAccounts(merged);
-    }
+  const handleBankAccountsDone = (accounts: BankAccount[]) => {
+    setExtraBankAccounts(accounts);
     setDidBankAccounts(true);
     if (!didCreditCards && firstChoice === 'bank_account') {
       transitionTo('credit_card_setup');
@@ -151,6 +205,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   };
 
   const handleSkipCreditCards = () => {
+    setCreditCards([]);
     setDidCreditCards(true);
     if (!didBankAccounts && firstChoice === 'credit_card') {
       transitionTo('bank_account_setup');
@@ -160,6 +215,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   };
 
   const handleSkipBankAccounts = () => {
+    setExtraBankAccounts([]);
     setDidBankAccounts(true);
     if (!didCreditCards && firstChoice === 'bank_account') {
       transitionTo('credit_card_setup');
@@ -168,7 +224,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     }
   };
 
-  const stepOrder: Step[] = ['welcome', 'savings_goal', 'link_account', 'account_type'];
+  const stepOrder: Step[] = ['welcome', 'savings_goal', 'link_account', 'add_salary', 'account_type'];
   if (firstChoice === 'credit_card') {
     stepOrder.push('credit_card_setup', 'bank_account_setup');
   } else if (firstChoice === 'bank_account') {
@@ -188,6 +244,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       case 'savings_goal':
         return (
           <SavingsGoalStep
+            initialValues={goalData ?? undefined}
             onNext={handleGoalCreated}
             onBack={canGoBack ? goBack : undefined}
           />
@@ -196,7 +253,18 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         return (
           <LinkAccountStep
             goalName={goalData?.name ?? ''}
+            initialValues={linkAccountResult ?? undefined}
             onNext={handleAccountLinked}
+            onBack={canGoBack ? goBack : undefined}
+          />
+        );
+      case 'add_salary':
+        return (
+          <SalaryStep
+            linkedAccountName={linkedAccount?.name}
+            initialValues={salaryData ?? undefined}
+            onNext={handleSalaryDone}
+            onSkip={handleSkipSalary}
             onBack={canGoBack ? goBack : undefined}
           />
         );
@@ -211,6 +279,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       case 'credit_card_setup':
         return (
           <CreditCardSetupStep
+            initialCards={creditCards ?? undefined}
             onNext={handleCreditCardsDone}
             onSkip={handleSkipCreditCards}
             onBack={canGoBack ? goBack : undefined}
@@ -219,6 +288,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       case 'bank_account_setup':
         return (
           <BankAccountStep
+            initialAccounts={extraBankAccounts ?? undefined}
             onNext={handleBankAccountsDone}
             onSkip={handleSkipBankAccounts}
             onBack={canGoBack ? goBack : undefined}

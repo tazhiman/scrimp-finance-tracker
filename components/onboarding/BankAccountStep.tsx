@@ -16,17 +16,29 @@ import { BankAccount } from '@/types';
 
 const { width } = Dimensions.get('window');
 
+type BankAccountFormRow = { id: string; name: string; balance: string };
+
+const toFormRows = (initialAccounts?: BankAccount[]): BankAccountFormRow[] => {
+  if (initialAccounts && initialAccounts.length > 0) {
+    return initialAccounts.map(a => ({
+      id: a.id,
+      name: a.name,
+      balance: String(a.balance),
+    }));
+  }
+  return [{ id: `acct-${Date.now()}`, name: '', balance: '' }];
+};
+
 interface BankAccountStepProps {
+  initialAccounts?: BankAccount[];
   onNext: (accounts: BankAccount[]) => void;
   onSkip: () => void;
   onBack?: () => void;
 }
 
-export function BankAccountStep({ onNext, onSkip, onBack }: BankAccountStepProps) {
+export function BankAccountStep({ initialAccounts, onNext, onSkip, onBack }: BankAccountStepProps) {
   const { theme, themeMode } = useTheme();
-  const [accounts, setAccounts] = useState<{ id: string; name: string; balance: string }[]>([
-    { id: `acct-${Date.now()}`, name: '', balance: '' },
-  ]);
+  const [accounts, setAccounts] = useState<BankAccountFormRow[]>(() => toFormRows(initialAccounts));
 
   const buttonTextColor = themeMode === 'dark' ? '#000505' : '#FEFCFD';
 

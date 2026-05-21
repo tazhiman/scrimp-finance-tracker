@@ -213,9 +213,12 @@ export default function TransactionsScreen() {
 
   const sortedPeriodTransactions = useMemo(
     () =>
-      [...periodTransactions].sort(
-        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-      ),
+      [...periodTransactions].sort((a, b) => {
+        const dateDiff = new Date(b.date).getTime() - new Date(a.date).getTime();
+        if (dateDiff !== 0) return dateDiff;
+        // Within the same date, most recently logged transaction first
+        return new Date(b.createdAt ?? b.date).getTime() - new Date(a.createdAt ?? a.date).getTime();
+      }),
     [periodTransactions]
   );
 
@@ -407,9 +410,10 @@ export default function TransactionsScreen() {
           selectedPeriod={selectedPeriod}
           onPeriodChange={(p) => {
             setSelectedPeriod(p);
-            if (p === 'month' && showCalendar) {
+            if (p === 'month') {
+              setReferenceDate(new Date());
               setShowCalendar(false);
-            } else if (p !== 'month') {
+            } else {
               setShowCalendar(false);
             }
           }}

@@ -75,17 +75,6 @@ struct LogTransactionIntent: AppIntent {
   private static let pendingKey = "pendingTransactions"
 
   func perform() async throws -> some IntentResult & ProvidesDialog {
-    let debugContent = UNMutableNotificationContent()
-    debugContent.title = "Shortcut Triggered"
-    debugContent.body = "Amount: \(amount), Merchant: \(merchant)"
-    debugContent.sound = .default
-    let debugReq = UNNotificationRequest(
-      identifier: "debug-\(UUID().uuidString)",
-      content: debugContent,
-      trigger: nil
-    )
-    try? await UNUserNotificationCenter.current().add(debugReq)
-
     guard amount > 0 else {
       let errContent = UNMutableNotificationContent()
       errContent.title = "Transaction Failed"

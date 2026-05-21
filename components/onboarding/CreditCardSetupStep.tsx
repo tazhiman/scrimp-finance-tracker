@@ -24,17 +24,33 @@ interface SelectedCardData {
   brandColor?: string;
 }
 
+const buildInitialSelection = (initialCards?: UserCard[]): Map<string, SelectedCardData> => {
+  const map = new Map<string, SelectedCardData>();
+  if (!initialCards?.length) return map;
+  for (const card of initialCards) {
+    map.set(card.id, {
+      id: card.id,
+      name: card.name,
+      currentSpend: card.currentSpend,
+    });
+  }
+  return map;
+};
+
 interface CreditCardSetupStepProps {
+  initialCards?: UserCard[];
   onNext: (cards: UserCard[]) => void;
   onSkip: () => void;
   onBack?: () => void;
 }
 
-export function CreditCardSetupStep({ onNext, onSkip, onBack }: CreditCardSetupStepProps) {
+export function CreditCardSetupStep({ initialCards, onNext, onSkip, onBack }: CreditCardSetupStepProps) {
   const { theme, themeMode } = useTheme();
   const [availableCards, setAvailableCards] = useState<any[]>([]);
   const [cardImages, setCardImages] = useState<Record<string, string | null>>({});
-  const [selectedCards, setSelectedCards] = useState<Map<string, SelectedCardData>>(new Map());
+  const [selectedCards, setSelectedCards] = useState<Map<string, SelectedCardData>>(() =>
+    buildInitialSelection(initialCards)
+  );
   const [editingSpend, setEditingSpend] = useState<string | null>(null);
 
   const buttonTextColor = themeMode === 'dark' ? '#000505' : '#FEFCFD';
@@ -43,6 +59,21 @@ export function CreditCardSetupStep({ onNext, onSkip, onBack }: CreditCardSetupS
     const cards = getAllCards();
     setAvailableCards(cards);
     loadImages(cards);
+    if (initialCards?.length) {
+      setSelectedCards(prev => {
+        const next = new Map(prev);
+        for (const card of initialCards) {
+          const catalog = cards.find((c: { id: string }) => c.id === card.id);
+          next.set(card.id, {
+            id: card.id,
+            name: card.name,
+            currentSpend: card.currentSpend,
+            brandColor: catalog?.brandColor,
+          });
+        }
+        return next;
+      });
+    }
   }, []);
 
   const loadImages = async (cards: any[]) => {
