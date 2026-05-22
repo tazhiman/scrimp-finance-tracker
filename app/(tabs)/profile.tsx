@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
+import { useFocusEffect } from 'expo-router';
 import {
   View,
   Text,
@@ -32,7 +33,14 @@ export default function ProfileScreen() {
   const { transactions, goals } = useFinance();
   const { theme, themeMode } = useTheme();
   const tabBarHeight = useBottomTabBarHeight();
-  const { accounts, addAccount, updateAccount, deleteAccount, confirmBalance } = useBankAccounts();
+  const { accounts, reloadAccounts, addAccount, updateAccount, deleteAccount, confirmBalance } =
+    useBankAccounts();
+
+  useFocusEffect(
+    useCallback(() => {
+      reloadAccounts();
+    }, [reloadAccounts])
+  );
 
   const buttonTextColor = themeMode === 'dark' ? '#000505' : theme.text;
 

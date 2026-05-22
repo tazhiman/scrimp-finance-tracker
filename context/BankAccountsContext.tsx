@@ -8,6 +8,8 @@ import { scheduleBalanceReconciliationNotification } from '@/utils/notifications
 interface BankAccountsContextType {
   accounts: BankAccount[];
   loading: boolean;
+  /** Reload accounts from storage (e.g. after onboarding commits linked accounts). */
+  reloadAccounts: () => Promise<void>;
   addAccount: (name: string, balance: number) => Promise<void>;
   updateAccount: (id: string, updates: { name?: string; balance?: number }) => Promise<void>;
   deleteAccount: (id: string) => Promise<void>;
@@ -29,26 +31,31 @@ export const BankAccountsProvider: React.FC<{ children: ReactNode }> = ({ childr
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const reloadAccounts = useCallback(async () => {
+    try {
+      const loaded = await loadBankAccounts();
+      setAccounts(loaded);
+      if (loaded.length > 0) {
+        const notifEnabled = await loadNotificationSettings();
+        if (notifEnabled) {
+          scheduleBalanceReconciliationNotification().catch(console.error);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading bank accounts:', error);
+    }
+  }, []);
+
   useEffect(() => {
     const init = async () => {
       try {
-        const loaded = await loadBankAccounts();
-        setAccounts(loaded);
-        // Schedule weekly balance reminder if user has accounts and notifications are on
-        if (loaded.length > 0) {
-          const notifEnabled = await loadNotificationSettings();
-          if (notifEnabled) {
-            scheduleBalanceReconciliationNotification().catch(console.error);
-          }
-        }
-      } catch (error) {
-        console.error('Error initialising bank accounts:', error);
+        await reloadAccounts();
       } finally {
         setLoading(false);
       }
     };
     init();
-  }, []);
+  }, [reloadAccounts]);
 
   // Persist whenever accounts change (after initial load)
   useEffect(() => {
@@ -119,6 +126,7 @@ export const BankAccountsProvider: React.FC<{ children: ReactNode }> = ({ childr
       value={{
         accounts,
         loading,
+        reloadAccounts,
         addAccount,
         updateAccount,
         deleteAccount,

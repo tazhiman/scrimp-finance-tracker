@@ -9,6 +9,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@/context/ThemeContext';
 import { useFinance } from '@/context/FinanceContext';
+import { useBankAccounts } from '@/context/BankAccountsContext';
 import { Spacing } from '@/constants/design';
 import { saveUserCards } from '@/utils/storage';
 import { saveBankAccounts, completeOnboarding } from '@/utils/onboarding';
@@ -48,6 +49,7 @@ function dedupeBankAccounts(accounts: BankAccount[]): BankAccount[] {
 export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const { theme } = useTheme();
   const { addGoal, addRecurringExpense } = useFinance();
+  const { reloadAccounts } = useBankAccounts();
   const [currentStep, setCurrentStep] = useState<Step>('welcome');
   const [firstChoice, setFirstChoice] = useState<AccountType | null>(null);
   const [didCreditCards, setDidCreditCards] = useState(false);
@@ -148,6 +150,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
 
   const finish = async () => {
     await commitOnboardingData();
+    await reloadAccounts();
     await completeOnboarding();
     onComplete();
   };
