@@ -160,35 +160,37 @@ export default function MonthlySpendingScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: Spacing['4xl'] }]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.monthRow}>
-          <TouchableOpacity
-            onPress={goPrev}
-            disabled={monthIndex <= 0}
-            style={[styles.monthNavBtn, monthIndex <= 0 && styles.monthNavDisabled]}
-            accessibilityRole="button"
-            accessibilityLabel="Previous month"
-          >
-            <Icon name="chevron-back" size={28} color={monthIndex <= 0 ? theme.textTertiary : theme.text} />
-          </TouchableOpacity>
-          <Text style={[styles.monthLabel, { color: theme.text }]}>{format(selectedMonth, 'MMMM yyyy')}</Text>
-          <TouchableOpacity
-            onPress={goNext}
-            disabled={monthIndex < 0 || monthIndex >= monthStarts.length - 1}
-            style={[
-              styles.monthNavBtn,
-              (monthIndex < 0 || monthIndex >= monthStarts.length - 1) && styles.monthNavDisabled,
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel="Next month"
-          >
-            <Icon
-              name="chevron-forward"
-              size={28}
-              color={
-                monthIndex < 0 || monthIndex >= monthStarts.length - 1 ? theme.textTertiary : theme.text
-              }
-            />
-          </TouchableOpacity>
+        <View style={styles.monthNavWrap}>
+          <View style={styles.monthCluster}>
+            <TouchableOpacity
+              onPress={goPrev}
+              disabled={monthIndex <= 0}
+              style={[styles.monthNavBtn, monthIndex <= 0 && styles.monthNavDisabled]}
+              accessibilityRole="button"
+              accessibilityLabel="Previous month"
+            >
+              <Icon name="chevron-back" size={22} color={monthIndex <= 0 ? theme.textTertiary : theme.text} />
+            </TouchableOpacity>
+            <Text style={[styles.monthLabel, { color: theme.text }]}>{format(selectedMonth, 'MMMM yyyy')}</Text>
+            <TouchableOpacity
+              onPress={goNext}
+              disabled={monthIndex < 0 || monthIndex >= monthStarts.length - 1}
+              style={[
+                styles.monthNavBtn,
+                (monthIndex < 0 || monthIndex >= monthStarts.length - 1) && styles.monthNavDisabled,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Next month"
+            >
+              <Icon
+                name="chevron-forward"
+                size={22}
+                color={
+                  monthIndex < 0 || monthIndex >= monthStarts.length - 1 ? theme.textTertiary : theme.text
+                }
+              />
+            </TouchableOpacity>
+          </View>
         </View>
 
         <GlassCard style={styles.card} intensity="subtle">
@@ -344,16 +346,23 @@ const styles = StyleSheet.create({
     padding: Spacing.xl,
     gap: Spacing.lg,
   },
-  monthRow: {
+  monthNavWrap: {
+    alignItems: 'center',
+    marginBottom: Spacing.sm,
+  },
+  monthCluster: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: Spacing.sm,
+    justifyContent: 'center',
+    gap: Spacing.sm + 4,
+    maxWidth: '100%',
   },
   monthNavBtn: {
     padding: Spacing.sm,
-    minWidth: 44,
+    minWidth: 40,
+    minHeight: 40,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   monthNavDisabled: {
     opacity: 0.4,
@@ -362,6 +371,11 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     letterSpacing: -0.3,
+    flexShrink: 1,
+    textAlign: 'center',
+    paddingHorizontal: Spacing.xs,
+    minWidth: 120,
+    maxWidth: 280,
   },
   card: {
     padding: Spacing.xl,

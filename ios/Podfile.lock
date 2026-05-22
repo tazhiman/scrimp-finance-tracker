@@ -3,7 +3,7 @@ PODS:
     - ExpoModulesCore
   - EXApplication (55.0.9):
     - ExpoModulesCore
-  - EXConstants (55.0.7):
+  - EXConstants (55.0.9):
     - ExpoModulesCore
   - EXJSONUtils (55.0.0)
   - EXManifests (55.0.9):
@@ -2508,7 +2508,7 @@ EXTERNAL SOURCES:
 SPEC CHECKSUMS:
   EASClient: 7eead1417d9970757ad2654d1eddee4de796d1ee
   EXApplication: 44f202420678bba77f603c373bd3fd033e6c21e9
-  EXConstants: b3c63be5f8648e4ab8e6ff5099b62f629247f969
+  EXConstants: 898c24a310046c0e68335619d0f379099a52e199
   EXJSONUtils: 0080c14b673cfa9a6be5e3fe429768ffe3d42dfb
   EXManifests: 2b53302deb6d7275ae26005b8014f5a1aee42a0e
   Expo: 9a502b466698a5e33c0ba6b749ef50d7f8a02477

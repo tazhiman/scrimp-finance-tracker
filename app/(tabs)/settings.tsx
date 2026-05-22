@@ -264,29 +264,31 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>CREDIT CARDS</Text>
-          
-          <View style={[styles.card, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
-            <TouchableOpacity
-              style={styles.option}
-              onPress={handleManageCards}
-              activeOpacity={0.7}
-            >
-              <View style={styles.optionLeft}>
-                <Icon name="card" size={24} color={theme.primary} />
-                <View>
-                  <Text style={[styles.optionText, { color: theme.text }]}>My Cards</Text>
-                  <Text style={[styles.optionSubtext, { color: theme.textSecondary }]}>
-                    {userCards.length === 0 ? 'Tap to add cards' : `${userCards.length} card${userCards.length === 1 ? '' : 's'} added`}
-                  </Text>
+        {ENV.enableCreditCards && (
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>CREDIT CARDS</Text>
+            
+            <View style={[styles.card, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
+              <TouchableOpacity
+                style={styles.option}
+                onPress={handleManageCards}
+                activeOpacity={0.7}
+              >
+                <View style={styles.optionLeft}>
+                  <Icon name="card" size={24} color={theme.primary} />
+                  <View>
+                    <Text style={[styles.optionText, { color: theme.text }]}>My Cards</Text>
+                    <Text style={[styles.optionSubtext, { color: theme.textSecondary }]}>
+                      {userCards.length === 0 ? 'Tap to add cards' : `${userCards.length} card${userCards.length === 1 ? '' : 's'} added`}
+                    </Text>
+                  </View>
                 </View>
-              </View>
-              <Icon name="chevron-forward" size={20} color={theme.textSecondary} />
-            </TouchableOpacity>
+                <Icon name="chevron-forward" size={20} color={theme.textSecondary} />
+              </TouchableOpacity>
 
+            </View>
           </View>
-        </View>
+        )}
 
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>NOTIFICATIONS</Text>

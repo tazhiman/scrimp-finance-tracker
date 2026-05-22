@@ -48,7 +48,8 @@ export interface RecurringExpense {
   kind: RecurringKind;
   title: string;
   amount: number; // per occurrence
-  category: string; // expense category id
+  category: string; // category id (expense or income)
+  transactionType?: TransactionType; // omit = expense for legacy rules
   startDate: string; // ISO date string (yyyy-mm-dd)
   frequency: RecurrenceFrequency;
   endDate?: string; // optional stop date

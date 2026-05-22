@@ -230,18 +230,23 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
       });
     }
 
-    if (type === 'expense' && !initialTransaction && scheduleMode !== 'one_time') {
+    if (!initialTransaction && scheduleMode !== 'one_time') {
       if (!onSubmitRecurring) {
-        Alert.alert('Error', 'Recurring expenses are not available here.');
+        Alert.alert('Error', 'Recurring plans are not available here.');
         return;
       }
-      const title = (planTitle || description || 'Recurring Expense').trim();
+      if (type === 'income' && scheduleMode === 'installment') {
+        Alert.alert('Error', 'Installments are only available for expenses.');
+        return;
+      }
+      const defaultTitle = type === 'income' ? 'Recurring Income' : 'Recurring Expense';
+      const title = (planTitle || description || defaultTitle).trim();
       if (!title) {
-        Alert.alert('Error', 'Please enter a name for this recurring expense');
+        Alert.alert('Error', `Please enter a name for this recurring ${type === 'income' ? 'income' : 'expense'}`);
         return;
       }
       let totalInstallments: number | undefined;
-      if (scheduleMode === 'installment') {
+      if (type === 'expense' && scheduleMode === 'installment') {
         const n = parseInt(installments, 10);
         if (!installments || isNaN(n) || n < 1) {
           Alert.alert('Error', 'Please enter a valid number of installments');
@@ -258,6 +263,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
         title,
         amount: amountNum,
         category: resolvedCategory,
+        transactionType: type,
         startDate: date.toISOString().split('T')[0],
         frequency: recurrenceFrequency,
         endDate: endDateEnabled ? endDate.toISOString().split('T')[0] : undefined,
@@ -329,6 +335,13 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
 
   const openAccountPicker = () => setShowAccountPicker(true);
 
+  const selectScheduleMode = (mode: ScheduleMode) => {
+    if (type === 'income' && mode === 'recurring' && !category) {
+      setCategory('salary');
+    }
+    setScheduleMode(mode);
+  };
+
   const step1Translate = slideAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [0, -SCREEN_WIDTH],
@@ -365,7 +378,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
             <View style={[styles.typeSelector, { backgroundColor: theme.backgroundSecondary }]}>
               <TouchableOpacity
                 style={[styles.typeButton, type === 'expense' && { backgroundColor: theme.secondary }]}
-                onPress={() => { setType('expense'); setCategory(''); setShowCustomInput(false); }}
+                onPress={() => { setType('expense'); setCategory(''); setShowCustomInput(false); setScheduleMode('one_time'); }}
               >
                 <Text style={[styles.typeButtonText, { color: type === 'expense' ? activeButtonTextColor : theme.textSecondary }]}>
                   Expense
@@ -373,7 +386,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.typeButton, type === 'income' && { backgroundColor: theme.primary }]}
-                onPress={() => { setType('income'); setCategory(''); setShowCustomInput(false); }}
+                onPress={() => { setType('income'); setCategory(''); setShowCustomInput(false); setScheduleMode('one_time'); }}
               >
                 <Text style={[styles.typeButtonText, { color: type === 'income' ? activeButtonTextColor : theme.textSecondary }]}>
                   Income
@@ -487,19 +500,19 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
                 <View style={[styles.scheduleSelector, { backgroundColor: theme.backgroundSecondary }]}>
                   <TouchableOpacity
                     style={[styles.scheduleButton, scheduleMode === 'one_time' && { backgroundColor: theme.backgroundTertiary }]}
-                    onPress={() => setScheduleMode('one_time')}
+                    onPress={() => selectScheduleMode('one_time')}
                   >
                     <Text style={[styles.scheduleButtonText, { color: theme.textSecondary }]}>One-time</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.scheduleButton, scheduleMode === 'recurring' && { backgroundColor: theme.primary }]}
-                    onPress={() => setScheduleMode('recurring')}
+                    onPress={() => selectScheduleMode('recurring')}
                   >
                     <Text style={[styles.scheduleButtonText, { color: scheduleMode === 'recurring' ? activeButtonTextColor : theme.textSecondary }]}>Recurring</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.scheduleButton, scheduleMode === 'installment' && { backgroundColor: theme.primary }]}
-                    onPress={() => setScheduleMode('installment')}
+                    onPress={() => selectScheduleMode('installment')}
                   >
                     <Text style={[styles.scheduleButtonText, { color: scheduleMode === 'installment' ? activeButtonTextColor : theme.textSecondary }]}>Installment</Text>
                   </TouchableOpacity>
@@ -575,6 +588,80 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
                           </View>
                         )}
                       </>
+                    )}
+                  </>
+                )}
+              </View>
+            )}
+
+            {type === 'income' && !initialTransaction && (
+              <View style={styles.section}>
+                <Text style={[styles.label, { color: theme.textSecondary }]}>Schedule</Text>
+                <View style={[styles.scheduleSelector, { backgroundColor: theme.backgroundSecondary }]}>
+                  <TouchableOpacity
+                    style={[styles.scheduleButton, scheduleMode === 'one_time' && { backgroundColor: theme.backgroundTertiary }]}
+                    onPress={() => selectScheduleMode('one_time')}
+                  >
+                    <Text style={[styles.scheduleButtonText, { color: theme.textSecondary }]}>One-time</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.scheduleButton, scheduleMode === 'recurring' && { backgroundColor: theme.primary }]}
+                    onPress={() => selectScheduleMode('recurring')}
+                  >
+                    <Text style={[styles.scheduleButtonText, { color: scheduleMode === 'recurring' ? activeButtonTextColor : theme.textSecondary }]}>Recurring</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {scheduleMode === 'recurring' && (
+                  <>
+                    <View style={styles.fieldSpacer} />
+                    <Text style={[styles.label, { color: theme.textSecondary }]}>Name</Text>
+                    <TextInput
+                      style={[styles.input, { backgroundColor: theme.inputBackground, borderColor: theme.inputBorder, color: theme.text }]}
+                      value={planTitle}
+                      onChangeText={setPlanTitle}
+                      placeholder="e.g. Monthly salary"
+                      placeholderTextColor={theme.textTertiary}
+                    />
+                    <View style={styles.fieldSpacer} />
+                    <Text style={[styles.label, { color: theme.textSecondary }]}>Frequency</Text>
+                    <View style={[styles.frequencySelector, { backgroundColor: theme.backgroundSecondary }]}>
+                      <TouchableOpacity
+                        style={[styles.frequencyButton, recurrenceFrequency === 'weekly' && { backgroundColor: theme.primary }]}
+                        onPress={() => setRecurrenceFrequency('weekly')}
+                      >
+                        <Text style={[styles.frequencyButtonText, { color: recurrenceFrequency === 'weekly' ? activeButtonTextColor : theme.textSecondary }]}>Weekly</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.frequencyButton, recurrenceFrequency === 'monthly' && { backgroundColor: theme.primary }]}
+                        onPress={() => setRecurrenceFrequency('monthly')}
+                      >
+                        <Text style={[styles.frequencyButtonText, { color: recurrenceFrequency === 'monthly' ? activeButtonTextColor : theme.textSecondary }]}>Monthly</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <View style={styles.fieldSpacer} />
+                    <TouchableOpacity style={styles.endDateToggle} onPress={() => setEndDateEnabled(v => !v)} activeOpacity={0.7}>
+                      <Icon name={endDateEnabled ? 'checkbox' : 'square-outline'} size={20} color={theme.textSecondary} />
+                      <Text style={[styles.endDateToggleText, { color: theme.textSecondary }]}>Set an end date (optional)</Text>
+                    </TouchableOpacity>
+                    {endDateEnabled && (
+                      <View style={styles.endDateContainer}>
+                        <Text style={[styles.label, { color: theme.textSecondary }]}>End Date</Text>
+                        {Platform.OS === 'web' ? (
+                          <View style={[styles.webDateContainer, { backgroundColor: theme.inputBackground, borderColor: theme.inputBorder }]}>
+                            <input
+                              type="date"
+                              value={endDate.toISOString().split('T')[0]}
+                              onChange={(e) => setEndDate(new Date(e.target.value))}
+                              style={{ backgroundColor: 'transparent', border: 'none', color: theme.text, fontSize: 16, fontFamily: 'inherit', width: '100%', outline: 'none', cursor: 'pointer' }}
+                            />
+                          </View>
+                        ) : (
+                          <View style={[styles.datePickerContainer, { backgroundColor: theme.inputBackground, borderColor: theme.inputBorder }]}>
+                            <DateTimePicker value={endDate} mode="date" display="default" onChange={(_, d) => d && setEndDate(d)} minimumDate={date} themeVariant={themeMode === 'dark' ? 'dark' : 'light'} />
+                          </View>
+                        )}
+                      </View>
                     )}
                   </>
                 )}

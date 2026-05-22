@@ -8,14 +8,17 @@ import {
   Dimensions,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
   Alert,
+  Modal,
+  Pressable,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { format } from 'date-fns';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '@/components/ui/Icon';
 import { useTheme } from '@/context/ThemeContext';
 import { RecurrenceFrequency } from '@/types';
-import { Shadow } from '@/constants/design';
+import { Spacing, Radius, Shadow } from '@/constants/design';
 
 const { width } = Dimensions.get('window');
 
@@ -46,8 +49,11 @@ interface SalaryStepProps {
   onBack?: () => void;
 }
 
+const FIELD_GAP = Spacing.md;
+
 export function SalaryStep({ linkedAccountName, initialValues, onNext, onSkip, onBack }: SalaryStepProps) {
   const { theme, themeMode } = useTheme();
+  const insets = useSafeAreaInsets();
   const buttonTextColor = themeMode === 'dark' ? '#000505' : '#FEFCFD';
 
   const [amount, setAmount] = useState(
@@ -60,6 +66,8 @@ export function SalaryStep({ linkedAccountName, initialValues, onNext, onSkip, o
   const [payDay, setPayDay] = useState<Date>(
     initialValues ? parsePayDay(initialValues.startDate) : defaultPayDay()
   );
+  const [iosPickerOpen, setIosPickerOpen] = useState(false);
+  const [androidPickerOpen, setAndroidPickerOpen] = useState(false);
 
   const handleNext = () => {
     const parsed = parseFloat(amount);
@@ -80,10 +88,24 @@ export function SalaryStep({ linkedAccountName, initialValues, onNext, onSkip, o
     });
   };
 
+  const openDatePicker = () => {
+    if (Platform.OS === 'android') {
+      setAndroidPickerOpen(true);
+    } else {
+      setIosPickerOpen(true);
+    }
+  };
+
+  const handleAndroidDateChange = (event: { type?: string }, date?: Date) => {
+    setAndroidPickerOpen(false);
+    if (event.type === 'set' && date) setPayDay(date);
+  };
+
   return (
     <KeyboardAvoidingView
       style={[styles.container, { width }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
     >
       <View style={styles.header}>
         {onBack ? (
@@ -98,116 +120,148 @@ export function SalaryStep({ linkedAccountName, initialValues, onNext, onSkip, o
         </TouchableOpacity>
       </View>
 
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        <View style={[styles.iconCircle, { backgroundColor: theme.primary + '20' }]}>
-          <Icon name="cash" size={36} color={theme.primary} />
+      {/* Single-screen layout — no ScrollView */}
+      <View style={styles.body}>
+        <View style={styles.hero}>
+          <View style={[styles.iconCircle, { backgroundColor: theme.primary + '20' }]}>
+            <Icon name="wallet-outline" size={36} color={theme.primary} />
+          </View>
+
+          <Text style={[styles.title, { color: theme.text }]}>Set Up Your Salary</Text>
+          <Text
+            style={[
+              styles.subtitle,
+              { color: theme.textSecondary },
+              linkedAccountName ? { marginBottom: Spacing.sm + 4 } : { marginBottom: Spacing['2xl'] + Spacing.sm },
+            ]}
+          >
+            Add your recurring income so we can estimate monthly budget and savings pace.
+          </Text>
+
+          {linkedAccountName ? (
+            <View
+              style={[
+                styles.accountBadge,
+                { backgroundColor: theme.primary + '14', borderColor: theme.primary + '30', marginBottom: Spacing.md + Spacing.sm },
+              ]}
+            >
+              <Icon name="wallet-outline" size={16} color={theme.primary} />
+              <Text style={[styles.accountBadgeText, { color: theme.primary }]} numberOfLines={1}>
+                {linkedAccountName}
+              </Text>
+            </View>
+          ) : null}
         </View>
 
-        <Text style={[styles.title, { color: theme.text }]}>Set Up Your Salary</Text>
-        <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
-          Add your recurring income so we can estimate monthly budget and savings pace.
-        </Text>
-
-        {linkedAccountName ? (
-          <View style={[styles.accountBadge, { backgroundColor: theme.primary + '14', borderColor: theme.primary + '30' }]}>
-            <Icon name="wallet-outline" size={16} color={theme.primary} />
-            <Text style={[styles.accountBadgeText, { color: theme.primary }]} numberOfLines={1}>
-              {linkedAccountName}
-            </Text>
-          </View>
-        ) : null}
-
         <View style={[styles.card, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
-          <Text style={[styles.fieldLabel, { color: theme.textSecondary }]}>Salary Amount</Text>
-          <View style={[styles.currencyRow, { borderColor: theme.cardBorder, backgroundColor: theme.backgroundSecondary }]}>
-            <Text style={[styles.currencySign, { color: theme.textSecondary }]}>$</Text>
+          <View style={styles.fieldBlock}>
+            <Text style={[styles.fieldLabel, { color: theme.textSecondary }]}>Salary Amount</Text>
+            <View
+              style={[
+                styles.currencyRow,
+                { borderColor: theme.cardBorder, backgroundColor: theme.backgroundSecondary },
+              ]}
+            >
+              <Text style={[styles.currencySign, { color: theme.textSecondary }]}>$</Text>
+              <TextInput
+                style={[styles.currencyValue, { color: theme.text }]}
+                value={amount}
+                onChangeText={setAmount}
+                placeholder="5,000"
+                placeholderTextColor={theme.textTertiary}
+                keyboardType="decimal-pad"
+                autoFocus
+              />
+            </View>
+          </View>
+
+          <View style={[styles.fieldBlock, { marginTop: FIELD_GAP }]}>
+            <Text style={[styles.fieldLabel, { color: theme.textSecondary }]}>Name (Optional)</Text>
             <TextInput
-              style={[styles.currencyValue, { color: theme.text }]}
-              value={amount}
-              onChangeText={setAmount}
-              placeholder="5,000"
+              style={[
+                styles.textInput,
+                { color: theme.text, borderColor: theme.cardBorder, backgroundColor: theme.backgroundSecondary },
+              ]}
+              value={title}
+              onChangeText={setTitle}
+              placeholder="e.g. Monthly salary"
               placeholderTextColor={theme.textTertiary}
-              keyboardType="decimal-pad"
-              autoFocus
             />
           </View>
 
-          <Text style={[styles.fieldLabel, { color: theme.textSecondary, marginTop: 16 }]}>Name (Optional)</Text>
-          <TextInput
-            style={[styles.textInput, { color: theme.text, borderColor: theme.cardBorder, backgroundColor: theme.backgroundSecondary }]}
-            value={title}
-            onChangeText={setTitle}
-            placeholder="e.g. Monthly salary"
-            placeholderTextColor={theme.textTertiary}
-          />
+          <View style={[styles.fieldBlock, { marginTop: FIELD_GAP }]}>
+            <Text style={[styles.fieldLabel, { color: theme.textSecondary }]}>Pay Day</Text>
+            <Text style={[styles.fieldHint, { color: theme.textTertiary }]}>
+              When you usually get paid each period.
+            </Text>
+            {Platform.OS === 'web' ? (
+              <View
+                style={[
+                  styles.webDateContainer,
+                  { backgroundColor: theme.backgroundSecondary, borderColor: theme.cardBorder },
+                ]}
+              >
+                <input
+                  type="date"
+                  value={payDay.toISOString().split('T')[0]}
+                  onChange={(e) => {
+                    const next = new Date(e.target.value);
+                    if (!Number.isNaN(next.getTime())) setPayDay(next);
+                  }}
+                  style={{
+                    backgroundColor: 'transparent',
+                    border: 'none',
+                    color: theme.text,
+                    fontSize: 16,
+                    fontFamily: 'inherit',
+                    width: '100%',
+                    outline: 'none',
+                    cursor: 'pointer',
+                  }}
+                />
+              </View>
+            ) : (
+              <TouchableOpacity
+                onPress={openDatePicker}
+                activeOpacity={0.75}
+                style={[
+                  styles.dateRow,
+                  { borderColor: theme.cardBorder, backgroundColor: theme.backgroundSecondary },
+                ]}
+              >
+                <Text style={[styles.dateRowText, { color: theme.text }]}>{format(payDay, 'd MMM yyyy')}</Text>
+                <Icon name="calendar-outline" size={20} color={theme.textSecondary} />
+              </TouchableOpacity>
+            )}
+          </View>
 
-          <Text style={[styles.fieldLabel, { color: theme.textSecondary, marginTop: 16 }]}>Pay Day</Text>
-          <Text style={[styles.fieldHint, { color: theme.textTertiary }]}>
-            The day you usually receive your paycheck each period.
-          </Text>
-          {Platform.OS === 'web' ? (
-            <View style={[styles.webDateContainer, { backgroundColor: theme.backgroundSecondary, borderColor: theme.cardBorder }]}>
-              <input
-                type="date"
-                value={payDay.toISOString().split('T')[0]}
-                onChange={(e) => {
-                  const next = new Date(e.target.value);
-                  if (!Number.isNaN(next.getTime())) setPayDay(next);
-                }}
-                style={{
-                  backgroundColor: 'transparent',
-                  border: 'none',
-                  color: theme.text,
-                  fontSize: 16,
-                  fontFamily: 'inherit',
-                  width: '100%',
-                  outline: 'none',
-                  cursor: 'pointer',
-                }}
-              />
+          <View style={[styles.fieldBlock, { marginTop: FIELD_GAP }]}>
+            <Text style={[styles.fieldLabel, { color: theme.textSecondary }]}>Frequency</Text>
+            <View style={[styles.segmentedControl, { backgroundColor: theme.backgroundSecondary }]}>
+              <TouchableOpacity
+                style={[styles.segment, frequency === 'weekly' && { backgroundColor: theme.primary }]}
+                onPress={() => setFrequency('weekly')}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.segmentText, { color: frequency === 'weekly' ? buttonTextColor : theme.textSecondary }]}>
+                  Weekly
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.segment, frequency === 'monthly' && { backgroundColor: theme.primary }]}
+                onPress={() => setFrequency('monthly')}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.segmentText, { color: frequency === 'monthly' ? buttonTextColor : theme.textSecondary }]}>
+                  Monthly
+                </Text>
+              </TouchableOpacity>
             </View>
-          ) : (
-            <View style={[styles.datePickerContainer, { backgroundColor: theme.backgroundSecondary, borderColor: theme.cardBorder }]}>
-              <DateTimePicker
-                value={payDay}
-                mode="date"
-                display="default"
-                onChange={(_, d) => d && setPayDay(d)}
-                themeVariant={themeMode === 'dark' ? 'dark' : 'light'}
-              />
-            </View>
-          )}
-
-          <Text style={[styles.fieldLabel, { color: theme.textSecondary, marginTop: 16 }]}>Frequency</Text>
-          <View style={[styles.segmentedControl, { backgroundColor: theme.backgroundSecondary }]}>
-            <TouchableOpacity
-              style={[styles.segment, frequency === 'weekly' && { backgroundColor: theme.primary }]}
-              onPress={() => setFrequency('weekly')}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.segmentText, { color: frequency === 'weekly' ? buttonTextColor : theme.textSecondary }]}>
-                Weekly
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.segment, frequency === 'monthly' && { backgroundColor: theme.primary }]}
-              onPress={() => setFrequency('monthly')}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.segmentText, { color: frequency === 'monthly' ? buttonTextColor : theme.textSecondary }]}>
-                Monthly
-              </Text>
-            </TouchableOpacity>
           </View>
         </View>
-      </ScrollView>
+      </View>
 
-      <View style={styles.bottomSection}>
+      <View style={[styles.bottomSection, { paddingBottom: Math.max(Spacing.lg, insets.bottom) }]}>
         <TouchableOpacity
           style={[styles.nextButton, { backgroundColor: theme.primary }, Shadow.medium]}
           onPress={handleNext}
@@ -216,6 +270,47 @@ export function SalaryStep({ linkedAccountName, initialValues, onNext, onSkip, o
           <Text style={[styles.nextButtonText, { color: buttonTextColor }]}>Continue</Text>
         </TouchableOpacity>
       </View>
+
+      {androidPickerOpen ? (
+        <DateTimePicker
+          value={payDay}
+          mode="date"
+          display="default"
+          onChange={handleAndroidDateChange}
+          themeVariant={themeMode === 'dark' ? 'dark' : 'light'}
+        />
+      ) : null}
+
+      <Modal
+        visible={iosPickerOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setIosPickerOpen(false)}
+      >
+        <View style={styles.iosModalRoot}>
+          <Pressable style={styles.iosModalBackdropFill} onPress={() => setIosPickerOpen(false)} />
+          <View
+            style={[
+              styles.iosModalSheet,
+              { backgroundColor: theme.cardBackground, paddingBottom: Spacing.xl + insets.bottom },
+            ]}
+          >
+            <View style={styles.iosModalHeader}>
+              <TouchableOpacity onPress={() => setIosPickerOpen(false)} hitSlop={12}>
+                <Text style={[styles.iosModalDone, { color: theme.primary }]}>Done</Text>
+              </TouchableOpacity>
+            </View>
+            <DateTimePicker
+              value={payDay}
+              mode="date"
+              display="spinner"
+              onChange={(_, d) => d && setPayDay(d)}
+              themeVariant={themeMode === 'dark' ? 'dark' : 'light'}
+              style={styles.iosSpinner}
+            />
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -223,27 +318,29 @@ export function SalaryStep({ linkedAccountName, initialValues, onNext, onSkip, o
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingBottom: 16,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 16,
+    paddingHorizontal: Spacing['3xl'],
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.sm,
+    minHeight: 44,
   },
   skipText: {
     fontSize: 15,
     fontWeight: '600',
   },
-  scrollView: {
+  body: {
     flex: 1,
+    paddingHorizontal: Spacing['3xl'],
+    paddingTop: Spacing.md,
+    justifyContent: 'flex-start',
   },
-  scrollContent: {
-    paddingHorizontal: 24,
-    paddingTop: 20,
-    paddingBottom: 24,
+  hero: {
     alignItems: 'center',
+    marginBottom: Spacing.md,
   },
   iconCircle: {
     width: 72,
@@ -251,119 +348,159 @@ const styles = StyleSheet.create({
     borderRadius: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 20,
+    marginBottom: Spacing.xl,
   },
   title: {
     fontSize: 26,
     fontWeight: '800',
     textAlign: 'center',
-    marginBottom: 10,
+    marginBottom: Spacing.sm + 2,
     letterSpacing: -0.3,
   },
   subtitle: {
     fontSize: 15,
     textAlign: 'center',
     lineHeight: 22,
-    marginBottom: 20,
-    paddingHorizontal: 4,
+    paddingHorizontal: Spacing.xs,
   },
   accountBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.md + 4,
+    paddingVertical: Spacing.sm + 2,
+    borderRadius: Radius.full,
     borderWidth: 1,
-    marginBottom: 24,
-    maxWidth: '90%',
+    maxWidth: '100%',
+    alignSelf: 'center',
   },
   accountBadgeText: {
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '600',
     flexShrink: 1,
   },
   card: {
     width: '100%',
-    borderRadius: 14,
+    borderRadius: Radius.md,
     borderWidth: 1,
-    padding: 18,
+    padding: Spacing.xl + 2,
+    flexShrink: 0,
   },
+  fieldBlock: {},
   fieldLabel: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginBottom: 8,
+    marginBottom: Spacing.xs + 2,
   },
   fieldHint: {
-    fontSize: 13,
-    lineHeight: 18,
-    marginBottom: 8,
-    marginTop: -4,
+    fontSize: 12,
+    lineHeight: 16,
+    marginBottom: Spacing.sm,
+    marginTop: -2,
   },
   textInput: {
     fontSize: 16,
     borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 13,
+    borderRadius: Radius.sm + 2,
+    paddingHorizontal: Spacing.sm + 6,
+    paddingVertical: Spacing.sm + 5,
   },
   currencyRow: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 13,
+    borderRadius: Radius.sm + 2,
+    paddingHorizontal: Spacing.sm + 6,
+    paddingVertical: Spacing.sm + 5,
+    minHeight: 48,
   },
   currencySign: {
     fontSize: 18,
     fontWeight: '700',
-    marginRight: 4,
+    marginRight: Spacing.xs,
   },
   currencyValue: {
     flex: 1,
     fontSize: 18,
     fontWeight: '700',
   },
+  dateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderRadius: Radius.sm + 2,
+    paddingHorizontal: Spacing.sm + 6,
+    paddingVertical: Spacing.sm + 5,
+    minHeight: 48,
+  },
+  dateRowText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
   webDateContainer: {
     borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  datePickerContainer: {
-    borderWidth: 1,
-    borderRadius: 10,
-    overflow: 'hidden',
+    borderRadius: Radius.sm + 2,
+    paddingHorizontal: Spacing.sm + 6,
+    paddingVertical: Spacing.sm + 4,
   },
   segmentedControl: {
     flexDirection: 'row',
-    borderRadius: 10,
-    padding: 4,
-    gap: 4,
+    borderRadius: Radius.sm + 2,
+    padding: 3,
   },
   segment: {
     flex: 1,
-    paddingVertical: 10,
-    borderRadius: 8,
+    paddingVertical: Spacing.sm + 2,
     alignItems: 'center',
+    borderRadius: Radius.sm,
   },
   segmentText: {
     fontSize: 15,
     fontWeight: '600',
   },
   bottomSection: {
-    paddingHorizontal: 24,
+    paddingHorizontal: Spacing['3xl'],
+    paddingTop: Spacing.sm,
   },
   nextButton: {
-    paddingVertical: 16,
-    borderRadius: 14,
+    paddingVertical: Spacing.xl - 2,
+    borderRadius: Radius.md + 2,
     alignItems: 'center',
   },
   nextButtonText: {
     fontSize: 17,
     fontWeight: '700',
+  },
+  iosModalRoot: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  iosModalBackdropFill: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,5,5,0.45)',
+  },
+  iosModalSheet: {
+    borderTopLeftRadius: Radius.lg,
+    borderTopRightRadius: Radius.lg,
+    paddingTop: Spacing.sm,
+    overflow: 'hidden',
+  },
+  iosModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.sm,
+  },
+  iosModalDone: {
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  iosSpinner: {
+    height: 200,
+    width: '100%',
   },
 });

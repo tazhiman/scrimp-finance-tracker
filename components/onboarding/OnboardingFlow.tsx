@@ -21,6 +21,7 @@ import { CreditCardSetupStep } from './CreditCardSetupStep';
 import { BankAccountStep } from './BankAccountStep';
 import { ShortcutsGuideStep } from './ShortcutsGuideStep';
 import { SalaryStep, SalaryFormData } from './SalaryStep';
+import { ENV } from '@/config/env';
 
 type Step =
   | 'welcome'
@@ -107,6 +108,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         contributionAmount: goalData.contributionAmount,
         frequency: goalData.frequency,
         startDate: today,
+        endDate: goalData.endDate,
         contributions:
           existingSavings > 0
             ? [{ date: today, amount: existingSavings }]
@@ -161,14 +163,18 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     transitionTo('add_salary');
   };
 
+  const goToPostSalaryStep = () => {
+    transitionTo(ENV.enableCreditCards ? 'account_type' : 'bank_account_setup');
+  };
+
   const handleSalaryDone = (data: SalaryFormData) => {
     setSalaryData(data);
-    transitionTo('account_type');
+    goToPostSalaryStep();
   };
 
   const handleSkipSalary = () => {
     setSalaryData(null);
-    transitionTo('account_type');
+    goToPostSalaryStep();
   };
 
   const handleAccountTypeSelected = (type: AccountType) => {
@@ -193,7 +199,11 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const handleBankAccountsDone = (accounts: BankAccount[]) => {
     setExtraBankAccounts(accounts);
     setDidBankAccounts(true);
-    if (!didCreditCards && firstChoice === 'bank_account') {
+    if (
+      ENV.enableCreditCards &&
+      !didCreditCards &&
+      firstChoice === 'bank_account'
+    ) {
       transitionTo('credit_card_setup');
     } else {
       transitionTo('shortcuts_guide');
@@ -217,18 +227,27 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const handleSkipBankAccounts = () => {
     setExtraBankAccounts([]);
     setDidBankAccounts(true);
-    if (!didCreditCards && firstChoice === 'bank_account') {
+    if (
+      ENV.enableCreditCards &&
+      !didCreditCards &&
+      firstChoice === 'bank_account'
+    ) {
       transitionTo('credit_card_setup');
     } else {
       transitionTo('shortcuts_guide');
     }
   };
 
-  const stepOrder: Step[] = ['welcome', 'savings_goal', 'link_account', 'add_salary', 'account_type'];
-  if (firstChoice === 'credit_card') {
-    stepOrder.push('credit_card_setup', 'bank_account_setup');
-  } else if (firstChoice === 'bank_account') {
-    stepOrder.push('bank_account_setup', 'credit_card_setup');
+  const stepOrder: Step[] = ['welcome', 'savings_goal', 'link_account', 'add_salary'];
+  if (ENV.enableCreditCards) {
+    stepOrder.push('account_type');
+    if (firstChoice === 'credit_card') {
+      stepOrder.push('credit_card_setup', 'bank_account_setup');
+    } else if (firstChoice === 'bank_account') {
+      stepOrder.push('bank_account_setup', 'credit_card_setup');
+    }
+  } else {
+    stepOrder.push('bank_account_setup');
   }
   stepOrder.push('shortcuts_guide');
 

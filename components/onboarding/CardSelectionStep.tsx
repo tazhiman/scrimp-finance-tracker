@@ -10,6 +10,7 @@ import { Icon } from '@/components/ui/Icon';
 import { useTheme } from '@/context/ThemeContext';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { Spacing, Radius, Shadow } from '@/constants/design';
+import { ENV } from '@/config/env';
 
 const { width } = Dimensions.get('window');
 
@@ -27,10 +28,13 @@ export function CardSelectionStep({ onNext, onSkip, onBack }: CardSelectionStepP
 
   const buttonTextColor = themeMode === 'dark' ? '#000505' : '#FEFCFD';
 
-  const options: { type: AccountType; label: string; icon: string; description: string }[] = [
+  const allOptions: { type: AccountType; label: string; icon: string; description: string }[] = [
     { type: 'credit_card', label: 'Credit Card', icon: 'card', description: 'Track spending and rewards' },
     { type: 'bank_account', label: 'Bank Account', icon: 'cash', description: 'Track your balance' },
   ];
+  const options = ENV.enableCreditCards
+    ? allOptions
+    : allOptions.filter(opt => opt.type === 'bank_account');
 
   return (
     <View style={[styles.container, { width }]}>

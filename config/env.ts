@@ -35,6 +35,7 @@ interface EnvConfig {
   githubRepo?: string;
   githubToken?: string;
   enableRemoteSync: boolean;
+  enableCreditCards: boolean;
   showDebugInfo: boolean;
   logLevel: 'debug' | 'info' | 'warn' | 'error';
   cacheTTL: number; // in milliseconds
@@ -46,6 +47,7 @@ const configs: Record<Environment, EnvConfig> = {
     githubRepo: 'tazhiman/scrimp-rewards-data',
     githubToken: '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',
     enableRemoteSync: true,
+    enableCreditCards: true,
     showDebugInfo: true,
     logLevel: 'debug',
     cacheTTL: 0, // Always fetch fresh in dev
@@ -56,6 +58,7 @@ const configs: Record<Environment, EnvConfig> = {
     githubRepo: 'tazhiman/scrimp-rewards-data',
     githubToken: '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',
     enableRemoteSync: true,
+    enableCreditCards: true,
     showDebugInfo: true, // Keep debug visible for testers
     logLevel: 'info',
     cacheTTL: 1 * 60 * 60 * 1000, // 1 hour for UAT
@@ -66,6 +69,7 @@ const configs: Record<Environment, EnvConfig> = {
     githubRepo: 'tazhiman/scrimp-rewards-data',
     githubToken: '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',
     enableRemoteSync: true,
+    enableCreditCards: false,
     showDebugInfo: false, // Never show debug in production
     logLevel: 'error',
     cacheTTL: 24 * 60 * 60 * 1000, // 24 hours
@@ -106,5 +110,9 @@ export const ENV = {
   
   get showDebugFeatures(): boolean {
     return this.config.showDebugInfo;
+  },
+
+  get enableCreditCards(): boolean {
+    return this.config.enableCreditCards;
   },
 };

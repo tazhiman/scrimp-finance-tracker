@@ -110,7 +110,7 @@ export default function TransactionDetailScreen() {
 
     return {
       id,
-      type: 'expense',
+      type: rule.transactionType ?? 'expense',
       amount: rule.amount,
       category: rule.category,
       date: dateStr,
@@ -160,8 +160,8 @@ export default function TransactionDetailScreen() {
     if (!transaction) return;
     if (isGenerated) {
       Alert.alert(
-        'Recurring expense',
-        'This is a generated occurrence from a recurring/installment plan. Editing individual occurrences is not supported yet.'
+        'Recurring plan',
+        'This is a generated occurrence from a recurring plan. Editing individual occurrences is not supported yet.'
       );
       return;
     }
