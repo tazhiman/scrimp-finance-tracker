@@ -10,7 +10,7 @@ interface BankAccountsContextType {
   loading: boolean;
   /** Reload accounts from storage (e.g. after onboarding commits linked accounts). */
   reloadAccounts: () => Promise<void>;
-  addAccount: (name: string, balance: number) => Promise<void>;
+  addAccount: (name: string, balance: number) => Promise<string>;
   updateAccount: (id: string, updates: { name?: string; balance?: number }) => Promise<void>;
   deleteAccount: (id: string) => Promise<void>;
   /** Mark the account as confirmed by the user right now (resets lastUpdated). */
@@ -64,7 +64,7 @@ export const BankAccountsProvider: React.FC<{ children: ReactNode }> = ({ childr
     }
   }, [accounts, loading]);
 
-  const addAccount = useCallback(async (name: string, balance: number) => {
+  const addAccount = useCallback(async (name: string, balance: number): Promise<string> => {
     const newAccount: BankAccount = {
       id: Date.now().toString(),
       name,
@@ -72,6 +72,7 @@ export const BankAccountsProvider: React.FC<{ children: ReactNode }> = ({ childr
       lastUpdated: new Date().toISOString(),
     };
     setAccounts(prev => [...prev, newAccount]);
+    return newAccount.id;
   }, []);
 
   const updateAccount = useCallback(async (id: string, updates: { name?: string; balance?: number }) => {

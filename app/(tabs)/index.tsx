@@ -25,8 +25,8 @@ import {
   calculateTotalIncome,
   calculateTotalExpenses,
   calculateNetSavings,
-  getContributionStatus,
 } from '@/utils/calculations';
+import { getGoalStatusBadge, goalStatusColor } from '@/utils/goalReserve';
 import {
   buildMonthlyStatsSlices,
   computeMonthlyBudgetMetrics,
@@ -139,24 +139,8 @@ export default function DashboardScreen() {
 
   const renderGoalCard = (goal: typeof goals[0]) => {
     const goalProgressPercent = goal.targetAmount > 0 ? (goal.currentAmount / goal.targetAmount) * 100 : 0;
-    const contributionStatus = getContributionStatus(goal);
-    const remaining = goal.targetAmount - goal.currentAmount;
-    
-    const getStatusConfig = () => {
-      if (remaining <= 0) {
-        return { text: 'Goal Reached', color: theme.primary };
-      }
-      switch (contributionStatus) {
-        case 'completed':
-          return { text: 'Paid this ' + (goal.frequency === 'weekly' ? 'week' : 'month'), color: theme.primary };
-        case 'overdue':
-          return { text: 'Overdue', color: theme.error };
-        case 'due':
-          return { text: 'Due this ' + (goal.frequency === 'weekly' ? 'week' : 'month'), color: theme.warningOrange };
-      }
-    };
-    
-    const statusConfig = getStatusConfig();
+    const statusBadge = getGoalStatusBadge(goal, transactions);
+    const statusColor = goalStatusColor(statusBadge.severity, theme);
     
     return (
       <TouchableOpacity
@@ -180,8 +164,8 @@ export default function DashboardScreen() {
               <Text style={[styles.ringDetailLabel, { color: theme.textSecondary }]}>Progress</Text>
               <Text style={[styles.ringDetailValue, { color: theme.text }]}>{formatCurrency(goal.currentAmount)}</Text>
               <Text style={[styles.ringDetailLabel, { color: theme.textSecondary }]}>of {formatCurrency(goal.targetAmount)}</Text>
-              <View style={[styles.statusPill, { backgroundColor: statusConfig.color + '18' }]}>
-                <Text style={[styles.statusPillText, { color: statusConfig.color }]}>{statusConfig.text}</Text>
+              <View style={[styles.statusPill, { backgroundColor: statusColor + '18' }]}>
+                <Text style={[styles.statusPillText, { color: statusColor }]}>{statusBadge.text}</Text>
               </View>
             </View>
           </View>

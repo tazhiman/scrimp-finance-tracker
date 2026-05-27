@@ -4,7 +4,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Icon } from '@/components/ui/Icon';
 import { useFinance } from '@/context/FinanceContext';
+import { useBankAccounts } from '@/context/BankAccountsContext';
 import { useTheme } from '@/context/ThemeContext';
+import { evaluateGoalReserve } from '@/utils/goalReserve';
+import { GoalReserveStatus } from '@/types';
 import { ProgressRing } from '@/components/ProgressRing';
 import { calculateGoalProgress } from '@/utils/calculations';
 import { formatCurrency, formatDate } from '@/utils/dateHelpers';
@@ -12,10 +15,21 @@ import { formatCurrency, formatDate } from '@/utils/dateHelpers';
 export default function GoalDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { goals, deleteGoal } = useFinance();
+  const { goals, transactions, deleteGoal } = useFinance();
+  const { accounts } = useBankAccounts();
   const { theme, themeMode } = useTheme();
 
   const goal = useMemo(() => goals.find((g) => g.id === id), [goals, id]);
+
+  const linkedAccount = useMemo(
+    () => (goal?.linkedAccountId ? accounts.find(a => a.id === goal.linkedAccountId) : undefined),
+    [goal?.linkedAccountId, accounts]
+  );
+
+  const reserveStatus: GoalReserveStatus | null = useMemo(() => {
+    if (!goal?.linkedAccountId) return null;
+    return evaluateGoalReserve(goal, transactions);
+  }, [goal, transactions]);
 
   if (!goal) {
     return (
@@ -152,6 +166,43 @@ export default function GoalDetailScreen() {
               </Text>
             </View>
           )}
+
+          {linkedAccount && (
+            <View style={[styles.linkedRow, { backgroundColor: theme.backgroundTertiary }]}>
+              <Icon name="wallet-outline" size={16} color={theme.primary} />
+              <Text style={[styles.linkedText, { color: theme.textSecondary }]}>
+                Linked: {linkedAccount.name}
+              </Text>
+            </View>
+          )}
+
+          {reserveStatus && reserveStatus !== 'ok' && (
+            <View
+              style={[
+                styles.reserveBadge,
+                {
+                  backgroundColor:
+                    reserveStatus === 'negated' ? theme.error + '20' : theme.warningOrange + '20',
+                },
+              ]}
+            >
+              <Icon
+                name="alert-circle-outline"
+                size={18}
+                color={reserveStatus === 'negated' ? theme.error : theme.warningOrange}
+              />
+              <Text
+                style={[
+                  styles.reserveText,
+                  { color: reserveStatus === 'negated' ? theme.error : theme.warningOrange },
+                ]}
+              >
+                {reserveStatus === 'negated'
+                  ? 'Linked account spending has negated your earmarked savings'
+                  : 'Linked account spending is nearing your earmarked amount'}
+              </Text>
+            </View>
+          )}
         </View>
       </View>
 
@@ -248,6 +299,33 @@ const styles = StyleSheet.create({
   completeText: {
     fontSize: 16,
     fontWeight: '700',
+  },
+  linkedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 12,
+    borderRadius: 12,
+    marginTop: 12,
+  },
+  linkedText: {
+    fontSize: 14,
+    fontWeight: '600',
+    flex: 1,
+  },
+  reserveBadge: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    padding: 12,
+    borderRadius: 12,
+    marginTop: 10,
+  },
+  reserveText: {
+    fontSize: 13,
+    fontWeight: '600',
+    flex: 1,
+    lineHeight: 18,
   },
   contributionsSection: {
     flex: 1,

@@ -16,7 +16,16 @@ import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useFinance } from '@/context/FinanceContext';
+import { useBankAccounts } from '@/context/BankAccountsContext';
 import { useTheme } from '@/context/ThemeContext';
+import {
+  GoalAccountLinkSection,
+  createDefaultLinkState,
+  linkStateFromGoal,
+  resolveGoalAccountLink,
+  GoalAccountLinkState,
+} from '@/components/goals/GoalAccountLinkSection';
+import { buildInitialReserveFields, todayDateString } from '@/utils/goalReserve';
 import { GoalCard } from '@/components/GoalCard';
 import { Spacing, Radius, Shadow } from '@/constants/design';
 import { SavingsGoal, ContributionFrequency } from '@/types';
@@ -28,6 +37,7 @@ export default function GoalsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const { goals, addGoal, updateGoal, deleteGoal, contributeToGoal } = useFinance();
+  const { accounts, addAccount, updateAccount, reloadAccounts } = useBankAccounts();
   const tabBarHeight = useBottomTabBarHeight();
   const { theme, themeMode } = useTheme();
   
@@ -43,6 +53,7 @@ export default function GoalsScreen() {
     defaultDate.setMonth(defaultDate.getMonth() + 6);
     return defaultDate;
   });
+  const [linkState, setLinkState] = useState<GoalAccountLinkState>(() => createDefaultLinkState());
 
   useEffect(() => {
     if (params.editGoalId) {
@@ -63,6 +74,7 @@ export default function GoalsScreen() {
     const defaultDate = new Date();
     defaultDate.setMonth(defaultDate.getMonth() + 6);
     setTargetDate(defaultDate);
+    setLinkState(createDefaultLinkState());
     setModalVisible(true);
   };
 
@@ -79,6 +91,7 @@ export default function GoalsScreen() {
       defaultDate.setMonth(defaultDate.getMonth() + 6);
       setTargetDate(defaultDate);
     }
+    setLinkState(linkStateFromGoal(goal, accounts));
     setModalVisible(true);
   };
 
@@ -86,7 +99,7 @@ export default function GoalsScreen() {
     if (selectedDate) setTargetDate(selectedDate);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const target = parseFloat(targetAmount);
     const contribution = parseFloat(contributionAmount);
 
@@ -94,10 +107,83 @@ export default function GoalsScreen() {
     if (!targetAmount || isNaN(target) || target <= 0) { Alert.alert('Error', 'Please enter a valid target amount'); return; }
     if (!contributionAmount || isNaN(contribution) || contribution <= 0) { Alert.alert('Error', 'Please enter a valid contribution amount'); return; }
 
+    const { result: linkResult, error: linkError } = resolveGoalAccountLink(linkState, accounts);
+    if (linkError) {
+      Alert.alert('Bank account', linkError);
+      return;
+    }
+
+    const existingSavings = parseFloat(linkState.existingSavings) || 0;
+    if (existingSavings < 0) {
+      Alert.alert('Error', 'Existing savings cannot be negative');
+      return;
+    }
+    if (existingSavings > target) {
+      Alert.alert('Error', 'Existing savings cannot exceed the target amount');
+      return;
+    }
+
+    const today = todayDateString();
+    const endDateIso = targetDate.toISOString();
+
+    let linkedAccountId: string | undefined;
+    if (linkResult) {
+      const { account } = linkResult;
+      const existing = accounts.find(a => a.id === account.id);
+      if (existing) {
+        await updateAccount(account.id, { name: account.name, balance: account.balance });
+        linkedAccountId = account.id;
+      } else {
+        linkedAccountId = await addAccount(account.name, account.balance);
+      }
+      await reloadAccounts();
+    }
+
+    const contributions =
+      existingSavings > 0
+        ? [{ date: new Date().toISOString(), amount: existingSavings }]
+        : [];
+
     if (editingGoal) {
-      updateGoal(editingGoal.id, { name, targetAmount: target, contributionAmount: contribution, frequency, endDate: targetDate.toISOString() });
+      const updates: Partial<SavingsGoal> = {
+        name,
+        targetAmount: target,
+        contributionAmount: contribution,
+        frequency,
+        endDate: endDateIso,
+        currentAmount: existingSavings,
+        contributions: existingSavings > 0 ? contributions : editingGoal.contributions,
+      };
+
+      if (linkResult && linkedAccountId) {
+        Object.assign(
+          updates,
+          buildInitialReserveFields(linkedAccountId, existingSavings, today)
+        );
+      } else {
+        updates.linkedAccountId = undefined;
+        updates.reserveAmount = undefined;
+        updates.reserveWatchStartDate = undefined;
+        updates.lastReserveStatus = undefined;
+        updates.lastReserveNotifiedAt = undefined;
+      }
+
+      updateGoal(editingGoal.id, updates);
     } else {
-      addGoal({ name, targetAmount: target, currentAmount: 0, contributionAmount: contribution, frequency, startDate: new Date().toISOString(), endDate: targetDate.toISOString() });
+      const startDate = today;
+      addGoal({
+        name,
+        targetAmount: target,
+        currentAmount: existingSavings,
+        contributionAmount: contribution,
+        frequency,
+        startDate,
+        endDate: endDateIso,
+        contributions,
+        ...(linkResult && linkedAccountId
+          ? buildInitialReserveFields(linkedAccountId, existingSavings, startDate)
+          : {}),
+      });
     }
     setModalVisible(false);
   };
@@ -110,9 +196,12 @@ export default function GoalsScreen() {
   };
 
   const handleContribute = (goal: SavingsGoal) => {
+    const linkedHint = goal.linkedAccountId
+      ? '\n\nLinked account: a new spending watch starts for this contribution amount.'
+      : '';
     Alert.prompt(
       'Contribute to Goal',
-      `How much would you like to contribute?\nRecommended: ${formatCurrency(goal.contributionAmount)}`,
+      `How much would you like to contribute?\nRecommended: ${formatCurrency(goal.contributionAmount)}${linkedHint}`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -300,6 +389,13 @@ export default function GoalsScreen() {
                 </Text>
               )}
             </View>
+
+            <GoalAccountLinkSection
+              goalName={name.trim() || 'Your goal'}
+              accounts={accounts}
+              state={linkState}
+              onChange={setLinkState}
+            />
 
             {editingGoal && (
               <TouchableOpacity

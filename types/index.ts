@@ -6,6 +6,9 @@ export type ContributionFrequency = 'weekly' | 'monthly';
 
 export type ContributionStatus = 'completed' | 'due' | 'overdue';
 
+/** Linked-account reserve health for a savings goal */
+export type GoalReserveStatus = 'ok' | 'nearing' | 'negated';
+
 export type RecurrenceFrequency = 'weekly' | 'monthly';
 
 export type RecurringKind = 'recurring' | 'installment';
@@ -41,6 +44,15 @@ export interface SavingsGoal {
   endDate?: string; // ISO date string (optional)
   lastContributionDate?: string; // ISO date string - tracks when last contribution was made
   contributions?: GoalContribution[]; // History of all contributions
+  /** Bank account earmarked for this goal's savings */
+  linkedAccountId?: string;
+  /** Amount protected in the current watch window */
+  reserveAmount?: number;
+  /** yyyy-mm-dd — expenses on linked account from this date count toward negation */
+  reserveWatchStartDate?: string;
+  lastReserveStatus?: GoalReserveStatus;
+  /** ISO timestamp — debounce reserve notifications */
+  lastReserveNotifiedAt?: string;
 }
 
 export interface RecurringExpense {

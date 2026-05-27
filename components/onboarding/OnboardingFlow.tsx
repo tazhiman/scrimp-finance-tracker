@@ -22,6 +22,7 @@ import { CreditCardSetupStep } from './CreditCardSetupStep';
 import { BankAccountStep } from './BankAccountStep';
 import { ShortcutsGuideStep } from './ShortcutsGuideStep';
 import { SalaryStep, SalaryFormData } from './SalaryStep';
+import { buildInitialReserveFields } from '@/utils/goalReserve';
 import { ENV } from '@/config/env';
 
 type Step =
@@ -102,7 +103,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     const today = new Date().toISOString().split('T')[0];
 
     if (goalData && linkAccountResult) {
-      const { existingSavings } = linkAccountResult;
+      const { existingSavings, account } = linkAccountResult;
       addGoal({
         name: goalData.name,
         targetAmount: goalData.targetAmount,
@@ -115,6 +116,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
           existingSavings > 0
             ? [{ date: today, amount: existingSavings }]
             : [],
+        ...buildInitialReserveFields(account.id, existingSavings, today),
       });
     }
 

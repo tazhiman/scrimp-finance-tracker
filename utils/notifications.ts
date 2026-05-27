@@ -1,6 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
-import { SavingsGoal, ContributionStatus } from '@/types';
+import { SavingsGoal, ContributionStatus, GoalReserveStatus } from '@/types';
+import { getReserveNotificationContent } from './goalReserve';
 import { getContributionStatus } from './calculations';
 
 // Request notification permissions
@@ -32,6 +33,12 @@ export const requestNotificationPermissions = async (): Promise<boolean> => {
         vibrationPattern: [0, 200, 200, 200],
         lightColor: '#FF9F0A',
       });
+      await Notifications.setNotificationChannelAsync('goal-reserve', {
+        name: 'Goal Savings Alerts',
+        importance: Notifications.AndroidImportance.HIGH,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#FF9F0A',
+      });
     }
 
     return true;
@@ -45,7 +52,7 @@ export const requestNotificationPermissions = async (): Promise<boolean> => {
  * Cancel all notifications whose `data.kind` matches the given value.
  * Falls back to cancelling ALL notifications if no kind filter is needed.
  */
-const cancelNotificationsByKind = async (kind: 'goal' | 'balance'): Promise<void> => {
+const cancelNotificationsByKind = async (kind: 'goal' | 'balance' | 'goal-reserve'): Promise<void> => {
   try {
     const scheduled = await Notifications.getAllScheduledNotificationsAsync();
     const toCancel = scheduled
@@ -178,6 +185,33 @@ export const scheduleBalanceReconciliationNotification = async (): Promise<void>
 /** Cancel the balance reconciliation reminder. */
 export const cancelBalanceReconciliationNotification = async (): Promise<void> => {
   await cancelNotificationsByKind('balance');
+};
+
+/** Immediate alert when linked-account spending threatens or negates goal savings. */
+export const sendGoalReserveNotification = async (
+  goal: SavingsGoal,
+  status: Exclude<GoalReserveStatus, 'ok'>
+): Promise<void> => {
+  try {
+    const hasPermission = await requestNotificationPermissions();
+    if (!hasPermission) return;
+
+    const { title, body } = getReserveNotificationContent(goal, status);
+
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title,
+        body,
+        data: { kind: 'goal-reserve', goalId: goal.id, goalName: goal.name, reserveStatus: status },
+        sound: true,
+        priority: Notifications.AndroidNotificationPriority.HIGH,
+        ...(Platform.OS === 'android' && { channelId: 'goal-reserve' }),
+      },
+      trigger: null,
+    });
+  } catch (error) {
+    console.error('Error sending goal reserve notification:', error);
+  }
 };
 
 // Get all scheduled notifications (for debugging)

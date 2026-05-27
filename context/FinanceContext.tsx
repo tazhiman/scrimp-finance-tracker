@@ -25,6 +25,8 @@ import {
   clearPendingTransactions,
   pendingTransactionToTransaction,
 } from '@/utils/transactionSync';
+import { buildContributionReserveFields, todayDateString } from '@/utils/goalReserve';
+import { checkAndNotifyGoalReserves } from '@/utils/goalReserveAlerts';
 
 interface FinanceContextType {
   transactions: Transaction[];
@@ -207,6 +209,16 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
     }
   }, [goals, loading]);
 
+  // Linked-account reserve alerts when transactions or goals change
+  useEffect(() => {
+    if (loading) return;
+    if (!goals.some(g => g.linkedAccountId)) return;
+
+    checkAndNotifyGoalReserves(goals, transactions, (id, updates) => {
+      setGoals(prev => prev.map(g => (g.id === id ? { ...g, ...updates } : g)));
+    }).catch(console.error);
+  }, [transactions, goals, loading]);
+
   // Update widget whenever transactions change
   useEffect(() => {
     if (!loading) {
@@ -386,6 +398,7 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   const contributeToGoal = (goalId: string, amount: number) => {
+    const today = todayDateString();
     setGoals(prev =>
       prev.map(g => {
         if (g.id === goalId) {
@@ -398,6 +411,9 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
             currentAmount: Math.min(g.currentAmount + amount, g.targetAmount),
             lastContributionDate: new Date().toISOString(),
             contributions: [...(g.contributions || []), newContribution],
+            ...(g.linkedAccountId
+              ? buildContributionReserveFields(amount, today)
+              : {}),
           };
         }
         return g;

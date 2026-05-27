@@ -1,7 +1,9 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { SavingsGoal } from '@/types';
-import { calculateGoalProgress, getContributionStatus } from '@/utils/calculations';
+import { calculateGoalProgress } from '@/utils/calculations';
+import { useFinance } from '@/context/FinanceContext';
+import { getGoalStatusBadge, goalStatusColor } from '@/utils/goalReserve';
 import { formatCurrency } from '@/utils/dateHelpers';
 import { useTheme } from '@/context/ThemeContext';
 import { ProgressRing } from './ProgressRing';
@@ -17,26 +19,21 @@ interface GoalCardProps {
 
 export const GoalCard: React.FC<GoalCardProps> = ({ goal, onPress, onContribute }) => {
   const { theme, themeMode } = useTheme();
+  const { transactions } = useFinance();
   const progress = calculateGoalProgress(goal);
   const remaining = goal.targetAmount - goal.currentAmount;
-  const contributionStatus = getContributionStatus(goal);
   const buttonTextColor = themeMode === 'dark' ? '#000505' : theme.text;
-  
-  const getStatusConfig = () => {
-    if (remaining <= 0) {
-      return { icon: 'checkmark-circle' as const, text: 'Goal Reached', color: theme.primary };
-    }
-    switch (contributionStatus) {
-      case 'completed':
-        return { icon: 'checkmark-circle' as const, text: 'Paid this ' + (goal.frequency === 'weekly' ? 'week' : 'month'), color: theme.primary };
-      case 'overdue':
-        return { icon: 'alert-circle' as const, text: 'Overdue', color: theme.error };
-      case 'due':
-        return { icon: 'time' as const, text: 'Due this ' + (goal.frequency === 'weekly' ? 'week' : 'month'), color: theme.warningOrange };
-    }
-  };
-  
-  const statusConfig = getStatusConfig();
+
+  const statusBadge = getGoalStatusBadge(goal, transactions);
+  const statusColor = goalStatusColor(statusBadge.severity, theme);
+  const statusIcon =
+    statusBadge.severity === 'success'
+      ? ('checkmark-circle' as const)
+      : statusBadge.severity === 'error'
+        ? ('alert-circle' as const)
+        : statusBadge.severity === 'warning'
+          ? ('time' as const)
+          : ('time' as const);
 
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
@@ -44,9 +41,9 @@ export const GoalCard: React.FC<GoalCardProps> = ({ goal, onPress, onContribute 
         <View style={styles.content}>
           <View style={styles.header}>
             <Text style={[styles.name, { color: theme.text }]}>{goal.name}</Text>
-            <View style={[styles.statusBadge, { backgroundColor: statusConfig.color + '18' }]}>
-              <Icon name={statusConfig.icon} size={14} color={statusConfig.color} />
-              <Text style={[styles.statusText, { color: statusConfig.color }]}>{statusConfig.text}</Text>
+            <View style={[styles.statusBadge, { backgroundColor: statusColor + '18' }]}>
+              <Icon name={statusIcon} size={14} color={statusColor} />
+              <Text style={[styles.statusText, { color: statusColor }]}>{statusBadge.text}</Text>
             </View>
           </View>
           <Text style={[styles.target, { color: theme.textSecondary }]}>
