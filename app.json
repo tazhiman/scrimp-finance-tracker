@@ -2,7 +2,7 @@
   "expo": {
     "name": "Scrimp App",
     "slug": "scrimp-app",
-    "version": "1.1.4",
+    "version": "1.1.5",
     "sdkVersion": "55.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -18,7 +18,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.scrimp.app",
-      "buildNumber": "8",
+      "buildNumber": "9",
       "entitlements": {
         "com.apple.security.application-groups": [
           "group.com.scrimp.app"
@@ -70,6 +70,6 @@
       },
       "scrimpWalletShortcutUrl": "https://www.icloud.com/shortcuts/cc2f5da90ed844aa84fa25fd98ac27be"
     },
-    "runtimeVersion": "1.1.4"
+    "runtimeVersion": "1.1.5"
   }
 }
