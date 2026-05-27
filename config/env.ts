@@ -66,13 +66,11 @@ const configs: Record<Environment, EnvConfig> = {
   
   production: {
     name: 'Production',
-    githubRepo: 'tazhiman/scrimp-rewards-data',
-    githubToken: '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',
-    enableRemoteSync: true,
+    enableRemoteSync: false,
     enableCreditCards: false,
     showDebugInfo: false, // Never show debug in production
     logLevel: 'error',
-    cacheTTL: 24 * 60 * 60 * 1000, // 24 hours
+    cacheTTL: 0,
   },
 };
 

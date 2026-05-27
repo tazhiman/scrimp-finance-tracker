@@ -84,7 +84,7 @@ export const generateRecurringTransactionsForPeriod = (
 
       generated.push({
         id: `recurring_${rule.id}_${dateStr}`,
-        type: 'expense',
+        type: rule.transactionType ?? 'expense',
         amount: rule.amount,
         category: rule.category,
         date: dateStr,

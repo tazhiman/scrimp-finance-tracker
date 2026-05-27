@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { Stack } from 'expo-router';
-import { Platform, View, ActivityIndicator, Text } from 'react-native';
+import { View, ActivityIndicator, Text } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { FinanceProvider } from '@/context/FinanceContext';
 import { GamificationProvider } from '@/context/GamificationContext';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { BankAccountsProvider } from '@/context/BankAccountsContext';
+import { ENV } from '@/config/env';
 import { loadRewardsData } from '@/utils/cardEngine';
 import { isOnboardingCompleted } from '@/utils/onboarding';
 import { requestNotificationPermissions } from '@/utils/notifications';
@@ -25,13 +26,15 @@ Notifications.setNotificationHandler({
 export default function RootLayout() {
   const notificationListener = useRef<Notifications.Subscription | null>(null);
   const responseListener = useRef<Notifications.Subscription | null>(null);
-  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [appReady, setAppReady] = useState(ENV.isProduction);
   const [showOnboarding, setShowOnboarding] = useState<boolean | null>(null);
 
   useEffect(() => {
     const initializeData = async () => {
       try {
-        await loadRewardsData();
+        if (!ENV.isProduction) {
+          await loadRewardsData();
+        }
         await requestNotificationPermissions();
         const completed = await isOnboardingCompleted();
         setShowOnboarding(!completed);
@@ -39,7 +42,7 @@ export default function RootLayout() {
         console.error('Error initializing app:', error);
         setShowOnboarding(false);
       } finally {
-        setIsLoadingData(false);
+        setAppReady(true);
       }
     };
 
@@ -70,7 +73,7 @@ export default function RootLayout() {
     };
   }, []);
 
-  if (isLoadingData) {
+  if (!appReady) {
     return (
       <View style={{ flex: 1, backgroundColor: '#000505', alignItems: 'center', justifyContent: 'center' }}>
         <ActivityIndicator size="large" color="#D0EFB1" />
@@ -103,4 +106,3 @@ export default function RootLayout() {
     </ThemeProvider>
   );
 }
-

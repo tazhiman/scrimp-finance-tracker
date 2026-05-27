@@ -1,4 +1,5 @@
 import bundledRewardsData from '@/data/rewardsData.json';
+import { ENV } from '@/config/env';
 import { getRewardsData } from './remoteRewardsData';
 
 export interface UserCard {
@@ -16,6 +17,12 @@ let isDataLoaded = false;
  * Call this on app initialization
  */
 export async function loadRewardsData(): Promise<void> {
+  if (ENV.isProduction) {
+    loadedRewardsData = bundledRewardsData;
+    isDataLoaded = true;
+    return;
+  }
+
   try {
     loadedRewardsData = await getRewardsData();
     isDataLoaded = true;

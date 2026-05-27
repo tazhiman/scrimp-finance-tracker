@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import bundledRewardsData from '@/data/rewardsData.json';
+import { ENV } from '@/config/env';
 import { REMOTE_CONFIG } from '@/config/remoteConfig';
 import { fromByteArray } from 'base64-js';
 
@@ -327,7 +328,9 @@ export async function getRewardsData(): Promise<any> {
     const config = getGitHubConfig();
     
     if (!config) {
-      // Remote sync not configured, use cache or bundled
+      if (ENV.isProduction) {
+        return bundledRewardsData;
+      }
       const cached = await getCachedRewardsData();
       if (cached) {
         console.log('Using cached rewards data');
