@@ -75,6 +75,7 @@ struct LogTransactionIntent: AppIntent {
   private static let pendingKey = "pendingTransactions"
 
   func perform() async throws -> some IntentResult & ProvidesDialog {
+    #if DEBUG
     let debugContent = UNMutableNotificationContent()
     debugContent.title = "Shortcut Triggered"
     debugContent.body = "Amount: \(amount), Merchant: \(merchant)"
@@ -85,8 +86,10 @@ struct LogTransactionIntent: AppIntent {
       trigger: nil
     )
     try? await UNUserNotificationCenter.current().add(debugReq)
+    #endif
 
     guard amount > 0 else {
+      #if DEBUG
       let errContent = UNMutableNotificationContent()
       errContent.title = "Transaction Failed"
       errContent.body = "Amount was \(amount). Please check that the Amount variable is mapped in your Shortcuts automation."
@@ -97,6 +100,7 @@ struct LogTransactionIntent: AppIntent {
         trigger: nil
       )
       try? await UNUserNotificationCenter.current().add(errReq)
+      #endif
       return .result(dialog: "Amount must be positive. Received: \(amount)")
     }
 
@@ -137,18 +141,6 @@ struct LogTransactionIntent: AppIntent {
 
     let desc = merchant.isEmpty ? "" : " at \(merchant)"
     let amountStr = String(format: "%.2f", amount)
-
-    let content = UNMutableNotificationContent()
-    content.title = "Transaction Logged"
-    content.body = "$\(amountStr)\(desc) added to Scrimp"
-    content.sound = .default
-
-    let request = UNNotificationRequest(
-      identifier: "transaction-\(id)",
-      content: content,
-      trigger: nil
-    )
-    try? await UNUserNotificationCenter.current().add(request)
 
     return .result(dialog: "Logged \(transactionType.rawValue) of $\(amountStr)\(desc)")
   }
