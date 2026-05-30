@@ -1,7 +1,9 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Animated } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { useTheme } from '@/context/ThemeContext';
+
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 interface ProgressRingProps {
   progress: number; // 0-100
@@ -12,6 +14,8 @@ interface ProgressRingProps {
   label?: string;
   value?: string;
   showPercentage?: boolean;
+  /** Animate arc sweep when progress changes */
+  animated?: boolean;
 }
 
 export const ProgressRing: React.FC<ProgressRingProps> = ({
@@ -23,6 +27,7 @@ export const ProgressRing: React.FC<ProgressRingProps> = ({
   label,
   value,
   showPercentage = false,
+  animated = false,
 }) => {
   const { theme } = useTheme();
   const ringColor = color || theme.ringGreen;
@@ -32,14 +37,46 @@ export const ProgressRing: React.FC<ProgressRingProps> = ({
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const center = size / 2;
-  const strokeDashoffset = circumference * (1 - clampedProgress / 100);
 
-  const displayValue = value || (showPercentage ? `${Math.round(clampedProgress)}%` : '');
+  const animatedProgress = useRef(new Animated.Value(clampedProgress)).current;
+  const [displayProgress, setDisplayProgress] = React.useState(clampedProgress);
+
+  useEffect(() => {
+    if (!animated) {
+      animatedProgress.setValue(clampedProgress);
+      setDisplayProgress(clampedProgress);
+      return;
+    }
+
+    const listenerId = animatedProgress.addListener(({ value }) => {
+      setDisplayProgress(value);
+    });
+
+    Animated.spring(animatedProgress, {
+      toValue: clampedProgress,
+      useNativeDriver: false,
+      tension: 60,
+      friction: 8,
+    }).start();
+
+    return () => {
+      animatedProgress.removeListener(listenerId);
+    };
+  }, [clampedProgress, animated, animatedProgress]);
+
+  const strokeDashoffset = animated
+    ? circumference * (1 - displayProgress / 100)
+    : circumference * (1 - clampedProgress / 100);
+
+  const displayValue =
+    value ||
+    (showPercentage
+      ? `${Math.round(animated ? displayProgress : clampedProgress)}%`
+      : '');
 
   return (
     <View style={[styles.container, { width: size, height: size }]}>
       <Svg width={size} height={size}>
-        {/* Background circle */}
         <Circle
           cx={center}
           cy={center}
@@ -48,8 +85,7 @@ export const ProgressRing: React.FC<ProgressRingProps> = ({
           strokeWidth={strokeWidth}
           fill="transparent"
         />
-        {/* Progress circle */}
-        <Circle
+        <AnimatedCircle
           cx={center}
           cy={center}
           r={radius}
@@ -69,8 +105,8 @@ export const ProgressRing: React.FC<ProgressRingProps> = ({
           </Text>
         )}
         {displayValue && (
-          <Text 
-            style={[styles.value, { fontSize: size * 0.17, color: theme.text }]} 
+          <Text
+            style={[styles.value, { fontSize: size * 0.17, color: theme.text }]}
             numberOfLines={1}
             ellipsizeMode="tail"
             adjustsFontSizeToFit
@@ -108,4 +144,3 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
-

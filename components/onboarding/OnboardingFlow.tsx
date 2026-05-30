@@ -11,7 +11,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { useFinance } from '@/context/FinanceContext';
 import { useBankAccounts } from '@/context/BankAccountsContext';
 import { Spacing } from '@/constants/design';
-import { saveUserCards } from '@/utils/storage';
+import { saveUserCards, saveSalarySkippedAt } from '@/utils/storage';
 import { saveBankAccounts, completeOnboarding } from '@/utils/onboarding';
 import { UserCard, BankAccount } from '@/types';
 import { WelcomeStep } from './WelcomeStep';
@@ -177,8 +177,9 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     goToPostSalaryStep();
   };
 
-  const handleSkipSalary = () => {
+  const handleSkipSalary = async () => {
     setSalaryData(null);
+    await saveSalarySkippedAt();
     goToPostSalaryStep();
   };
 

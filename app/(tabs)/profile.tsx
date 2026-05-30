@@ -1,5 +1,4 @@
-import React, { useState, useCallback } from 'react';
-import { useFocusEffect } from 'expo-router';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,7 +8,9 @@ import {
   TouchableOpacity,
   Modal,
   Alert,
+  Animated,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useFinance } from '@/context/FinanceContext';
@@ -24,23 +25,24 @@ import {
   calculateTotalIncome,
   calculateTotalExpenses,
   calculateTotalSavedInGoals,
+  getCombinedTransactionsByPeriod,
 } from '@/utils/calculations';
 import { BankAccount } from '@/types';
 
 const STALE_THRESHOLD_DAYS = 14;
+const JUST_CONFIRMED_MS = 60 * 60 * 1000;
+
+const isJustConfirmed = (account: BankAccount): boolean => {
+  if (!account.lastUpdated) return false;
+  return Date.now() - new Date(account.lastUpdated).getTime() < JUST_CONFIRMED_MS;
+};
 
 export default function ProfileScreen() {
-  const { transactions, goals } = useFinance();
+  const { transactions, goals, recurringExpenses } = useFinance();
   const { theme, themeMode } = useTheme();
   const tabBarHeight = useBottomTabBarHeight();
-  const { accounts, reloadAccounts, addAccount, updateAccount, deleteAccount, confirmBalance } =
+  const { accounts, addAccount, updateAccount, deleteAccount, confirmBalance } =
     useBankAccounts();
-
-  useFocusEffect(
-    useCallback(() => {
-      reloadAccounts();
-    }, [reloadAccounts])
-  );
 
   const buttonTextColor = themeMode === 'dark' ? '#000505' : theme.text;
 
@@ -49,6 +51,8 @@ export default function ProfileScreen() {
   const [editingAccount, setEditingAccount] = useState<BankAccount | null>(null);
   const [accountName, setAccountName] = useState('');
   const [accountBalance, setAccountBalance] = useState('');
+
+  const [confirmAnim] = useState(() => new Animated.Value(1));
 
   const totalBalance = accounts.reduce((sum, a) => sum + a.balance, 0);
 
@@ -107,21 +111,30 @@ export default function ProfileScreen() {
   };
 
   const handleConfirmBalance = async (account: BankAccount) => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    Animated.sequence([
+      Animated.spring(confirmAnim, { toValue: 1.35, useNativeDriver: true, speed: 50, bounciness: 12 }),
+      Animated.spring(confirmAnim, { toValue: 1, useNativeDriver: true, speed: 50, bounciness: 8 }),
+    ]).start();
     await confirmBalance(account.id);
   };
 
   const isStale = (account: BankAccount) =>
     !account.lastUpdated || daysSince(account.lastUpdated) > STALE_THRESHOLD_DAYS;
 
-  const totalIncome = calculateTotalIncome(transactions);
-  const totalExpenses = calculateTotalExpenses(transactions);
+  const monthlyTransactions = useMemo(
+    () => getCombinedTransactionsByPeriod(transactions, recurringExpenses, 'month'),
+    [transactions, recurringExpenses]
+  );
+  const totalIncome = calculateTotalIncome(monthlyTransactions);
+  const totalExpenses = calculateTotalExpenses(monthlyTransactions);
   const totalSaved = calculateTotalSavedInGoals(goals);
   const completedGoals = goals.filter(g => g.currentAmount >= g.targetAmount).length;
 
   const stats = [
     { icon: 'trending-up' as const, value: formatCurrency(totalSaved), label: 'Total Saved', color: theme.primary },
-    { icon: 'arrow-down-circle' as const, value: formatCurrency(totalIncome), label: 'Total Income', color: theme.primary },
-    { icon: 'arrow-up-circle' as const, value: formatCurrency(totalExpenses), label: 'Total Spent', color: theme.secondary },
+    { icon: 'arrow-down-circle' as const, value: formatCurrency(totalIncome), label: 'Monthly Income', color: theme.primary },
+    { icon: 'arrow-up-circle' as const, value: formatCurrency(totalExpenses), label: 'Monthly Spent', color: theme.secondary },
     { icon: 'flag' as const, value: String(completedGoals), label: 'Goals Achieved', color: theme.accent },
   ];
 
@@ -196,21 +209,24 @@ export default function ProfileScreen() {
                       <Text style={[styles.accountBalance, { color: theme.text }]}>
                         {formatCurrency(account.balance)}
                       </Text>
-                      {/* One-tap confirm button */}
-                      <TouchableOpacity
-                        onPress={() => handleConfirmBalance(account)}
-                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                        style={[
-                          styles.confirmBtn,
-                          { backgroundColor: stale ? theme.warningOrange + '22' : theme.primary + '18' },
-                        ]}
-                      >
-                        <Icon
-                          name="checkmark-circle"
-                          size={22}
-                          color={stale ? theme.warningOrange : theme.primary}
-                        />
-                      </TouchableOpacity>
+                      {!isJustConfirmed(account) && (
+                        <Animated.View style={{ transform: [{ scale: confirmAnim }], marginLeft: Spacing.lg }}>
+                          <TouchableOpacity
+                            onPress={() => handleConfirmBalance(account)}
+                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                            style={[
+                              styles.confirmBtn,
+                              { backgroundColor: stale ? theme.warningOrange + '22' : theme.primary + '18' },
+                            ]}
+                          >
+                            <Icon
+                              name="checkmark-circle"
+                              size={22}
+                              color={stale ? theme.warningOrange : theme.primary}
+                            />
+                          </TouchableOpacity>
+                        </Animated.View>
+                      )}
                     </View>
                     {idx < accounts.length - 1 && (
                       <View style={[styles.separator, { backgroundColor: theme.cardBorder }]} />

@@ -234,6 +234,50 @@ export const setMerchantCategory = async (merchant: string, categoryId: string):
 
 // Balance reconciliation banner dismiss (persisted per calendar day)
 const BALANCE_BANNER_DISMISS_KEY = '@finance_tracker:balance_banner_dismissed_on';
+const SALARY_SKIPPED_AT_KEY = '@finance_tracker:salary_skipped_at';
+const SALARY_REMINDER_LAST_SHOWN_KEY = '@finance_tracker:salary_reminder_last_shown';
+
+export const saveSalarySkippedAt = async (): Promise<void> => {
+  try {
+    await AsyncStorage.setItem(SALARY_SKIPPED_AT_KEY, new Date().toISOString());
+  } catch (error) {
+    console.error('Error saving salary skipped timestamp:', error);
+  }
+};
+
+export const loadSalarySkippedAt = async (): Promise<string | null> => {
+  try {
+    return await AsyncStorage.getItem(SALARY_SKIPPED_AT_KEY);
+  } catch (error) {
+    console.error('Error loading salary skipped timestamp:', error);
+    return null;
+  }
+};
+
+export const clearSalarySkippedAt = async (): Promise<void> => {
+  try {
+    await AsyncStorage.removeItem(SALARY_SKIPPED_AT_KEY);
+  } catch (error) {
+    console.error('Error clearing salary skipped timestamp:', error);
+  }
+};
+
+export const saveSalaryReminderLastShown = async (iso: string): Promise<void> => {
+  try {
+    await AsyncStorage.setItem(SALARY_REMINDER_LAST_SHOWN_KEY, iso);
+  } catch (error) {
+    console.error('Error saving salary reminder timestamp:', error);
+  }
+};
+
+export const loadSalaryReminderLastShown = async (): Promise<string | null> => {
+  try {
+    return await AsyncStorage.getItem(SALARY_REMINDER_LAST_SHOWN_KEY);
+  } catch (error) {
+    console.error('Error loading salary reminder timestamp:', error);
+    return null;
+  }
+};
 
 export const setBalanceBannerDismissedToday = async (): Promise<void> => {
   try {

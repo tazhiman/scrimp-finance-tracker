@@ -11,6 +11,7 @@ import { loadRewardsData } from '@/utils/cardEngine';
 import { isOnboardingCompleted } from '@/utils/onboarding';
 import { requestNotificationPermissions } from '@/utils/notifications';
 import { OnboardingFlow } from '@/components/onboarding/OnboardingFlow';
+import { SalarySetupReminder } from '@/components/SalarySetupReminder';
 
 // Configure how notifications are handled when app is in foreground
 Notifications.setNotificationHandler({
@@ -100,6 +101,7 @@ export default function RootLayout() {
           {showOnboarding && (
             <OnboardingFlow onComplete={() => setShowOnboarding(false)} />
           )}
+          {!showOnboarding && <SalarySetupReminder />}
         </GamificationProvider>
       </FinanceProvider>
       </BankAccountsProvider>

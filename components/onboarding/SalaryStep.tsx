@@ -9,37 +9,24 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
-  Modal,
-  Pressable,
 } from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import { format } from 'date-fns';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '@/components/ui/Icon';
 import { useTheme } from '@/context/ThemeContext';
 import { RecurrenceFrequency } from '@/types';
 import { Spacing, Radius, Shadow } from '@/constants/design';
+import { DayOfMonthPicker } from '@/components/ui/DayOfMonthPicker';
+import { payDayToStartDate, startDateToPayDay } from '@/utils/payDay';
 
 const { width } = Dimensions.get('window');
 
-const defaultPayDay = (): Date => {
-  const d = new Date();
-  d.setDate(1);
-  d.setHours(12, 0, 0, 0);
-  return d;
-};
-
 export interface SalaryFormData {
   amount: number;
+  payDay: number;
   startDate: string;
   frequency: RecurrenceFrequency;
   title: string;
 }
-
-const parsePayDay = (startDate: string): Date => {
-  const parsed = new Date(`${startDate}T12:00:00.000Z`);
-  return Number.isNaN(parsed.getTime()) ? defaultPayDay() : parsed;
-};
 
 interface SalaryStepProps {
   linkedAccountName?: string;
@@ -63,11 +50,9 @@ export function SalaryStep({ linkedAccountName, initialValues, onNext, onSkip, o
   const [frequency, setFrequency] = useState<RecurrenceFrequency>(
     initialValues?.frequency ?? 'monthly'
   );
-  const [payDay, setPayDay] = useState<Date>(
-    initialValues ? parsePayDay(initialValues.startDate) : defaultPayDay()
+  const [payDay, setPayDay] = useState<number>(
+    initialValues?.payDay ?? (initialValues?.startDate ? startDateToPayDay(initialValues.startDate) : 1)
   );
-  const [iosPickerOpen, setIosPickerOpen] = useState(false);
-  const [androidPickerOpen, setAndroidPickerOpen] = useState(false);
 
   const handleNext = () => {
     const parsed = parseFloat(amount);
@@ -76,36 +61,20 @@ export function SalaryStep({ linkedAccountName, initialValues, onNext, onSkip, o
       return;
     }
 
-    const y = payDay.getFullYear();
-    const mo = String(payDay.getMonth() + 1).padStart(2, '0');
-    const day = String(payDay.getDate()).padStart(2, '0');
-
     onNext({
       amount: parsed,
-      startDate: `${y}-${mo}-${day}`,
+      payDay,
+      startDate: payDayToStartDate(payDay),
       frequency,
       title: title.trim() || 'Monthly salary',
     });
   };
 
-  const openDatePicker = () => {
-    if (Platform.OS === 'android') {
-      setAndroidPickerOpen(true);
-    } else {
-      setIosPickerOpen(true);
-    }
-  };
-
-  const handleAndroidDateChange = (event: { type?: string }, date?: Date) => {
-    setAndroidPickerOpen(false);
-    if (event.type === 'set' && date) setPayDay(date);
-  };
-
   return (
     <KeyboardAvoidingView
       style={[styles.container, { width }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 48 : 0}
     >
       <View style={styles.header}>
         {onBack ? (
@@ -120,7 +89,6 @@ export function SalaryStep({ linkedAccountName, initialValues, onNext, onSkip, o
         </TouchableOpacity>
       </View>
 
-      {/* Single-screen layout — no ScrollView */}
       <View style={styles.body}>
         <View style={styles.hero}>
           <View style={[styles.iconCircle, { backgroundColor: theme.primary + '20' }]}>
@@ -190,49 +158,11 @@ export function SalaryStep({ linkedAccountName, initialValues, onNext, onSkip, o
           </View>
 
           <View style={[styles.fieldBlock, { marginTop: FIELD_GAP }]}>
-            <Text style={[styles.fieldLabel, { color: theme.textSecondary }]}>Pay Day</Text>
+            <Text style={[styles.fieldLabel, { color: theme.textSecondary }]}>Pay Day of Month</Text>
             <Text style={[styles.fieldHint, { color: theme.textTertiary }]}>
-              When you usually get paid each period.
+              Which day of the month do you get paid?
             </Text>
-            {Platform.OS === 'web' ? (
-              <View
-                style={[
-                  styles.webDateContainer,
-                  { backgroundColor: theme.backgroundSecondary, borderColor: theme.cardBorder },
-                ]}
-              >
-                <input
-                  type="date"
-                  value={payDay.toISOString().split('T')[0]}
-                  onChange={(e) => {
-                    const next = new Date(e.target.value);
-                    if (!Number.isNaN(next.getTime())) setPayDay(next);
-                  }}
-                  style={{
-                    backgroundColor: 'transparent',
-                    border: 'none',
-                    color: theme.text,
-                    fontSize: 16,
-                    fontFamily: 'inherit',
-                    width: '100%',
-                    outline: 'none',
-                    cursor: 'pointer',
-                  }}
-                />
-              </View>
-            ) : (
-              <TouchableOpacity
-                onPress={openDatePicker}
-                activeOpacity={0.75}
-                style={[
-                  styles.dateRow,
-                  { borderColor: theme.cardBorder, backgroundColor: theme.backgroundSecondary },
-                ]}
-              >
-                <Text style={[styles.dateRowText, { color: theme.text }]}>{format(payDay, 'd MMM yyyy')}</Text>
-                <Icon name="calendar-outline" size={20} color={theme.textSecondary} />
-              </TouchableOpacity>
-            )}
+            <DayOfMonthPicker value={payDay} onChange={setPayDay} frequency={frequency} />
           </View>
 
           <View style={[styles.fieldBlock, { marginTop: FIELD_GAP }]}>
@@ -270,47 +200,6 @@ export function SalaryStep({ linkedAccountName, initialValues, onNext, onSkip, o
           <Text style={[styles.nextButtonText, { color: buttonTextColor }]}>Continue</Text>
         </TouchableOpacity>
       </View>
-
-      {androidPickerOpen ? (
-        <DateTimePicker
-          value={payDay}
-          mode="date"
-          display="default"
-          onChange={handleAndroidDateChange}
-          themeVariant={themeMode === 'dark' ? 'dark' : 'light'}
-        />
-      ) : null}
-
-      <Modal
-        visible={iosPickerOpen}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setIosPickerOpen(false)}
-      >
-        <View style={styles.iosModalRoot}>
-          <Pressable style={styles.iosModalBackdropFill} onPress={() => setIosPickerOpen(false)} />
-          <View
-            style={[
-              styles.iosModalSheet,
-              { backgroundColor: theme.cardBackground, paddingBottom: Spacing.xl + insets.bottom },
-            ]}
-          >
-            <View style={styles.iosModalHeader}>
-              <TouchableOpacity onPress={() => setIosPickerOpen(false)} hitSlop={12}>
-                <Text style={[styles.iosModalDone, { color: theme.primary }]}>Done</Text>
-              </TouchableOpacity>
-            </View>
-            <DateTimePicker
-              value={payDay}
-              mode="date"
-              display="spinner"
-              onChange={(_, d) => d && setPayDay(d)}
-              themeVariant={themeMode === 'dark' ? 'dark' : 'light'}
-              style={styles.iosSpinner}
-            />
-          </View>
-        </View>
-      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -426,26 +315,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
   },
-  dateRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderWidth: 1,
-    borderRadius: Radius.sm + 2,
-    paddingHorizontal: Spacing.sm + 6,
-    paddingVertical: Spacing.sm + 5,
-    minHeight: 48,
-  },
-  dateRowText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  webDateContainer: {
-    borderWidth: 1,
-    borderRadius: Radius.sm + 2,
-    paddingHorizontal: Spacing.sm + 6,
-    paddingVertical: Spacing.sm + 4,
-  },
   segmentedControl: {
     flexDirection: 'row',
     borderRadius: Radius.sm + 2,
@@ -473,34 +342,5 @@ const styles = StyleSheet.create({
   nextButtonText: {
     fontSize: 17,
     fontWeight: '700',
-  },
-  iosModalRoot: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  iosModalBackdropFill: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,5,5,0.45)',
-  },
-  iosModalSheet: {
-    borderTopLeftRadius: Radius.lg,
-    borderTopRightRadius: Radius.lg,
-    paddingTop: Spacing.sm,
-    overflow: 'hidden',
-  },
-  iosModalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.xl,
-    paddingVertical: Spacing.sm,
-  },
-  iosModalDone: {
-    fontSize: 17,
-    fontWeight: '700',
-  },
-  iosSpinner: {
-    height: 200,
-    width: '100%',
   },
 });

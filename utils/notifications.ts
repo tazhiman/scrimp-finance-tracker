@@ -39,6 +39,12 @@ export const requestNotificationPermissions = async (): Promise<boolean> => {
         vibrationPattern: [0, 250, 250, 250],
         lightColor: '#FF9F0A',
       });
+      await Notifications.setNotificationChannelAsync('tap-to-pay', {
+        name: 'Transaction Logged',
+        importance: Notifications.AndroidImportance.HIGH,
+        vibrationPattern: [0, 200, 200, 200],
+        lightColor: '#D0EFB1',
+      });
     }
 
     return true;
@@ -185,6 +191,32 @@ export const scheduleBalanceReconciliationNotification = async (): Promise<void>
 /** Cancel the balance reconciliation reminder. */
 export const cancelBalanceReconciliationNotification = async (): Promise<void> => {
   await cancelNotificationsByKind('balance');
+};
+
+/** Immediate notification when a tap-to-pay / Shortcuts transaction is synced. */
+export const sendTapToPayNotification = async (
+  amount: number,
+  merchant?: string
+): Promise<void> => {
+  try {
+    const hasPermission = await requestNotificationPermissions();
+    if (!hasPermission) return;
+
+    const label = (merchant ?? '').trim() || 'Unknown Merchant';
+
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: 'Transaction Logged',
+        body: `$${amount.toFixed(2)} at ${label} has been logged.`,
+        data: { kind: 'tap-to-pay' },
+        sound: true,
+        ...(Platform.OS === 'android' && { channelId: 'tap-to-pay' }),
+      },
+      trigger: null,
+    });
+  } catch (error) {
+    console.error('Error sending tap-to-pay notification:', error);
+  }
 };
 
 /** Immediate alert when linked-account spending threatens or negates goal savings. */

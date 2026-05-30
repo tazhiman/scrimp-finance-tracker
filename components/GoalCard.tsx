@@ -57,6 +57,7 @@ export const GoalCard: React.FC<GoalCardProps> = ({ goal, onPress, onContribute 
               strokeWidth={8}
               color={theme.ringGreen}
               showPercentage={true}
+              animated
             />
           </View>
 

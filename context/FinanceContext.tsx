@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { Transaction, SavingsGoal, RecurringExpense, Category } from '@/types';
 import { useBankAccounts } from '@/context/BankAccountsContext';
 import {
@@ -16,9 +17,10 @@ import {
   saveUserCards,
   loadMerchantCategoryMap,
   setMerchantCategory,
+  clearSalarySkippedAt,
 } from '@/utils/storage';
 import { UserCard } from '@/types';
-import { scheduleGoalNotifications } from '@/utils/notifications';
+import { scheduleGoalNotifications, sendTapToPayNotification } from '@/utils/notifications';
 import { updateWidgetData, reloadWidgets } from '@/utils/widgetData';
 import {
   getPendingTransactions,
@@ -145,6 +147,15 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
 
         await clearPendingTransactions();
         console.log(`[TransactionSync] Synced ${newTxs.length} pending transaction(s) from Shortcuts`);
+
+        if (newTxs.length > 0) {
+          const notificationsEnabled = await loadNotificationSettings();
+          if (notificationsEnabled) {
+            for (const tx of newTxs) {
+              await sendTapToPayNotification(tx.amount, tx.merchant ?? tx.description);
+            }
+          }
+        }
       } catch (error) {
         console.error('[TransactionSync] Error syncing pending transactions:', error);
       } finally {
@@ -367,6 +378,9 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
       id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
     };
     setRecurringExpenses(prev => [...prev, newRecurring]);
+    if (recurring.category === 'salary' && (recurring.transactionType ?? 'expense') === 'income') {
+      clearSalarySkippedAt().catch(console.error);
+    }
   };
 
   const updateRecurringExpense = (id: string, updates: Partial<RecurringExpense>) => {
@@ -398,6 +412,7 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   const contributeToGoal = (goalId: string, amount: number) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     const today = todayDateString();
     setGoals(prev =>
       prev.map(g => {

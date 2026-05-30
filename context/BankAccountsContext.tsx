@@ -105,13 +105,13 @@ export const BankAccountsProvider: React.FC<{ children: ReactNode }> = ({ childr
 
   const applyTransactionDelta = useCallback(async (accountId: string, signedDelta: number) => {
     if (!accountId || signedDelta === 0) return;
-    setAccounts(prev =>
-      prev.map(a =>
-        a.id === accountId
-          ? { ...a, balance: a.balance + signedDelta }
-          : a
-      )
-    );
+    setAccounts(prev => {
+      const next = prev.map(a =>
+        a.id === accountId ? { ...a, balance: a.balance + signedDelta } : a
+      );
+      saveBankAccounts(next).catch(console.error);
+      return next;
+    });
   }, []);
 
   const getStaleAccounts = useCallback(

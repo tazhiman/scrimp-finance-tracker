@@ -1,4 +1,4 @@
-import { addMonths, isAfter, isBefore, parseISO, startOfMonth, subMonths } from 'date-fns';
+import { addMonths, format, isAfter, isBefore, parseISO, startOfMonth, subMonths } from 'date-fns';
 import { Category, RecurringExpense, SavingsGoal, Transaction } from '@/types';
 import {
   getCombinedTransactionsByPeriod,
@@ -6,8 +6,16 @@ import {
   calculateTotalExpenses,
   getExpensesByCategory,
 } from '@/utils/calculations';
-import { isDateInPeriod } from '@/utils/dateHelpers';
 import { getCategoryById } from '@/constants/categories';
+
+/** Use planned contribution by default; if user contributed more this month, use actual. */
+export function effectiveGoalContribution(goal: SavingsGoal, referenceDate: Date): number {
+  const monthStr = format(referenceDate, 'yyyy-MM');
+  const actual = (goal.contributions ?? [])
+    .filter(c => c.date.startsWith(monthStr))
+    .reduce((sum, c) => sum + c.amount, 0);
+  return Math.max(goal.contributionAmount, actual);
+}
 
 export type MonthlyStatsThemeColors = {
   primary: string;
@@ -58,14 +66,15 @@ export function buildMonthlyStatsSlices(
     themeColors.ringOrange,
   ];
   goals.forEach((goal, idx) => {
-    if (goal.contributionAmount <= 0) return;
-    if (!goal.lastContributionDate || !isDateInPeriod(goal.lastContributionDate, 'month', referenceDate)) {
-      return;
-    }
+    const effective = effectiveGoalContribution(goal, referenceDate);
+    if (effective <= 0) return;
     slices.push({
       id: `goal_contrib_${goal.id}`,
-      label: `${goal.name} Contribution`,
-      value: goal.contributionAmount,
+      label:
+        effective > goal.contributionAmount
+          ? `${goal.name} Contribution (actual)`
+          : `${goal.name} Contribution`,
+      value: effective,
       color: goalColors[idx % goalColors.length],
     });
   });
@@ -143,7 +152,10 @@ export function computeMonthlyBudgetMetrics(
   );
   const income = calculateTotalIncome(monthlyTransactions);
   const expenses = calculateTotalExpenses(monthlyTransactions);
-  const monthlyGoalContributions = goals.reduce((sum, g) => sum + g.contributionAmount, 0);
+  const monthlyGoalContributions = goals.reduce(
+    (sum, g) => sum + effectiveGoalContribution(g, referenceDate),
+    0
+  );
   const availableBudget = income - monthlyGoalContributions - expenses;
   const totalCommitted = monthlyGoalContributions + expenses;
   const expenseProgress = income > 0 ? Math.min((totalCommitted / income) * 100, 100) : 0;

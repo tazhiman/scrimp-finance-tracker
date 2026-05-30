@@ -11,10 +11,11 @@ import {
   ScrollView,
   Alert,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '@/components/ui/Icon';
 import { useTheme } from '@/context/ThemeContext';
 import { BankAccount } from '@/types';
-import { Shadow } from '@/constants/design';
+import { Shadow, Spacing } from '@/constants/design';
 
 const { width } = Dimensions.get('window');
 
@@ -32,6 +33,7 @@ interface LinkAccountStepProps {
 
 export function LinkAccountStep({ goalName, initialValues, onNext, onBack }: LinkAccountStepProps) {
   const { theme, themeMode } = useTheme();
+  const insets = useSafeAreaInsets();
   const buttonTextColor = themeMode === 'dark' ? '#000505' : '#FEFCFD';
 
   const [accountName, setAccountName] = useState(initialValues?.account.name ?? '');
@@ -72,7 +74,8 @@ export function LinkAccountStep({ goalName, initialValues, onNext, onBack }: Lin
   return (
     <KeyboardAvoidingView
       style={[styles.container, { width }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 48 : 0}
     >
       <View style={styles.header}>
         {onBack ? (
@@ -149,7 +152,7 @@ export function LinkAccountStep({ goalName, initialValues, onNext, onBack }: Lin
         </View>
       </ScrollView>
 
-      <View style={styles.bottomSection}>
+      <View style={[styles.bottomSection, { paddingBottom: Math.max(Spacing.lg, insets.bottom) }]}>
         <TouchableOpacity
           style={[styles.nextButton, { backgroundColor: theme.primary }, Shadow.medium]}
           onPress={handleNext}

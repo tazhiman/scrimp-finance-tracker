@@ -146,6 +146,7 @@ export default function GoalDetailScreen() {
               strokeWidth={12}
               color={theme.ringGreen}
               showPercentage={true}
+              animated
             />
           </View>
 

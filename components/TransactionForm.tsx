@@ -26,6 +26,8 @@ import { loadBankAccounts } from '@/utils/onboarding';
 import { getAllCards } from '@/utils/cardEngine';
 import { getCachedCardImage } from '@/utils/remoteRewardsData';
 import { buildTransactionDateTime } from '@/utils/dateHelpers';
+import { payDayToStartDate } from '@/utils/payDay';
+import { DayOfMonthPicker } from '@/components/ui/DayOfMonthPicker';
 import { GlassCard } from './ui/GlassCard';
 import { BankAvatar } from './ui/BankAvatar';
 
@@ -100,6 +102,17 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
     d.setMonth(d.getMonth() + 6);
     return d;
   });
+  const [payDayOfMonth, setPayDayOfMonth] = useState(() => new Date().getDate());
+
+  const isSalaryRecurring =
+    type === 'income' && category === 'salary' && scheduleMode === 'recurring' && !initialTransaction;
+
+  useEffect(() => {
+    if (type === 'income' && category === 'salary' && !initialTransaction) {
+      setScheduleMode('recurring');
+      setRecurrenceFrequency('monthly');
+    }
+  }, [type, category, initialTransaction]);
 
   useEffect(() => {
     if (visible) {
@@ -144,6 +157,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
     setInstallments('');
     setEndDateEnabled(false);
     setSelectedAccount(undefined);
+    setPayDayOfMonth(new Date().getDate());
     setStep(1);
     slideAnim.setValue(0);
     const d = new Date();
@@ -264,7 +278,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
         amount: amountNum,
         category: resolvedCategory,
         transactionType: type,
-        startDate: date.toISOString().split('T')[0],
+        startDate: isSalaryRecurring ? payDayToStartDate(payDayOfMonth) : date.toISOString().split('T')[0],
         frequency: recurrenceFrequency,
         endDate: endDateEnabled ? endDate.toISOString().split('T')[0] : undefined,
         totalInstallments,
@@ -484,7 +498,13 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
               <CategorySelector
                 type={type}
                 selectedCategory={category}
-                onSelect={(c) => setCategory(c.id)}
+                onSelect={(c) => {
+                  setCategory(c.id);
+                  if (type === 'income' && c.id === 'salary' && !initialTransaction) {
+                    setScheduleMode('recurring');
+                    setRecurrenceFrequency('monthly');
+                  }
+                }}
                 customCategoryName={customCategoryName}
                 onCustomCategoryNameChange={setCustomCategoryName}
                 customCategoryEmoji={customCategoryEmoji}
@@ -598,12 +618,14 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
               <View style={styles.section}>
                 <Text style={[styles.label, { color: theme.textSecondary }]}>Schedule</Text>
                 <View style={[styles.scheduleSelector, { backgroundColor: theme.backgroundSecondary }]}>
-                  <TouchableOpacity
-                    style={[styles.scheduleButton, scheduleMode === 'one_time' && { backgroundColor: theme.backgroundTertiary }]}
-                    onPress={() => selectScheduleMode('one_time')}
-                  >
-                    <Text style={[styles.scheduleButtonText, { color: theme.textSecondary }]}>One-time</Text>
-                  </TouchableOpacity>
+                  {category !== 'salary' && (
+                    <TouchableOpacity
+                      style={[styles.scheduleButton, scheduleMode === 'one_time' && { backgroundColor: theme.backgroundTertiary }]}
+                      onPress={() => selectScheduleMode('one_time')}
+                    >
+                      <Text style={[styles.scheduleButtonText, { color: theme.textSecondary }]}>One-time</Text>
+                    </TouchableOpacity>
+                  )}
                   <TouchableOpacity
                     style={[styles.scheduleButton, scheduleMode === 'recurring' && { backgroundColor: theme.primary }]}
                     onPress={() => selectScheduleMode('recurring')}
@@ -639,29 +661,44 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
                         <Text style={[styles.frequencyButtonText, { color: recurrenceFrequency === 'monthly' ? activeButtonTextColor : theme.textSecondary }]}>Monthly</Text>
                       </TouchableOpacity>
                     </View>
-                    <View style={styles.fieldSpacer} />
-                    <TouchableOpacity style={styles.endDateToggle} onPress={() => setEndDateEnabled(v => !v)} activeOpacity={0.7}>
-                      <Icon name={endDateEnabled ? 'checkbox' : 'square-outline'} size={20} color={theme.textSecondary} />
-                      <Text style={[styles.endDateToggleText, { color: theme.textSecondary }]}>Set an end date (optional)</Text>
-                    </TouchableOpacity>
-                    {endDateEnabled && (
-                      <View style={styles.endDateContainer}>
-                        <Text style={[styles.label, { color: theme.textSecondary }]}>End Date</Text>
-                        {Platform.OS === 'web' ? (
-                          <View style={[styles.webDateContainer, { backgroundColor: theme.inputBackground, borderColor: theme.inputBorder }]}>
-                            <input
-                              type="date"
-                              value={endDate.toISOString().split('T')[0]}
-                              onChange={(e) => setEndDate(new Date(e.target.value))}
-                              style={{ backgroundColor: 'transparent', border: 'none', color: theme.text, fontSize: 16, fontFamily: 'inherit', width: '100%', outline: 'none', cursor: 'pointer' }}
-                            />
-                          </View>
-                        ) : (
-                          <View style={[styles.datePickerContainer, { backgroundColor: theme.inputBackground, borderColor: theme.inputBorder }]}>
-                            <DateTimePicker value={endDate} mode="date" display="default" onChange={(_, d) => d && setEndDate(d)} minimumDate={date} themeVariant={themeMode === 'dark' ? 'dark' : 'light'} />
+                    {isSalaryRecurring && (
+                      <>
+                        <View style={styles.fieldSpacer} />
+                        <Text style={[styles.label, { color: theme.textSecondary }]}>Pay Day of Month</Text>
+                        <DayOfMonthPicker
+                          value={payDayOfMonth}
+                          onChange={setPayDayOfMonth}
+                          frequency={recurrenceFrequency}
+                        />
+                      </>
+                    )}
+                    {!isSalaryRecurring && (
+                      <>
+                        <View style={styles.fieldSpacer} />
+                        <TouchableOpacity style={styles.endDateToggle} onPress={() => setEndDateEnabled(v => !v)} activeOpacity={0.7}>
+                          <Icon name={endDateEnabled ? 'checkbox' : 'square-outline'} size={20} color={theme.textSecondary} />
+                          <Text style={[styles.endDateToggleText, { color: theme.textSecondary }]}>Set an end date (optional)</Text>
+                        </TouchableOpacity>
+                        {endDateEnabled && (
+                          <View style={styles.endDateContainer}>
+                            <Text style={[styles.label, { color: theme.textSecondary }]}>End Date</Text>
+                            {Platform.OS === 'web' ? (
+                              <View style={[styles.webDateContainer, { backgroundColor: theme.inputBackground, borderColor: theme.inputBorder }]}>
+                                <input
+                                  type="date"
+                                  value={endDate.toISOString().split('T')[0]}
+                                  onChange={(e) => setEndDate(new Date(e.target.value))}
+                                  style={{ backgroundColor: 'transparent', border: 'none', color: theme.text, fontSize: 16, fontFamily: 'inherit', width: '100%', outline: 'none', cursor: 'pointer' }}
+                                />
+                              </View>
+                            ) : (
+                              <View style={[styles.datePickerContainer, { backgroundColor: theme.inputBackground, borderColor: theme.inputBorder }]}>
+                                <DateTimePicker value={endDate} mode="date" display="default" onChange={(_, d) => d && setEndDate(d)} minimumDate={date} themeVariant={themeMode === 'dark' ? 'dark' : 'light'} />
+                              </View>
+                            )}
                           </View>
                         )}
-                      </View>
+                      </>
                     )}
                   </>
                 )}
@@ -694,8 +731,10 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
               />
             </View>
 
-            <View style={styles.section}>
-              <Text style={[styles.label, { color: theme.textSecondary }]}>Date</Text>
+            {!isSalaryRecurring && (
+              <>
+                <View style={styles.section}>
+                  <Text style={[styles.label, { color: theme.textSecondary }]}>Date</Text>
               {Platform.OS === 'web' ? (
                 <View style={[styles.webDateContainer, { backgroundColor: theme.inputBackground, borderColor: theme.inputBorder }]}>
                   <input
@@ -762,7 +801,9 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
                   />
                 </View>
               )}
-            </View>
+                </View>
+              </>
+            )}
 
             <TouchableOpacity
               style={[styles.saveButton, { backgroundColor: theme.primary }, Shadow.medium]}

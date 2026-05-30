@@ -410,12 +410,8 @@ export default function TransactionsScreen() {
           selectedPeriod={selectedPeriod}
           onPeriodChange={(p) => {
             setSelectedPeriod(p);
-            if (p === 'month') {
-              setReferenceDate(new Date());
-              setShowCalendar(false);
-            } else {
-              setShowCalendar(false);
-            }
+            setReferenceDate(new Date());
+            setShowCalendar(false);
           }}
           showCalendarButton={true}
           isCalendarActive={showCalendar}
