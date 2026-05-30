@@ -112,10 +112,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         frequency: goalData.frequency,
         startDate: today,
         endDate: goalData.endDate,
-        contributions:
-          existingSavings > 0
-            ? [{ date: today, amount: existingSavings, isInitial: true }]
-            : [],
+        contributions: [],
         ...buildInitialReserveFields(account.id, existingSavings, today),
       });
     }

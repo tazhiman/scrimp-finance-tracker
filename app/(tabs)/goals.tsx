@@ -139,11 +139,6 @@ export default function GoalsScreen() {
       await reloadAccounts();
     }
 
-    const contributions =
-      existingSavings > 0
-        ? [{ date: new Date().toISOString(), amount: existingSavings }]
-        : [];
-
     if (editingGoal) {
       const updates: Partial<SavingsGoal> = {
         name,
@@ -152,7 +147,6 @@ export default function GoalsScreen() {
         frequency,
         endDate: endDateIso,
         currentAmount: existingSavings,
-        contributions: existingSavings > 0 ? contributions : editingGoal.contributions,
       };
 
       if (linkResult && linkedAccountId) {
@@ -179,7 +173,7 @@ export default function GoalsScreen() {
         frequency,
         startDate,
         endDate: endDateIso,
-        contributions,
+        contributions: [],
         ...(linkResult && linkedAccountId
           ? buildInitialReserveFields(linkedAccountId, existingSavings, startDate)
           : {}),
@@ -217,8 +211,19 @@ export default function GoalsScreen() {
     );
   };
 
+  const existingSavingsNum = parseFloat(linkState.existingSavings) || 0;
+  const currentForCalc = editingGoal
+    ? existingSavingsNum || editingGoal.currentAmount
+    : existingSavingsNum;
+
   const recommendedContribution = targetAmount
-    ? calculateRecommendedContribution(parseFloat(targetAmount) || 0, editingGoal?.currentAmount || 0, frequency, new Date().toISOString(), targetDate.toISOString())
+    ? calculateRecommendedContribution(
+        parseFloat(targetAmount) || 0,
+        currentForCalc,
+        frequency,
+        new Date().toISOString(),
+        targetDate.toISOString()
+      )
     : 0;
 
   return (
