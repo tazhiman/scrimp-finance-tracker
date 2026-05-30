@@ -166,9 +166,11 @@ export default function ProfileScreen() {
             <Text style={[styles.totalValue, { color: theme.text }]}>
               {formatCurrency(totalBalance)}
             </Text>
-            <Text style={[styles.totalHint, { color: theme.textTertiary }]}>
-              Tap a row to edit · tap the checkmark to confirm
-            </Text>
+            {accounts.some(a => !isJustConfirmed(a)) && (
+              <Text style={[styles.totalHint, { color: theme.textTertiary }]}>
+                Tap a row to edit · tap the checkmark to confirm
+              </Text>
+            )}
           </View>
 
           {accounts.length > 0 && (

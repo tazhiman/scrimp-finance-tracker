@@ -8,11 +8,11 @@ import {
 } from '@/utils/calculations';
 import { getCategoryById } from '@/constants/categories';
 
-/** Use planned contribution by default; if user contributed more this month, use actual. */
+/** Use planned contribution by default; if user contributed more this month (excluding initial opening balance), use actual. */
 export function effectiveGoalContribution(goal: SavingsGoal, referenceDate: Date): number {
   const monthStr = format(referenceDate, 'yyyy-MM');
   const actual = (goal.contributions ?? [])
-    .filter(c => c.date.startsWith(monthStr))
+    .filter(c => !c.isInitial && c.date.startsWith(monthStr))
     .reduce((sum, c) => sum + c.amount, 0);
   return Math.max(goal.contributionAmount, actual);
 }
@@ -70,10 +70,7 @@ export function buildMonthlyStatsSlices(
     if (effective <= 0) return;
     slices.push({
       id: `goal_contrib_${goal.id}`,
-      label:
-        effective > goal.contributionAmount
-          ? `${goal.name} Contribution (actual)`
-          : `${goal.name} Contribution`,
+      label: `${goal.name} Contribution`,
       value: effective,
       color: goalColors[idx % goalColors.length],
     });

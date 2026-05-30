@@ -1,18 +1,18 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
+  FlatList,
   TouchableOpacity,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
 } from 'react-native';
 import { useTheme } from '@/context/ThemeContext';
 import { Spacing, Radius } from '@/constants/design';
-import { clampPayDay, ordinalSuffix, payDayLabel } from '@/utils/payDay';
+import { clampPayDay, payDayLabel } from '@/utils/payDay';
 
 const ITEM_WIDTH = 52;
+const ITEM_MARGIN = 4;
+const CELL_WIDTH = ITEM_WIDTH + ITEM_MARGIN * 2;
 const DAYS = Array.from({ length: 31 }, (_, i) => i + 1);
 
 interface DayOfMonthPickerProps {
@@ -30,70 +30,103 @@ export function DayOfMonthPicker({
 }: DayOfMonthPickerProps) {
   const { theme, themeMode } = useTheme();
   const selectedTextColor = themeMode === 'dark' ? '#000505' : '#FEFCFD';
-  const scrollRef = useRef<ScrollView>(null);
+  const listRef = useRef<FlatList>(null);
   const clamped = clampPayDay(value);
+  const programmaticScrollRef = useRef(false);
 
+  // Scroll to keep selected day visible on initial render only
   useEffect(() => {
     const timer = setTimeout(() => {
-      scrollRef.current?.scrollTo({
-        x: Math.max(0, (clamped - 1) * ITEM_WIDTH - ITEM_WIDTH * 2),
+      programmaticScrollRef.current = true;
+      listRef.current?.scrollToIndex({
+        index: clamped - 1,
         animated: false,
+        viewPosition: 0.5,
       });
-    }, 50);
+    }, 80);
     return () => clearTimeout(timer);
-  }, [clamped]);
+    // intentionally only on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const handleScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const offsetX = e.nativeEvent.contentOffset.x;
-    const centerIndex = Math.round((offsetX + ITEM_WIDTH * 2) / ITEM_WIDTH);
-    const day = clampPayDay(centerIndex + 1);
-    if (day !== clamped) onChange(day);
-  };
+  const getItemLayout = useCallback(
+    (_: unknown, index: number) => ({
+      length: CELL_WIDTH,
+      offset: CELL_WIDTH * index,
+      index,
+    }),
+    []
+  );
+
+  const handleScrollEnd = useCallback(
+    (e: { nativeEvent: { contentOffset: { x: number } } }) => {
+      if (programmaticScrollRef.current) {
+        programmaticScrollRef.current = false;
+        return;
+      }
+      const offsetX = e.nativeEvent.contentOffset.x;
+      const index = Math.round(offsetX / CELL_WIDTH);
+      const day = clampPayDay(index + 1);
+      if (day !== clamped) onChange(day);
+    },
+    [clamped, onChange]
+  );
+
+  const renderItem = useCallback(
+    ({ item: day }: { item: number }) => {
+      const selected = day === clamped;
+      return (
+        <TouchableOpacity
+          style={[
+            styles.dayItem,
+            {
+              backgroundColor: selected ? theme.primary : theme.backgroundSecondary,
+              borderColor: selected ? theme.primary : theme.cardBorder,
+            },
+          ]}
+          onPress={() => {
+            if (day !== clamped) {
+              programmaticScrollRef.current = true;
+              listRef.current?.scrollToIndex({
+                index: day - 1,
+                animated: true,
+                viewPosition: 0.5,
+              });
+              onChange(day);
+            }
+          }}
+          activeOpacity={0.75}
+        >
+          <Text style={[styles.dayText, { color: selected ? selectedTextColor : theme.text }]}>
+            {day}
+          </Text>
+        </TouchableOpacity>
+      );
+    },
+    [clamped, theme, selectedTextColor, onChange]
+  );
 
   return (
     <View>
-      <ScrollView
-        ref={scrollRef}
+      <FlatList
+        ref={listRef}
+        data={DAYS}
+        renderItem={renderItem}
+        keyExtractor={(item) => String(item)}
         horizontal
         showsHorizontalScrollIndicator={false}
-        snapToInterval={ITEM_WIDTH}
+        snapToInterval={CELL_WIDTH}
+        snapToAlignment="start"
         decelerationRate="fast"
-        contentContainerStyle={styles.scrollContent}
+        getItemLayout={getItemLayout}
         onMomentumScrollEnd={handleScrollEnd}
-        onScrollEndDrag={handleScrollEnd}
-      >
-        {DAYS.map((day) => {
-          const selected = day === clamped;
-          return (
-            <TouchableOpacity
-              key={day}
-              style={[
-                styles.dayItem,
-                {
-                  backgroundColor: selected ? theme.primary : theme.backgroundSecondary,
-                  borderColor: selected ? theme.primary : theme.cardBorder,
-                },
-              ]}
-              onPress={() => onChange(day)}
-              activeOpacity={0.75}
-            >
-              <Text
-                style={[
-                  styles.dayText,
-                  { color: selected ? selectedTextColor : theme.text },
-                ]}
-              >
-                {day}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+        contentContainerStyle={styles.scrollContent}
+        initialScrollIndex={Math.max(0, clamped - 3)}
+        scrollEventThrottle={16}
+        removeClippedSubviews={false}
+      />
       <Text style={[styles.caption, { color: theme.textSecondary }]}>
         {hint ?? payDayLabel(clamped, frequency)}
-      </Text>
-      <Text style={[styles.ordinalHint, { color: theme.textTertiary }]}>
-        Selected: {ordinalSuffix(clamped)} of the month
       </Text>
     </View>
   );
@@ -101,18 +134,16 @@ export function DayOfMonthPicker({
 
 const styles = StyleSheet.create({
   scrollContent: {
-    paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    gap: Spacing.sm,
   },
   dayItem: {
-    width: ITEM_WIDTH - Spacing.sm,
+    width: ITEM_WIDTH,
     height: 44,
     borderRadius: Radius.md,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    marginHorizontal: Spacing.xs / 2,
+    marginHorizontal: ITEM_MARGIN,
   },
   dayText: {
     fontSize: 17,
@@ -123,10 +154,5 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
     marginTop: Spacing.md,
-  },
-  ordinalHint: {
-    fontSize: 12,
-    textAlign: 'center',
-    marginTop: Spacing.xs,
   },
 });

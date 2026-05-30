@@ -31,6 +31,8 @@ export interface Transaction {
 export interface GoalContribution {
   date: string; // ISO date string
   amount: number;
+  /** True for the opening balance seeded during onboarding — excluded from monthly calculations. */
+  isInitial?: boolean;
 }
 
 export interface SavingsGoal {
