@@ -2,18 +2,32 @@ import { addMonths, format, isAfter, isBefore, parseISO, startOfMonth, subMonths
 import { Category, RecurringExpense, SavingsGoal, Transaction } from '@/types';
 import {
   getCombinedTransactionsByPeriod,
+  getCombinedTransactionsByDateRange,
   calculateTotalIncome,
   calculateTotalExpenses,
   getExpensesByCategory,
 } from '@/utils/calculations';
 import { getCategoryById } from '@/constants/categories';
+import { getPayPeriodDates, isDateInRange } from '@/utils/dateHelpers';
 
-/** Use planned contribution by default; if user contributed more this month, use actual. */
-export function effectiveGoalContribution(goal: SavingsGoal, referenceDate: Date): number {
-  const monthStr = format(referenceDate, 'yyyy-MM');
-  const actual = (goal.contributions ?? [])
-    .filter(c => c.date.startsWith(monthStr))
-    .reduce((sum, c) => sum + c.amount, 0);
+/** Use planned contribution by default; if user contributed more this period, use actual. */
+export function effectiveGoalContribution(
+  goal: SavingsGoal,
+  referenceDate: Date,
+  payDay?: number
+): number {
+  let actual: number;
+  if (payDay !== undefined) {
+    const { start, end } = getPayPeriodDates(payDay, referenceDate);
+    actual = (goal.contributions ?? [])
+      .filter(c => isDateInRange(c.date, start, end))
+      .reduce((sum, c) => sum + c.amount, 0);
+  } else {
+    const monthStr = format(referenceDate, 'yyyy-MM');
+    actual = (goal.contributions ?? [])
+      .filter(c => c.date.startsWith(monthStr))
+      .reduce((sum, c) => sum + c.amount, 0);
+  }
   return Math.max(goal.contributionAmount, actual);
 }
 
@@ -38,14 +52,16 @@ export function buildMonthlyStatsSlices(
   goals: SavingsGoal[],
   customCategories: Category[],
   themeColors: MonthlyStatsThemeColors,
-  referenceDate: Date = new Date()
+  referenceDate: Date = new Date(),
+  payDay?: number
 ): MonthlyStatSlice[] {
-  const monthlyTransactions = getCombinedTransactionsByPeriod(
-    transactions,
-    recurringExpenses,
-    'month',
-    referenceDate
-  );
+  const monthlyTransactions =
+    payDay !== undefined
+      ? (() => {
+          const { start, end } = getPayPeriodDates(payDay, referenceDate);
+          return getCombinedTransactionsByDateRange(transactions, recurringExpenses, start, end);
+        })()
+      : getCombinedTransactionsByPeriod(transactions, recurringExpenses, 'month', referenceDate);
   const byCategory = getExpensesByCategory(monthlyTransactions);
   const slices: MonthlyStatSlice[] = Object.entries(byCategory)
     .filter(([, amount]) => amount > 0)
@@ -66,7 +82,7 @@ export function buildMonthlyStatsSlices(
     themeColors.ringOrange,
   ];
   goals.forEach((goal, idx) => {
-    const effective = effectiveGoalContribution(goal, referenceDate);
+    const effective = effectiveGoalContribution(goal, referenceDate, payDay);
     if (effective <= 0) return;
     slices.push({
       id: `goal_contrib_${goal.id}`,
@@ -139,18 +155,20 @@ export function computeMonthlyBudgetMetrics(
   transactions: Transaction[],
   recurringExpenses: RecurringExpense[],
   goals: SavingsGoal[],
-  referenceDate: Date = new Date()
+  referenceDate: Date = new Date(),
+  payDay?: number
 ): MonthlyBudgetMetrics {
-  const monthlyTransactions = getCombinedTransactionsByPeriod(
-    transactions,
-    recurringExpenses,
-    'month',
-    referenceDate
-  );
+  const monthlyTransactions =
+    payDay !== undefined
+      ? (() => {
+          const { start, end } = getPayPeriodDates(payDay, referenceDate);
+          return getCombinedTransactionsByDateRange(transactions, recurringExpenses, start, end);
+        })()
+      : getCombinedTransactionsByPeriod(transactions, recurringExpenses, 'month', referenceDate);
   const income = calculateTotalIncome(monthlyTransactions);
   const expenses = calculateTotalExpenses(monthlyTransactions);
   const monthlyGoalContributions = goals.reduce(
-    (sum, g) => sum + effectiveGoalContribution(g, referenceDate),
+    (sum, g) => sum + effectiveGoalContribution(g, referenceDate, payDay),
     0
   );
   const availableBudget = income - monthlyGoalContributions - expenses;

@@ -27,13 +27,11 @@ export const getRecurringIdFromGeneratedTransactionId = (id: string) => {
   return rest.slice(0, idx);
 };
 
-export const generateRecurringTransactionsForPeriod = (
+export const generateRecurringTransactionsForDateRange = (
   recurring: RecurringExpense[],
-  period: TimePeriod,
-  referenceDate: Date = new Date()
+  periodStart: Date,
+  periodEnd: Date
 ): Transaction[] => {
-  const { start: periodStart, end: periodEnd } = getPeriodDates(period, referenceDate);
-
   const generated: Transaction[] = [];
 
   recurring.forEach((rule) => {
@@ -104,3 +102,11 @@ export const generateRecurringTransactionsForPeriod = (
   return generated;
 };
 
+export const generateRecurringTransactionsForPeriod = (
+  recurring: RecurringExpense[],
+  period: TimePeriod,
+  referenceDate: Date = new Date()
+): Transaction[] => {
+  const { start: periodStart, end: periodEnd } = getPeriodDates(period, referenceDate);
+  return generateRecurringTransactionsForDateRange(recurring, periodStart, periodEnd);
+};

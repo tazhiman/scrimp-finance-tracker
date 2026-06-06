@@ -1,7 +1,7 @@
 import { Transaction, SavingsGoal, TimePeriod, ContributionStatus } from '@/types';
-import { isDateInPeriod } from './dateHelpers';
+import { isDateInPeriod, isDateInRange, getPayPeriodDates } from './dateHelpers';
 import { RecurringExpense } from '@/types';
-import { generateRecurringTransactionsForPeriod } from './recurring';
+import { generateRecurringTransactionsForPeriod, generateRecurringTransactionsForDateRange } from './recurring';
 
 export const getTransactionsByPeriod = (
   transactions: Transaction[],
@@ -13,6 +13,14 @@ export const getTransactionsByPeriod = (
   );
 };
 
+export const getTransactionsByDateRange = (
+  transactions: Transaction[],
+  start: Date,
+  end: Date
+): Transaction[] => {
+  return transactions.filter(transaction => isDateInRange(transaction.date, start, end));
+};
+
 export const getCombinedTransactionsByPeriod = (
   transactions: Transaction[],
   recurringExpenses: RecurringExpense[],
@@ -21,6 +29,17 @@ export const getCombinedTransactionsByPeriod = (
 ): Transaction[] => {
   const base = getTransactionsByPeriod(transactions, period, date);
   const generated = generateRecurringTransactionsForPeriod(recurringExpenses, period, date);
+  return [...base, ...generated];
+};
+
+export const getCombinedTransactionsByDateRange = (
+  transactions: Transaction[],
+  recurringExpenses: RecurringExpense[],
+  start: Date,
+  end: Date
+): Transaction[] => {
+  const base = getTransactionsByDateRange(transactions, start, end);
+  const generated = generateRecurringTransactionsForDateRange(recurringExpenses, start, end);
   return [...base, ...generated];
 };
 
@@ -104,7 +123,7 @@ export const calculateRecommendedContribution = (
 };
 
 // Check if a contribution has been made in the current period
-export const getContributionStatus = (goal: SavingsGoal): ContributionStatus => {
+export const getContributionStatus = (goal: SavingsGoal, payDay?: number): ContributionStatus => {
   // If goal is already completed, return completed
   if (goal.currentAmount >= goal.targetAmount) {
     return 'completed';
@@ -141,8 +160,17 @@ export const getContributionStatus = (goal: SavingsGoal): ContributionStatus => 
     }
     
     return 'due';
+  } else if (payDay !== undefined) {
+    const { start: periodStart, end: periodEnd } = getPayPeriodDates(payDay, now);
+    if (lastContribution >= periodStart && lastContribution <= periodEnd) {
+      return 'completed';
+    }
+    if (now > periodEnd) {
+      return 'overdue';
+    }
+    return 'due';
   } else {
-    // Monthly frequency
+    // Monthly frequency (calendar month)
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
     const lastContributionMonth = lastContribution.getMonth();

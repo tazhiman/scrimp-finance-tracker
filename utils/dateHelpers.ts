@@ -1,5 +1,18 @@
-import { startOfDay, startOfWeek, startOfMonth, endOfDay, endOfWeek, endOfMonth, isWithinInterval, parseISO } from 'date-fns';
+import {
+  startOfDay,
+  startOfWeek,
+  startOfMonth,
+  endOfDay,
+  endOfWeek,
+  endOfMonth,
+  isWithinInterval,
+  parseISO,
+  addMonths,
+  subMonths,
+  subDays,
+} from 'date-fns';
 import { TimePeriod, Transaction } from '@/types';
+import { clampPayDay } from '@/utils/payDay';
 
 export const getPeriodDates = (period: TimePeriod, date: Date = new Date()) => {
   switch (period) {
@@ -31,6 +44,49 @@ export const isDateInPeriod = (date: string, period: TimePeriod, referenceDate: 
   const { start, end } = getPeriodDates(period, referenceDate);
   return isWithinInterval(dateObj, { start, end });
 };
+
+/** Pay day of month (1–31) anchored to the salary credit date. */
+function payDayInMonth(year: number, month: number, payDay: number): Date {
+  const clamped = clampPayDay(payDay);
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  return startOfDay(new Date(year, month, Math.min(clamped, daysInMonth)));
+}
+
+/**
+ * Salary pay period: payDay of month through day before next payDay.
+ * e.g. pay day 15 → Jun 15 00:00 through Jul 14 23:59:59.
+ */
+export function getPayPeriodDates(payDay: number, referenceDate: Date = new Date()) {
+  const ref = startOfDay(referenceDate);
+  const thisMonthPay = payDayInMonth(ref.getFullYear(), ref.getMonth(), payDay);
+
+  if (ref >= thisMonthPay) {
+    const nextMonthPay = payDayInMonth(
+      addMonths(thisMonthPay, 1).getFullYear(),
+      addMonths(thisMonthPay, 1).getMonth(),
+      payDay
+    );
+    return {
+      start: thisMonthPay,
+      end: endOfDay(subDays(nextMonthPay, 1)),
+    };
+  }
+
+  const lastMonthPay = payDayInMonth(
+    subMonths(thisMonthPay, 1).getFullYear(),
+    subMonths(thisMonthPay, 1).getMonth(),
+    payDay
+  );
+  return {
+    start: lastMonthPay,
+    end: endOfDay(subDays(thisMonthPay, 1)),
+  };
+}
+
+export function isDateInRange(date: string, start: Date, end: Date): boolean {
+  const dateObj = parseISO(date.length <= 10 ? `${date}T12:00:00` : date);
+  return isWithinInterval(dateObj, { start, end });
+}
 
 const safeNum = (num: number): number => {
   if (!Number.isFinite(num)) return 0;

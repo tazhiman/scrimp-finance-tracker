@@ -1,4 +1,4 @@
-import { differenceInCalendarDays, endOfMonth, getDaysInMonth, startOfDay } from 'date-fns';
+import { differenceInCalendarDays, endOfMonth, startOfDay } from 'date-fns';
 import { formatCurrency } from '@/utils/dateHelpers';
 
 /** Pace vs spreading monthly income evenly; tunable. */
@@ -12,10 +12,16 @@ export interface BudgetRingTheme {
   ringOrange: string;
 }
 
-export function getDaysLeftInMonth(date: Date = new Date()): number {
-  const end = endOfMonth(date);
-  const start = startOfDay(date);
+/** Days remaining in a period (inclusive of today). */
+export function getDaysLeftInPeriod(periodEnd: Date, referenceDate: Date = new Date()): number {
+  const end = startOfDay(periodEnd);
+  const start = startOfDay(referenceDate);
   return Math.max(1, differenceInCalendarDays(end, start) + 1);
+}
+
+/** @deprecated Use getDaysLeftInPeriod with an explicit period end. */
+export function getDaysLeftInMonth(date: Date = new Date()): number {
+  return getDaysLeftInPeriod(endOfMonth(date), date);
 }
 
 export function getBudgetPaceHeadline(
@@ -42,10 +48,11 @@ export function getBudgetRingColor(params: {
   availableBudget: number;
   income: number;
   dailyHeadroom: number;
-  referenceDate: Date;
+  periodStart: Date;
+  periodEnd: Date;
   theme: BudgetRingTheme;
 }): string {
-  const { availableBudget, income, dailyHeadroom, referenceDate, theme } = params;
+  const { availableBudget, income, dailyHeadroom, periodStart, periodEnd, theme } = params;
 
   if (availableBudget < 0) {
     return theme.error;
@@ -55,8 +62,11 @@ export function getBudgetRingColor(params: {
     return theme.warningOrange;
   }
 
-  const daysInMonth = getDaysInMonth(referenceDate);
-  const expectedEvenDaily = income / daysInMonth;
+  const daysInPeriod = Math.max(
+    1,
+    differenceInCalendarDays(startOfDay(periodEnd), startOfDay(periodStart)) + 1
+  );
+  const expectedEvenDaily = income / daysInPeriod;
   if (expectedEvenDaily <= 0) {
     return theme.warningOrange;
   }

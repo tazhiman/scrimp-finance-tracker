@@ -22,6 +22,7 @@ import { GlassCard } from '@/components/ui/GlassCard';
 import { Spacing, Radius, Shadow } from '@/constants/design';
 import {
   getCombinedTransactionsByPeriod,
+  getCombinedTransactionsByDateRange,
   calculateTotalIncome,
   calculateTotalExpenses,
   calculateNetSavings,
@@ -32,11 +33,13 @@ import {
   computeMonthlyBudgetMetrics,
 } from '@/utils/monthlyStatsSlices';
 import {
-  getDaysLeftInMonth,
+  getDaysLeftInPeriod,
   getBudgetPaceHeadline,
   getBudgetRingColor,
 } from '@/utils/budgetPace';
-import { formatCurrency } from '@/utils/dateHelpers';
+import { formatCurrency, getPayPeriodDates } from '@/utils/dateHelpers';
+import { startDateToPayDay } from '@/utils/payDay';
+import { endOfMonth, startOfMonth } from 'date-fns';
 import { Icon } from '@/components/ui/Icon';
 
 export default function DashboardScreen() {
@@ -64,7 +67,35 @@ export default function DashboardScreen() {
 
   const buttonTextColor = themeMode === 'dark' ? '#000505' : theme.text;
 
-  const monthlyTransactions = getCombinedTransactionsByPeriod(transactions, recurringExpenses, 'month');
+  const payPeriodContext = useMemo(() => {
+    const now = new Date();
+    const salaryRule = recurringExpenses.find(
+      r => r.category === 'salary' && (r.transactionType ?? 'expense') === 'income'
+    );
+    const payDay = salaryRule ? startDateToPayDay(salaryRule.startDate) : undefined;
+    if (payDay !== undefined) {
+      const { start, end } = getPayPeriodDates(payDay, now);
+      return { payDay, periodStart: start, periodEnd: end };
+    }
+    return {
+      payDay: undefined,
+      periodStart: startOfMonth(now),
+      periodEnd: endOfMonth(now),
+    };
+  }, [recurringExpenses]);
+
+  const monthlyTransactions = useMemo(() => {
+    if (payPeriodContext.payDay !== undefined) {
+      return getCombinedTransactionsByDateRange(
+        transactions,
+        recurringExpenses,
+        payPeriodContext.periodStart,
+        payPeriodContext.periodEnd
+      );
+    }
+    return getCombinedTransactionsByPeriod(transactions, recurringExpenses, 'month');
+  }, [transactions, recurringExpenses, payPeriodContext]);
+
   const income = calculateTotalIncome(monthlyTransactions);
   const expenses = calculateTotalExpenses(monthlyTransactions);
   const savings = calculateNetSavings(monthlyTransactions);
@@ -77,19 +108,21 @@ export default function DashboardScreen() {
     transactions,
     recurringExpenses,
     goals,
-    new Date()
+    new Date(),
+    payPeriodContext.payDay
   );
 
   const budgetPace = useMemo(() => {
     const now = new Date();
-    const daysLeft = getDaysLeftInMonth(now);
+    const daysLeft = getDaysLeftInPeriod(payPeriodContext.periodEnd, now);
     const dailyHeadroom = availableBudget / daysLeft;
     const headline = getBudgetPaceHeadline(availableBudget, income, daysLeft);
     const ringColor = getBudgetRingColor({
       availableBudget,
       income,
       dailyHeadroom,
-      referenceDate: now,
+      periodStart: payPeriodContext.periodStart,
+      periodEnd: payPeriodContext.periodEnd,
       theme: {
         error: theme.error,
         warningOrange: theme.warningOrange,
@@ -98,21 +131,39 @@ export default function DashboardScreen() {
       },
     });
     return { daysLeft, dailyHeadroom, headline, ringColor };
-  }, [availableBudget, income, theme.error, theme.warningOrange, theme.ringGreen, theme.ringOrange]);
+  }, [
+    availableBudget,
+    income,
+    payPeriodContext.periodStart,
+    payPeriodContext.periodEnd,
+    theme.error,
+    theme.warningOrange,
+    theme.ringGreen,
+    theme.ringOrange,
+  ]);
 
   const statsSlices: PieSlice[] = useMemo(
     () =>
-      buildMonthlyStatsSlices(transactions, recurringExpenses, goals, customCategories, {
-        primary: theme.primary,
-        accent: theme.accent,
-        secondary: theme.secondary,
-        ringOrange: theme.ringOrange,
-      }),
+      buildMonthlyStatsSlices(
+        transactions,
+        recurringExpenses,
+        goals,
+        customCategories,
+        {
+          primary: theme.primary,
+          accent: theme.accent,
+          secondary: theme.secondary,
+          ringOrange: theme.ringOrange,
+        },
+        new Date(),
+        payPeriodContext.payDay
+      ),
     [
       transactions,
       recurringExpenses,
       goals,
       customCategories,
+      payPeriodContext.payDay,
       theme.primary,
       theme.accent,
       theme.secondary,

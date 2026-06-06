@@ -30,7 +30,7 @@ import {
 import { BankAccount } from '@/types';
 
 const STALE_THRESHOLD_DAYS = 14;
-const JUST_CONFIRMED_MS = 60 * 60 * 1000;
+const JUST_CONFIRMED_MS = 48 * 60 * 60 * 1000;
 
 const isJustConfirmed = (account: BankAccount): boolean => {
   if (!account.lastUpdated) return false;
