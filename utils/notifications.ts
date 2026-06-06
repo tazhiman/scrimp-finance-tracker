@@ -1,8 +1,9 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
-import { SavingsGoal, ContributionStatus, GoalReserveStatus } from '@/types';
+import { SavingsGoal, ContributionStatus, GoalReserveStatus, RecurringExpense } from '@/types';
 import { getReserveNotificationContent } from './goalReserve';
 import { getContributionStatus } from './calculations';
+import { resolveSalaryPayDay } from './payPeriodContext';
 
 // Request notification permissions
 export const requestNotificationPermissions = async (): Promise<boolean> => {
@@ -107,7 +108,10 @@ const getNotificationContent = (
 };
 
 // Schedule weekly notifications for goals
-export const scheduleGoalNotifications = async (goals: SavingsGoal[]): Promise<void> => {
+export const scheduleGoalNotifications = async (
+  goals: SavingsGoal[],
+  recurringExpenses: RecurringExpense[] = []
+): Promise<void> => {
   try {
     // Cancel only goal-tagged notifications, preserving balance reminders
     await cancelNotificationsByKind('goal');
@@ -118,12 +122,14 @@ export const scheduleGoalNotifications = async (goals: SavingsGoal[]): Promise<v
       return;
     }
 
+    const payDay = resolveSalaryPayDay(recurringExpenses);
+
     for (const goal of goals) {
       if (goal.currentAmount >= goal.targetAmount) {
         continue;
       }
 
-      const status = getContributionStatus(goal);
+      const status = getContributionStatus(goal, payDay);
       
       if (status === 'due' || status === 'overdue') {
         const { title, body } = getNotificationContent(goal, status);

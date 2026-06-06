@@ -1,111 +1,98 @@
 /**
  * Excel Export Utility
- * 
- * Exports transactions to Excel format with date range filtering
+ *
+ * Exports logged transactions, generated recurring occurrences, and goal contributions.
  */
 
 import * as XLSX from 'xlsx';
 import { writeAsStringAsync, documentDirectory } from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
-import { Platform } from 'react-native';
-import { Transaction, Category } from '@/types';
+import { endOfDay, startOfDay } from 'date-fns';
+import { Transaction, Category, RecurringExpense, SavingsGoal } from '@/types';
 import { getCategoryById } from '@/constants/categories';
-import { formatDetailTransactionTime } from '@/utils/dateHelpers';
+import { formatDetailTransactionTime, isDateInRange } from '@/utils/dateHelpers';
+import { generateRecurringTransactionsForDateRange, isGeneratedRecurringTransactionId } from '@/utils/recurring';
 
 interface ExportOptions {
   startDate: Date;
   endDate: Date;
   transactions: Transaction[];
+  recurringExpenses?: RecurringExpense[];
+  goals?: SavingsGoal[];
   customCategories?: Category[];
 }
+
+type ExportRow = {
+  Date: string;
+  Type: string;
+  Category: string;
+  Amount: number;
+  Merchant: string;
+  Time: string;
+  Description: string;
+  Source: string;
+  'Card ID': string;
+  'Added to App': string;
+};
 
 /**
  * Exports transactions to Excel file
  */
 export async function exportTransactionsToExcel(options: ExportOptions): Promise<void> {
-  const { startDate, endDate, transactions, customCategories = [] } = options;
+  const {
+    startDate,
+    endDate,
+    transactions,
+    recurringExpenses = [],
+    goals = [],
+    customCategories = [],
+  } = options;
 
-  // Filter transactions by date range
-  const filteredTransactions = transactions.filter(tx => {
-    const txDate = new Date(tx.date);
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    
-    // Set time to start of day for comparison
-    start.setHours(0, 0, 0, 0);
-    end.setHours(23, 59, 59, 999);
-    txDate.setHours(0, 0, 0, 0);
-    
-    return txDate >= start && txDate <= end;
-  });
-
-  // Sort by date (newest first)
-  const sortedTransactions = [...filteredTransactions].sort((a, b) => 
-    new Date(b.date).getTime() - new Date(a.date).getTime()
+  const rangeStart = startOfDay(startDate);
+  const rangeEnd = endOfDay(endDate);
+  const exportRows = buildExportRows(
+    transactions,
+    recurringExpenses,
+    goals,
+    rangeStart,
+    rangeEnd,
+    customCategories
   );
 
-  // Prepare data for Excel
-  const excelData = sortedTransactions.map(tx => {
-    const category = getCategoryById(tx.category, customCategories);
-    
-    return {
-      'Date': formatDate(tx.date),
-      'Type': tx.type === 'income' ? 'Income' : 'Expense',
-      'Category': category?.name || tx.category,
-      'Amount': tx.amount,
-      'Merchant': tx.merchant || '',
-      'Time': formatDetailTransactionTime(tx.time, tx.createdAt),
-      'Description': tx.description || '',
-      'Card ID': tx.cardId || '',
-      'Added to App': formatDateTime(tx.createdAt),
-    };
-  });
-
-  // Create worksheet
-  const worksheet = XLSX.utils.json_to_sheet(excelData);
-
-  // Set column widths
+  const worksheet = XLSX.utils.json_to_sheet(exportRows);
   worksheet['!cols'] = [
-    { wch: 12 },  // Date
-    { wch: 10 },  // Type
-    { wch: 20 },  // Category
-    { wch: 12 },  // Amount
-    { wch: 22 },  // Merchant
-    { wch: 10 },  // Time
-    { wch: 30 },  // Description
-    { wch: 20 },  // Card ID
-    { wch: 20 },  // Added to App
+    { wch: 12 },
+    { wch: 16 },
+    { wch: 22 },
+    { wch: 12 },
+    { wch: 22 },
+    { wch: 10 },
+    { wch: 30 },
+    { wch: 14 },
+    { wch: 20 },
+    { wch: 20 },
   ];
 
-  // Create workbook
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Transactions');
 
-  // Add summary sheet
-  const summary = createSummarySheet(sortedTransactions, customCategories);
+  const summary = createSummarySheet(exportRows);
   const summaryWorksheet = XLSX.utils.json_to_sheet(summary);
-  summaryWorksheet['!cols'] = [
-    { wch: 20 },  // Label
-    { wch: 15 },  // Value
-  ];
+  summaryWorksheet['!cols'] = [{ wch: 24 }, { wch: 15 }];
   XLSX.utils.book_append_sheet(workbook, summaryWorksheet, 'Summary');
 
-  // Generate Excel file
   const wbout = XLSX.write(workbook, {
     type: 'base64',
     bookType: 'xlsx',
   });
 
-  // Create filename with date range
   const filename = `transactions_${formatDateForFilename(startDate)}_to_${formatDateForFilename(endDate)}.xlsx`;
   const fileUri = `${documentDirectory}${filename}`;
 
-  // Write file
   await writeAsStringAsync(fileUri, wbout, {
     encoding: 'base64',
   });
 
-  // Share file
   if (await Sharing.isAvailableAsync()) {
     await Sharing.shareAsync(fileUri, {
       mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -117,39 +104,105 @@ export async function exportTransactionsToExcel(options: ExportOptions): Promise
   }
 }
 
-/**
- * Creates summary data for the summary sheet
- */
-function createSummarySheet(transactions: Transaction[], customCategories: Category[]) {
-  const income = transactions
-    .filter(tx => tx.type === 'income')
-    .reduce((sum, tx) => sum + tx.amount, 0);
+function buildExportRows(
+  transactions: Transaction[],
+  recurringExpenses: RecurringExpense[],
+  goals: SavingsGoal[],
+  rangeStart: Date,
+  rangeEnd: Date,
+  customCategories: Category[]
+): ExportRow[] {
+  const rows: ExportRow[] = [];
 
-  const expenses = transactions
-    .filter(tx => tx.type === 'expense')
-    .reduce((sum, tx) => sum + tx.amount, 0);
+  for (const tx of transactions) {
+    if (!isDateInRange(tx.date, rangeStart, rangeEnd)) continue;
+    rows.push(transactionToRow(tx, customCategories, 'Logged'));
+  }
 
-  const netBalance = income - expenses;
+  const generated = generateRecurringTransactionsForDateRange(
+    recurringExpenses,
+    rangeStart,
+    rangeEnd
+  );
+  for (const tx of generated) {
+    rows.push(transactionToRow(tx, customCategories, 'Recurring'));
+  }
 
-  // Category breakdown
+  for (const goal of goals) {
+    for (const contribution of goal.contributions ?? []) {
+      if (!isDateInRange(contribution.date, rangeStart, rangeEnd)) continue;
+      rows.push({
+        Date: formatDate(contribution.date),
+        Type: 'Goal Contribution',
+        Category: goal.name,
+        Amount: contribution.amount,
+        Merchant: '',
+        Time: formatDetailTransactionTime(undefined, contribution.date),
+        Description: `${goal.name} contribution`,
+        Source: 'Goal',
+        'Card ID': '',
+        'Added to App': formatDateTime(contribution.date),
+      });
+    }
+  }
+
+  rows.sort((a, b) => new Date(b.Date).getTime() - new Date(a.Date).getTime());
+  return rows;
+}
+
+function transactionToRow(
+  tx: Transaction,
+  customCategories: Category[],
+  source: string
+): ExportRow {
+  const category = getCategoryById(tx.category, customCategories);
+
+  return {
+    Date: formatDate(tx.date),
+    Type: tx.type === 'income' ? 'Income' : 'Expense',
+    Category: category?.name || tx.category,
+    Amount: tx.amount,
+    Merchant: tx.merchant || '',
+    Time: formatDetailTransactionTime(tx.time, tx.createdAt),
+    Description: tx.description || '',
+    Source: source,
+    'Card ID': tx.cardId || '',
+    'Added to App': formatDateTime(tx.createdAt),
+  };
+}
+
+function createSummarySheet(rows: ExportRow[]) {
+  const income = rows
+    .filter(r => r.Type === 'Income')
+    .reduce((sum, r) => sum + r.Amount, 0);
+
+  const expenses = rows
+    .filter(r => r.Type === 'Expense')
+    .reduce((sum, r) => sum + r.Amount, 0);
+
+  const goalContributions = rows
+    .filter(r => r.Type === 'Goal Contribution')
+    .reduce((sum, r) => sum + r.Amount, 0);
+
+  const netBalance = income - expenses - goalContributions;
+
   const categoryBreakdown: Record<string, number> = {};
-  transactions
-    .filter(tx => tx.type === 'expense')
-    .forEach(tx => {
-      const category = getCategoryById(tx.category, customCategories);
-      const categoryName = category?.name || tx.category;
-      categoryBreakdown[categoryName] = (categoryBreakdown[categoryName] || 0) + tx.amount;
+  rows
+    .filter(r => r.Type === 'Expense' || r.Type === 'Goal Contribution')
+    .forEach(r => {
+      categoryBreakdown[r.Category] = (categoryBreakdown[r.Category] || 0) + r.Amount;
     });
 
   const safeFmt = (n: number) => (Number.isFinite(n) ? n.toFixed(2) : '0.00');
 
-  const summary = [
+  return [
     { Label: 'Total Income', Value: `$${safeFmt(income)}` },
     { Label: 'Total Expenses', Value: `$${safeFmt(expenses)}` },
+    { Label: 'Goal Contributions', Value: `$${safeFmt(goalContributions)}` },
     { Label: 'Net Balance', Value: `$${safeFmt(netBalance)}` },
-    { Label: 'Total Transactions', Value: transactions.length },
+    { Label: 'Total Rows', Value: rows.length },
     { Label: '', Value: '' },
-    { Label: 'Expenses by Category', Value: '' },
+    { Label: 'Expenses & Contributions by Category', Value: '' },
     ...Object.entries(categoryBreakdown)
       .sort((a, b) => b[1] - a[1])
       .map(([category, amount]) => ({
@@ -157,21 +210,13 @@ function createSummarySheet(transactions: Transaction[], customCategories: Categ
         Value: `$${safeFmt(amount)}`,
       })),
   ];
-
-  return summary;
 }
 
-/**
- * Formats date as YYYY-MM-DD
- */
 function formatDate(dateString: string): string {
-  const date = new Date(dateString);
+  const date = new Date(dateString.length <= 10 ? `${dateString}T12:00:00` : dateString);
   return date.toISOString().split('T')[0];
 }
 
-/**
- * Formats date and time
- */
 function formatDateTime(dateString: string): string {
   const date = new Date(dateString);
   return date.toLocaleString('en-US', {
@@ -183,9 +228,6 @@ function formatDateTime(dateString: string): string {
   });
 }
 
-/**
- * Formats date for filename (YYYYMMDD)
- */
 function formatDateForFilename(date: Date): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');

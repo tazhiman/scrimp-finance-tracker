@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList, Alert, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Icon } from '@/components/ui/Icon';
@@ -87,7 +87,20 @@ export default function GoalDetailScreen() {
   };
 
   const renderContribution = ({ item }: { item: { date: string; amount: number } }) => (
-    <View style={[styles.contributionCard, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
+    <Pressable
+      onLongPress={() => handleDeleteContribution(item.date, item.amount)}
+      delayLongPress={400}
+      style={({ pressed }) => [
+        styles.contributionCard,
+        {
+          backgroundColor: theme.cardBackground,
+          borderColor: theme.cardBorder,
+          opacity: pressed ? 0.85 : 1,
+        },
+      ]}
+      accessibilityRole="button"
+      accessibilityLabel={`Contribution of ${formatCurrency(item.amount)} on ${formatDate(new Date(item.date))}. Long press to remove.`}
+    >
       <View style={styles.contributionLeft}>
         <View style={[styles.contributionIcon, { backgroundColor: theme.primary + '20' }]}>
           <Icon name="arrow-up" size={18} color={theme.primary} />
@@ -101,20 +114,10 @@ export default function GoalDetailScreen() {
           </Text>
         </View>
       </View>
-      <View style={styles.contributionRight}>
-        <Text style={[styles.contributionAmount, { color: theme.primary }]}>
-          +{formatCurrency(item.amount)}
-        </Text>
-        <TouchableOpacity
-          onPress={() => handleDeleteContribution(item.date, item.amount)}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          accessibilityRole="button"
-          accessibilityLabel={`Remove contribution of ${formatCurrency(item.amount)}`}
-        >
-          <Icon name="trash-outline" size={20} color={theme.error} />
-        </TouchableOpacity>
-      </View>
-    </View>
+      <Text style={[styles.contributionAmount, { color: theme.primary }]}>
+        +{formatCurrency(item.amount)}
+      </Text>
+    </Pressable>
   );
 
   const renderEmptyState = () => (
@@ -234,6 +237,9 @@ export default function GoalDetailScreen() {
 
       <View style={styles.contributionsSection}>
         <Text style={[styles.sectionTitle, { color: theme.text }]}>Contribution History</Text>
+        <Text style={[styles.sectionHint, { color: theme.textSecondary }]}>
+          Long press an entry to remove it
+        </Text>
         <FlatList
           data={sortedContributions}
           renderItem={renderContribution}
@@ -360,6 +366,10 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
+    marginBottom: 4,
+  },
+  sectionHint: {
+    fontSize: 12,
     marginBottom: 12,
   },
   listContent: {
@@ -384,11 +394,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     flex: 1,
-  },
-  contributionRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
   },
   contributionIcon: {
     width: 40,

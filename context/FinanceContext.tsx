@@ -214,7 +214,7 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
       const updateNotifications = async () => {
         const notificationsEnabled = await loadNotificationSettings();
         if (notificationsEnabled) {
-          await scheduleGoalNotifications(goals);
+          await scheduleGoalNotifications(goals, recurringExpenses);
         }
       };
       updateNotifications();

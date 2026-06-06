@@ -84,7 +84,8 @@ export function todayDateString(): string {
  */
 export function getGoalStatusBadge(
   goal: SavingsGoal,
-  transactions: Transaction[]
+  transactions: Transaction[],
+  payDay?: number
 ): GoalStatusBadge {
   const remaining = goal.targetAmount - goal.currentAmount;
   if (remaining <= 0) {
@@ -94,15 +95,16 @@ export function getGoalStatusBadge(
   if (goal.linkedAccountId && (goal.reserveAmount ?? 0) > 0) {
     const reserveStatus = evaluateGoalReserve(goal, transactions);
     if (reserveStatus === 'negated') {
-      return { text: 'Overdue', severity: 'error' };
+      return { text: 'Savings spent', severity: 'error' };
     }
     if (reserveStatus === 'nearing') {
       return { text: 'At risk', severity: 'warning' };
     }
   }
 
-  const contributionStatus: ContributionStatus = getContributionStatus(goal);
-  const period = goal.frequency === 'weekly' ? 'week' : 'month';
+  const contributionStatus: ContributionStatus = getContributionStatus(goal, payDay);
+  const period =
+    goal.frequency === 'weekly' ? 'week' : payDay !== undefined ? 'period' : 'month';
   switch (contributionStatus) {
     case 'completed':
       return { text: `Paid this ${period}`, severity: 'success' };

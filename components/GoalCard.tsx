@@ -5,6 +5,7 @@ import { calculateGoalProgress } from '@/utils/calculations';
 import { useFinance } from '@/context/FinanceContext';
 import { getGoalStatusBadge, goalStatusColor } from '@/utils/goalReserve';
 import { formatCurrency } from '@/utils/dateHelpers';
+import { resolveSalaryPayDay } from '@/utils/payPeriodContext';
 import { useTheme } from '@/context/ThemeContext';
 import { ProgressRing } from './ProgressRing';
 import { GlassCard } from '@/components/ui/GlassCard';
@@ -19,12 +20,13 @@ interface GoalCardProps {
 
 export const GoalCard: React.FC<GoalCardProps> = ({ goal, onPress, onContribute }) => {
   const { theme, themeMode } = useTheme();
-  const { transactions } = useFinance();
+  const { transactions, recurringExpenses } = useFinance();
   const progress = calculateGoalProgress(goal);
   const remaining = goal.targetAmount - goal.currentAmount;
   const buttonTextColor = themeMode === 'dark' ? '#000505' : theme.text;
+  const payDay = resolveSalaryPayDay(recurringExpenses);
 
-  const statusBadge = getGoalStatusBadge(goal, transactions);
+  const statusBadge = getGoalStatusBadge(goal, transactions, payDay);
   const statusColor = goalStatusColor(statusBadge.severity, theme);
   const statusIcon =
     statusBadge.severity === 'success'

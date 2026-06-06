@@ -169,9 +169,11 @@ export default function DashboardScreen() {
     setTimeout(() => setRefreshing(false), 1000);
   };
 
+  const payDay = payPeriodContext.payDay;
+
   const renderGoalCard = (goal: typeof goals[0]) => {
     const goalProgressPercent = goal.targetAmount > 0 ? (goal.currentAmount / goal.targetAmount) * 100 : 0;
-    const statusBadge = getGoalStatusBadge(goal, transactions);
+    const statusBadge = getGoalStatusBadge(goal, transactions, payDay);
     const statusColor = goalStatusColor(statusBadge.severity, theme);
     
     return (

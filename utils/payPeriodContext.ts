@@ -53,3 +53,11 @@ export function getCombinedTransactionsForPayContext(
     context.periodStart
   );
 }
+
+/** Pay day of month from salary recurring rule, if configured. */
+export function resolveSalaryPayDay(recurringExpenses: RecurringExpense[]): number | undefined {
+  const salaryRule = recurringExpenses.find(
+    r => r.category === 'salary' && (r.transactionType ?? 'expense') === 'income'
+  );
+  return salaryRule ? startDateToPayDay(salaryRule.startDate) : undefined;
+}

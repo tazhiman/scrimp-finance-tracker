@@ -39,7 +39,7 @@ export default function SettingsScreen() {
   const router = useRouter();
   const { theme, themeMode, setThemeMode } = useTheme();
   const buttonTextColor = themeMode === 'dark' ? '#000505' : theme.text;
-  const { goals, transactions, customCategories } = useFinance();
+  const { goals, transactions, recurringExpenses, customCategories } = useFinance();
   const tabBarHeight = useBottomTabBarHeight();
   const [loading, setLoading] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
@@ -72,7 +72,7 @@ export default function SettingsScreen() {
       await saveNotificationSettings(value);
 
       if (value) {
-        await scheduleGoalNotifications(goals);
+        await scheduleGoalNotifications(goals, recurringExpenses);
         await scheduleBalanceReconciliationNotification();
         await sendTestNotification();
       } else {
@@ -180,6 +180,8 @@ export default function SettingsScreen() {
         startDate: exportStartDate,
         endDate: exportEndDate,
         transactions,
+        recurringExpenses,
+        goals,
         customCategories,
       });
       
