@@ -25,9 +25,12 @@ import {
   calculateTotalIncome,
   calculateTotalExpenses,
   calculateTotalSavedInGoals,
-  getCombinedTransactionsByPeriod,
 } from '@/utils/calculations';
 import { BankAccount } from '@/types';
+import {
+  getCombinedTransactionsForPayContext,
+  resolvePayPeriodContext,
+} from '@/utils/payPeriodContext';
 
 const STALE_THRESHOLD_DAYS = 14;
 const JUST_CONFIRMED_MS = 48 * 60 * 60 * 1000;
@@ -122,19 +125,26 @@ export default function ProfileScreen() {
   const isStale = (account: BankAccount) =>
     !account.lastUpdated || daysSince(account.lastUpdated) > STALE_THRESHOLD_DAYS;
 
-  const monthlyTransactions = useMemo(
-    () => getCombinedTransactionsByPeriod(transactions, recurringExpenses, 'month'),
-    [transactions, recurringExpenses]
+  const payPeriodContext = useMemo(
+    () => resolvePayPeriodContext(recurringExpenses, new Date()),
+    [recurringExpenses]
   );
-  const totalIncome = calculateTotalIncome(monthlyTransactions);
-  const totalExpenses = calculateTotalExpenses(monthlyTransactions);
+
+  const periodTransactions = useMemo(
+    () => getCombinedTransactionsForPayContext(transactions, recurringExpenses, payPeriodContext),
+    [transactions, recurringExpenses, payPeriodContext]
+  );
+  const totalIncome = calculateTotalIncome(periodTransactions);
+  const totalExpenses = calculateTotalExpenses(periodTransactions);
+  const incomeLabel = payPeriodContext.payDay !== undefined ? 'Period Income' : 'Monthly Income';
+  const spentLabel = payPeriodContext.payDay !== undefined ? 'Period Spent' : 'Monthly Spent';
   const totalSaved = calculateTotalSavedInGoals(goals);
   const completedGoals = goals.filter(g => g.currentAmount >= g.targetAmount).length;
 
   const stats = [
     { icon: 'trending-up' as const, value: formatCurrency(totalSaved), label: 'Total Saved', color: theme.primary },
-    { icon: 'arrow-down-circle' as const, value: formatCurrency(totalIncome), label: 'Monthly Income', color: theme.primary },
-    { icon: 'arrow-up-circle' as const, value: formatCurrency(totalExpenses), label: 'Monthly Spent', color: theme.secondary },
+    { icon: 'arrow-down-circle' as const, value: formatCurrency(totalIncome), label: incomeLabel, color: theme.primary },
+    { icon: 'arrow-up-circle' as const, value: formatCurrency(totalExpenses), label: spentLabel, color: theme.secondary },
     { icon: 'flag' as const, value: String(completedGoals), label: 'Goals Achieved', color: theme.accent },
   ];
 

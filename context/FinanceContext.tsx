@@ -45,6 +45,7 @@ interface FinanceContextType {
   updateGoal: (id: string, goal: Partial<SavingsGoal>) => void;
   deleteGoal: (id: string) => void;
   contributeToGoal: (goalId: string, amount: number) => void;
+  deleteContribution: (goalId: string, contributionDate: string, contributionAmount: number) => void;
   addCustomCategory: (category: Omit<Category, 'id'>) => string;
   loading: boolean;
 }
@@ -436,6 +437,32 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
     );
   };
 
+  const deleteContribution = (goalId: string, contributionDate: string, contributionAmount: number) => {
+    setGoals(prev =>
+      prev.map(g => {
+        if (g.id !== goalId) return g;
+        const contributions = g.contributions ?? [];
+        const idx = contributions.findIndex(
+          c => c.date === contributionDate && c.amount === contributionAmount
+        );
+        if (idx < 0) return g;
+
+        const removed = contributions[idx];
+        const nextContributions = contributions.filter((_, i) => i !== idx);
+        const sorted = [...nextContributions].sort(
+          (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+        );
+
+        return {
+          ...g,
+          currentAmount: Math.max(0, g.currentAmount - removed.amount),
+          contributions: nextContributions,
+          lastContributionDate: sorted[0]?.date,
+        };
+      })
+    );
+  };
+
   const addCustomCategory = (category: Omit<Category, 'id'>): string => {
     const newCategory: Category = {
       ...category,
@@ -462,6 +489,7 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
         updateGoal,
         deleteGoal,
         contributeToGoal,
+        deleteContribution,
         addCustomCategory,
         loading,
       }}

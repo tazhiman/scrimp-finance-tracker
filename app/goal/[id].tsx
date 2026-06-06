@@ -15,7 +15,7 @@ import { formatCurrency, formatDate } from '@/utils/dateHelpers';
 export default function GoalDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { goals, transactions, deleteGoal } = useFinance();
+  const { goals, transactions, deleteGoal, deleteContribution } = useFinance();
   const { accounts } = useBankAccounts();
   const { theme, themeMode } = useTheme();
 
@@ -71,6 +71,21 @@ export default function GoalDetailScreen() {
     );
   };
 
+  const handleDeleteContribution = (contributionDate: string, contributionAmount: number) => {
+    Alert.alert(
+      'Remove contribution',
+      `Remove ${formatCurrency(contributionAmount)} from this goal's history? Your saved balance will decrease by the same amount.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: () => deleteContribution(goal.id, contributionDate, contributionAmount),
+        },
+      ]
+    );
+  };
+
   const renderContribution = ({ item }: { item: { date: string; amount: number } }) => (
     <View style={[styles.contributionCard, { backgroundColor: theme.cardBackground, borderColor: theme.cardBorder }]}>
       <View style={styles.contributionLeft}>
@@ -86,9 +101,19 @@ export default function GoalDetailScreen() {
           </Text>
         </View>
       </View>
-      <Text style={[styles.contributionAmount, { color: theme.primary }]}>
-        +{formatCurrency(item.amount)}
-      </Text>
+      <View style={styles.contributionRight}>
+        <Text style={[styles.contributionAmount, { color: theme.primary }]}>
+          +{formatCurrency(item.amount)}
+        </Text>
+        <TouchableOpacity
+          onPress={() => handleDeleteContribution(item.date, item.amount)}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          accessibilityRole="button"
+          accessibilityLabel={`Remove contribution of ${formatCurrency(item.amount)}`}
+        >
+          <Icon name="trash-outline" size={20} color={theme.error} />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 
@@ -355,6 +380,12 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   contributionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  contributionRight: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,

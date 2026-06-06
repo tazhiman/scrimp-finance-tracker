@@ -15,7 +15,7 @@ import { Icon } from '@/components/ui/Icon';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { PieChart, PieSlice } from '@/components/PieChart';
 import { Spacing, Radius } from '@/constants/design';
-import { formatCurrency } from '@/utils/dateHelpers';
+import { formatCurrency, formatDateShort } from '@/utils/dateHelpers';
 import {
   buildMonthlyStatsSlices,
   computeMonthlyBudgetMetrics,
@@ -24,9 +24,11 @@ import {
 import {
   calculateTotalIncome,
   calculateTotalExpenses,
-  calculateNetSavings,
-  getCombinedTransactionsByPeriod,
 } from '@/utils/calculations';
+import {
+  getCombinedTransactionsForPayContext,
+  resolvePayPeriodContext,
+} from '@/utils/payPeriodContext';
 
 export default function MonthlySpendingScreen() {
   const router = useRouter();
@@ -64,20 +66,34 @@ export default function MonthlySpendingScreen() {
     [monthStarts, selectedMonth]
   );
 
+  const payPeriodContext = useMemo(
+    () => resolvePayPeriodContext(recurringExpenses, selectedMonth),
+    [recurringExpenses, selectedMonth]
+  );
+
   const statsSlices: PieSlice[] = useMemo(
     () =>
-      buildMonthlyStatsSlices(transactions, recurringExpenses, goals, customCategories, {
-        primary: theme.primary,
-        accent: theme.accent,
-        secondary: theme.secondary,
-        ringOrange: theme.ringOrange,
-      }, selectedMonth),
+      buildMonthlyStatsSlices(
+        transactions,
+        recurringExpenses,
+        goals,
+        customCategories,
+        {
+          primary: theme.primary,
+          accent: theme.accent,
+          secondary: theme.secondary,
+          ringOrange: theme.ringOrange,
+        },
+        selectedMonth,
+        payPeriodContext.payDay
+      ),
     [
       transactions,
       recurringExpenses,
       goals,
       customCategories,
       selectedMonth,
+      payPeriodContext.payDay,
       theme.primary,
       theme.accent,
       theme.secondary,
@@ -103,14 +119,32 @@ export default function MonthlySpendingScreen() {
   const selectedSlice = statsSlices.find((s) => s.id === selectedSliceId) ?? null;
 
   const budget = useMemo(
-    () => computeMonthlyBudgetMetrics(transactions, recurringExpenses, goals, selectedMonth),
-    [transactions, recurringExpenses, goals, selectedMonth]
+    () =>
+      computeMonthlyBudgetMetrics(
+        transactions,
+        recurringExpenses,
+        goals,
+        selectedMonth,
+        payPeriodContext.payDay
+      ),
+    [transactions, recurringExpenses, goals, selectedMonth, payPeriodContext.payDay]
   );
 
   const priorMonthRef = useMemo(() => startOfMonth(addMonths(selectedMonth, -1)), [selectedMonth]);
+  const priorPayContext = useMemo(
+    () => resolvePayPeriodContext(recurringExpenses, priorMonthRef),
+    [recurringExpenses, priorMonthRef]
+  );
   const priorMetrics = useMemo(
-    () => computeMonthlyBudgetMetrics(transactions, recurringExpenses, goals, priorMonthRef),
-    [transactions, recurringExpenses, goals, priorMonthRef]
+    () =>
+      computeMonthlyBudgetMetrics(
+        transactions,
+        recurringExpenses,
+        goals,
+        priorMonthRef,
+        priorPayContext.payDay
+      ),
+    [transactions, recurringExpenses, goals, priorMonthRef, priorPayContext.payDay]
   );
 
   const spendingTrendPct =
@@ -121,7 +155,8 @@ export default function MonthlySpendingScreen() {
   const recentRows = useMemo(() => {
     const reversed = [...monthStarts].reverse().slice(0, 12);
     return reversed.map((m) => {
-      const tx = getCombinedTransactionsByPeriod(transactions, recurringExpenses, 'month', m);
+      const ctx = resolvePayPeriodContext(recurringExpenses, m);
+      const tx = getCombinedTransactionsForPayContext(transactions, recurringExpenses, ctx);
       return {
         key: format(m, 'yyyy-MM'),
         label: format(m, 'MMM yyyy'),
@@ -131,9 +166,10 @@ export default function MonthlySpendingScreen() {
     });
   }, [monthStarts, transactions, recurringExpenses]);
 
-  const netMonth = calculateNetSavings(
-    getCombinedTransactionsByPeriod(transactions, recurringExpenses, 'month', selectedMonth)
-  );
+  const periodRangeLabel =
+    payPeriodContext.payDay !== undefined
+      ? `${formatDateShort(payPeriodContext.periodStart)} – ${formatDateShort(payPeriodContext.periodEnd)}`
+      : null;
 
   const goPrev = () => {
     if (monthIndex <= 0) return;
@@ -162,34 +198,41 @@ export default function MonthlySpendingScreen() {
       >
         <View style={styles.monthNavWrap}>
           <View style={styles.monthCluster}>
-            <TouchableOpacity
-              onPress={goPrev}
-              disabled={monthIndex <= 0}
-              style={[styles.monthNavBtn, monthIndex <= 0 && styles.monthNavDisabled]}
-              accessibilityRole="button"
-              accessibilityLabel="Previous month"
-            >
-              <Icon name="chevron-back" size={22} color={monthIndex <= 0 ? theme.textTertiary : theme.text} />
-            </TouchableOpacity>
-            <Text style={[styles.monthLabel, { color: theme.text }]}>{format(selectedMonth, 'MMMM yyyy')}</Text>
-            <TouchableOpacity
-              onPress={goNext}
-              disabled={monthIndex < 0 || monthIndex >= monthStarts.length - 1}
-              style={[
-                styles.monthNavBtn,
-                (monthIndex < 0 || monthIndex >= monthStarts.length - 1) && styles.monthNavDisabled,
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel="Next month"
-            >
-              <Icon
-                name="chevron-forward"
-                size={22}
-                color={
-                  monthIndex < 0 || monthIndex >= monthStarts.length - 1 ? theme.textTertiary : theme.text
-                }
-              />
-            </TouchableOpacity>
+            <View style={styles.monthNavRow}>
+              <TouchableOpacity
+                onPress={goPrev}
+                disabled={monthIndex <= 0}
+                style={[styles.monthNavBtn, monthIndex <= 0 && styles.monthNavDisabled]}
+                accessibilityRole="button"
+                accessibilityLabel="Previous month"
+              >
+                <Icon name="chevron-back" size={22} color={monthIndex <= 0 ? theme.textTertiary : theme.text} />
+              </TouchableOpacity>
+              <Text style={[styles.monthLabel, { color: theme.text }]}>{format(selectedMonth, 'MMMM yyyy')}</Text>
+              <TouchableOpacity
+                onPress={goNext}
+                disabled={monthIndex < 0 || monthIndex >= monthStarts.length - 1}
+                style={[
+                  styles.monthNavBtn,
+                  (monthIndex < 0 || monthIndex >= monthStarts.length - 1) && styles.monthNavDisabled,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Next month"
+              >
+                <Icon
+                  name="chevron-forward"
+                  size={22}
+                  color={
+                    monthIndex < 0 || monthIndex >= monthStarts.length - 1 ? theme.textTertiary : theme.text
+                  }
+                />
+              </TouchableOpacity>
+            </View>
+            {periodRangeLabel ? (
+              <Text style={[styles.periodRangeLabel, { color: theme.textSecondary }]}>
+                {periodRangeLabel}
+              </Text>
+            ) : null}
           </View>
         </View>
 
@@ -210,15 +253,21 @@ export default function MonthlySpendingScreen() {
             </View>
           </View>
           <View style={[styles.summaryRowFull, { borderTopColor: theme.cardBorder }]}>
-            <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>Net (month)</Text>
-            <Text style={[styles.summaryValue, { color: netMonth >= 0 ? theme.primary : theme.error }]}>
-              {netMonth >= 0 ? '+' : ''}
-              {formatCurrency(netMonth)}
+            <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>Budget remaining</Text>
+            <Text
+              style={[
+                styles.summaryValue,
+                { color: budget.availableBudget >= 0 ? theme.primary : theme.error },
+              ]}
+            >
+              {budget.availableBudget >= 0 ? '+' : ''}
+              {formatCurrency(budget.availableBudget)}
             </Text>
           </View>
           {spendingTrendPct !== null && (
             <Text style={[styles.trendLine, { color: theme.textSecondary }]}>
-              vs prior month: {spendingTrendPct >= 0 ? '+' : ''}
+              vs prior {payPeriodContext.payDay !== undefined ? 'period' : 'month'}:{' '}
+              {spendingTrendPct >= 0 ? '+' : ''}
               {spendingTrendPct.toFixed(1)}% spending
             </Text>
           )}
@@ -351,11 +400,17 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   monthCluster: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+    maxWidth: '100%',
+  },
+  monthNavRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.sm + 4,
-    maxWidth: '100%',
   },
   monthNavBtn: {
     padding: Spacing.sm,
@@ -376,6 +431,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.xs,
     minWidth: 120,
     maxWidth: 280,
+  },
+  periodRangeLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+    textAlign: 'center',
   },
   card: {
     padding: Spacing.xl,

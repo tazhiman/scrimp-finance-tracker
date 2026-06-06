@@ -21,8 +21,6 @@ import { PieChart, PieSlice } from '@/components/PieChart';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { Spacing, Radius, Shadow } from '@/constants/design';
 import {
-  getCombinedTransactionsByPeriod,
-  getCombinedTransactionsByDateRange,
   calculateTotalIncome,
   calculateTotalExpenses,
   calculateNetSavings,
@@ -37,9 +35,11 @@ import {
   getBudgetPaceHeadline,
   getBudgetRingColor,
 } from '@/utils/budgetPace';
-import { formatCurrency, getPayPeriodDates } from '@/utils/dateHelpers';
-import { startDateToPayDay } from '@/utils/payDay';
-import { endOfMonth, startOfMonth } from 'date-fns';
+import { formatCurrency } from '@/utils/dateHelpers';
+import {
+  getCombinedTransactionsForPayContext,
+  resolvePayPeriodContext,
+} from '@/utils/payPeriodContext';
 import { Icon } from '@/components/ui/Icon';
 
 export default function DashboardScreen() {
@@ -67,34 +67,15 @@ export default function DashboardScreen() {
 
   const buttonTextColor = themeMode === 'dark' ? '#000505' : theme.text;
 
-  const payPeriodContext = useMemo(() => {
-    const now = new Date();
-    const salaryRule = recurringExpenses.find(
-      r => r.category === 'salary' && (r.transactionType ?? 'expense') === 'income'
-    );
-    const payDay = salaryRule ? startDateToPayDay(salaryRule.startDate) : undefined;
-    if (payDay !== undefined) {
-      const { start, end } = getPayPeriodDates(payDay, now);
-      return { payDay, periodStart: start, periodEnd: end };
-    }
-    return {
-      payDay: undefined,
-      periodStart: startOfMonth(now),
-      periodEnd: endOfMonth(now),
-    };
-  }, [recurringExpenses]);
+  const payPeriodContext = useMemo(
+    () => resolvePayPeriodContext(recurringExpenses, new Date()),
+    [recurringExpenses]
+  );
 
-  const monthlyTransactions = useMemo(() => {
-    if (payPeriodContext.payDay !== undefined) {
-      return getCombinedTransactionsByDateRange(
-        transactions,
-        recurringExpenses,
-        payPeriodContext.periodStart,
-        payPeriodContext.periodEnd
-      );
-    }
-    return getCombinedTransactionsByPeriod(transactions, recurringExpenses, 'month');
-  }, [transactions, recurringExpenses, payPeriodContext]);
+  const monthlyTransactions = useMemo(
+    () => getCombinedTransactionsForPayContext(transactions, recurringExpenses, payPeriodContext),
+    [transactions, recurringExpenses, payPeriodContext]
+  );
 
   const income = calculateTotalIncome(monthlyTransactions);
   const expenses = calculateTotalExpenses(monthlyTransactions);
